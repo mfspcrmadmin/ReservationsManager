@@ -1,0 +1,102 @@
+Populate_data_Proforma_Fo as "Populate data - Proforma Form"
+{
+	type =  form
+	form = Proforma_Form
+
+	record event = on add
+
+	on load
+	{
+		actions 
+		{
+			custom deluge script
+			(
+					if(isnull(input.Service_ID) || input.Service_ID.equals(""))
+				{
+					alert "No se ha podido cargar la información de ningún servicio porque no hay un ID asociado.";
+				}
+				else
+				{
+					response = zoho.crm.getRecordById("Booking_Services",input.Service_ID.toLong());
+					input.Service_Name = ifnull(response.get("Product_Description"),"");
+					input.MFSP_Reference = ifnull(response.get("Booking_Reference"),"");
+					if(response.get("Booking") != null)
+					{
+						input.Booking_Name = ifnull(response.get("Booking").get("name"),"");
+					}
+					input.Supplier_Name = ifnull(response.get("Supplier_Name"),"");
+					supEzusAPI = ifnull(response.get("Ezus_Supplier_Reference"),"");
+					if(supEzusAPI != "")
+					{
+						supplierTpRefCandidate = "";
+						if(supEzusAPI.contains("-supnew-"))
+						{
+							supplierTpRefCandidate = supEzusAPI.replaceAll("^.*-supnew-","");
+						}
+						input.Supplier_Reference = supplierTpRefCandidate;
+					}
+					sup = ifnull(response.get("Supplier"),"");
+					if(sup != "")
+					{
+						if(input.Supplier_Name.equals(""))
+						{
+							input.Supplier_Name = sup.get("name");
+						}
+						supCRM = zoho.crm.getRecordById("Vendors",sup.get("id").toLong());
+						if(input.Supplier_Reference == "")
+						{
+							input.Supplier_Reference = ifnull(supCRM.get("TP_Reference"),"");
+						}
+						input.Supplier_Bank_Account = ifnull(supCRM.get("Account_Number"),"");
+					}
+					if(response.get("Service_Date") != null)
+					{
+						input.Service_Date = response.get("Service_Date").toDate("yyyy-MM-dd");
+					}
+					input.Service_Category = ifnull(response.get("Category"),"");
+					if(input.Service_Category != "")
+					{
+						if(!input.Service_Category.equals("Accommodation"))
+						{
+							hide Check_In_Date;
+							hide Check_Out_Date;
+						}
+						if(input.Service_Category.equals("Accommodation"))
+						{
+							if(response.get("Hotel_Check_In") != null)
+							{
+								input.Check_In_Date = response.get("Hotel_Check_In").toDate("yyyy-MM-dd");
+							}
+							if(response.get("Hotel_Check_Out") != null)
+							{
+								input.Check_Out_Date = response.get("Hotel_Check_Out").toDate("yyyy-MM-dd");
+							}
+						}
+					}
+					input.Total_Proforma_Amount = ifnull(response.get("Total_Purchase_Price"),null);
+					input.Transaction_Type = "Full Payment";
+					hide Payments.Status;
+					hide Payments.Bank_Receipt;
+					hide Payments.Payment_Proof;
+					hide Payments.Accounted;
+					hide Service_Category;
+					hide Check_In_Date;
+					hide Check_Out_Date;
+					hide Supplier_Bank_Account;
+					hide Invoice_Attached;
+					hide Supplier_Id;
+					hide Supplier_Email;
+					hide Invoice_Request_Count;
+					disable MFSP_Reference;
+					disable Booking_Name;
+					disable Invoice_Attached;
+					row = Proforma_Form.Payments();
+					row.Percent=100;
+					input.Payments.insert(row);
+				}
+			)
+		}
+	}
+
+}
+

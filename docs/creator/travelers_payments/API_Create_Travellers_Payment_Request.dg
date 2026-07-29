@@ -1,0 +1,47 @@
+map API.createTravellersPaymentRequest(string requestBody)
+{
+    res = Map();
+    try
+    {
+        if(requestBody == null || requestBody.trim() == "")
+        {
+            res.put("success",false); res.put("message","requestBody is empty"); return res;
+        }
+        data = requestBody.toMap();
+        recipients = data.get("recipients");
+        if(ifnull(data.get("booking_id"),"") == "" || ifnull(data.get("desk_ticket_id"),"") == "" || recipients == null || recipients.size() == 0)
+        {
+            res.put("success",false); res.put("message","booking_id, desk_ticket_id and recipients are required"); return res;
+        }
+        total = 0.0;
+        for each recipient in recipients
+        {
+            if(ifnull(recipient.get("use_this_recipient"),false) == true)
+            {
+                if(data.get("payment_action") == "Record & Send Request" && ifnull(recipient.get("email"),"") == "")
+                {
+                    res.put("success",false); res.put("message","Every selected recipient needs an email"); return res;
+                }
+                total = total + ifnull(recipient.get("amount_to_pay"),0).toDecimal();
+            }
+        }
+        if(total < ifnull(data.get("total_payment_request_amount"),0).toDecimal())
+        {
+            res.put("success",false); res.put("message","Selected recipients do not cover the requested amount"); return res;
+        }
+        requestId = insert into Travellers_Payment_Request_Form
+        [
+            Booking_Id=data.get("booking_id") Desk_Ticket_ID=data.get("desk_ticket_id") Pipeline=data.get("pipeline")
+            Booking_Name=data.get("booking_name") MFSP_Reference=data.get("mfsp_reference")
+            Balance_Due_Amount=data.get("balance_due_amount").toDecimal() Deposit_percentage=data.get("deposit_percentage").toDecimal()
+            Deposit_Amount=data.get("deposit_amount").toDecimal() Total_Booking_Amount=data.get("total_booking_amount").toDecimal()
+            Payment_Action=data.get("payment_action") Requested_by_name=data.get("requested_by_name") Requested_by_email=data.get("requested_by_email")
+            Payment_Method=data.get("payment_method") Event_Type=data.get("event_type")
+            Total_Payment_Request_Amount=data.get("total_payment_request_amount").toDecimal() Split_Method=data.get("split_method")
+            Recipients=recipients
+        ];
+        res.put("success",true); res.put("request_id",requestId.toString());
+    }
+    catch(e) { res.put("success",false); res.put("message",e.toString()); }
+    return res;
+}

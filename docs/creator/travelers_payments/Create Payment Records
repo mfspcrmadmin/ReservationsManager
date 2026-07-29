@@ -1,0 +1,91 @@
+Create_Payment_Records as "Create Payment Records"
+{
+	type =  form
+	form = Travellers_Payment_Request_Form
+
+	record event = on add
+
+	on success
+	{
+		actions 
+		{
+			custom deluge script
+			(
+					isMaintenance = false;
+				if(isMaintenance == true && zoho.loginuserid != "angela@madeforspainandportugal.com")
+				{
+					info "This service is temporarily unavailable due to maintenance. Please, contact IT team for further information.";
+					return;
+				}
+				else
+				{
+					// Defaults
+					recordOnly = false;
+					paidStatus = "UNPAID";
+					awxToken = "";
+					// Record only?
+					if(input.Payment_Action.equalsIgnoreCase("⚪ Record Only"))
+					{
+						recordOnly = true;
+						if(input.Mark_as_Paid == true)
+						{
+							paidStatus = "PAID";
+						}
+					}
+					if(recordOnly == false && input.Payment_Method.equalsIgnoreCase("Airwallex"))
+					{
+						tokenResMap = thisapp.Airwallex.getAirwallexToken().toMap();
+						if(tokenResMap.get("error") == true)
+						{
+							info "ERROR: an error occurred getting the Airwallex token. Please, show this message to the IT team.";
+							return;
+						}
+						awxToken = tokenResMap.get("result");
+					}
+					for each  recipient in input.Recipients
+					{
+						if(recipient.Use_this_recipient == true)
+						{
+							newPay = insert into Travellers_Payment_Form
+							[
+								Added_User=zoho.loginuser
+								Amount=recipient.Amount_to_Pay
+								Recipient_Email=recipient.Email
+								Recipient_Name=recipient.Full_Name
+								Travellers_Payment_Request=input.ID
+								Payment_Request_Id=input.ID
+								Status=paidStatus
+							];
+							thisapp.CRM.updateCRMRequestedAmount(input.Booking_Id,recipient.Amount_to_Pay,true);
+							if(input.Mark_as_Paid == true)
+							{
+								thisapp.CRM.updateCRMPaidAmount(input.Booking_Id,recipient.Amount_to_Pay,true);
+							}
+							if(input.Payment_Method.equalsIgnoreCase("Airwallex"))
+							{
+								res = thisapp.Airwallex.createAirwallexPaymentLinkForRecipient(input.ID,newPay,recipient.Full_Name,recipient.Email,recipient.Amount_to_Pay.toString(),recordOnly,awxToken);
+								if(res.get("error") == true)
+								{
+									info res.get("message");
+									return;
+								}
+							}
+							else if(input.Payment_Action.equalsIgnoreCase("🔴 Record & Send Request") && input.Payment_Method.equalsIgnoreCase("Bank Transfer"))
+							{
+								res = thisapp.Email.sendEmailViaDeskByNotificationType("bankTransferRequest",newPay);
+								if(res == null || res.get("error") == true)
+								{
+									info res.get("message");
+									return;
+								}
+							}
+						}
+					}
+					openUrl("#Page:Form_Correctly_Submitted","same window");
+				}
+			)
+		}
+	}
+
+}
+

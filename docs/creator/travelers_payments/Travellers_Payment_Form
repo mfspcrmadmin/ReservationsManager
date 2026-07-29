@@ -1,0 +1,242 @@
+form Travellers_Payment_Form
+{
+	displayname = "Travellers Payments Form"
+	success message = "Data Added Successfully!"
+	System
+	(
+		type = section
+		visibility = true
+	 	row = 1
+	 	column = 0   
+		width = medium
+	)
+	Refund_Form_ID
+	(
+		type = picklist	
+		displayname = "Refund Form - ID"
+		values  = Refund_Form.ID
+    	bidirectional = Traveller_Payment
+    	displayformat = [ID]
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Successful_Payment_Intent_Id
+	(
+    	type = text
+		displayname = "Successful Payment Intent Id"
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	PaymentLink_Id
+	(
+    	type = text
+		displayname = "PaymentLink Id"
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Payment_Request_Id
+	(
+    	type = text
+		displayname = "Payment Request Id"
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Reminder_Count
+	(
+		type = number
+		displayname = "Reminder Count"
+		initial value = 0
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Refund_Intent_Count
+	(
+		type = number
+		displayname = "Refund Intent Count"
+		initial value = 0
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Request_Form
+	(
+		type = section
+		displayname = "Request Form"
+		visibility = true
+	 	row = 2
+	 	column = 0   
+		width = medium
+	)
+	Travellers_Payment_Request
+	(
+		type = picklist	
+		displayname = "Travellers Payment Request"
+		values  = Travellers_Payment_Request_Form.ID
+    	bidirectional = Travellers_Payments
+    	displayformat = [MFSP_Reference + " - " + Added_Time]
+		advanced field search = true
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Payment_Data
+	(
+		type = section
+		displayname = "Payment Data"
+		visibility = true
+	 	row = 3
+	 	column = 0   
+		width = medium
+	)
+	Status
+	(
+		type = picklist
+		maxchar = 100
+		values = {"UNPAID","PAID","CANCELLED","EXPIRED"}
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Amount
+	(
+		type = EUR
+		format = dotcomma
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Payment_Amount
+	(
+		type = decimal
+		displayname = "Payment Amount"
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Payment_Currency
+	(
+		type = picklist
+		displayname = "Payment Currency"
+		maxchar = 100
+		values = {"EUR","USD"}
+		others option = true
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Payment_Date
+	(
+    	type = datetime
+		displayname = "Payment Date"
+		timedisplayoptions = "hh:mm:ss"
+		alloweddays = 0,1,2,3,4,5,6
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Airwallex_Data
+	(
+		type = section
+		displayname = "Airwallex Data"
+		visibility = true
+	 	row = 4
+	 	column = 0   
+		width = medium
+	)
+	Payment_Link
+	(
+    	type = url
+		displayname = "Payment Link"
+	 	row = 4
+	 	column = 1   
+		width = medium
+	)
+	Expires_At
+	(
+    	type = datetime
+		displayname = "Expires At"
+		timedisplayoptions = "hh:mm:ss"
+		alloweddays = 0,1,2,3,4,5,6
+	 	row = 4
+	 	column = 1   
+		width = medium
+	)
+	Contact
+	(
+		type = section
+		visibility = true
+	 	row = 5
+	 	column = 0   
+		width = medium
+	)
+	Payer_Name
+	(
+    	type = text
+		displayname = "Payer Name"
+	 	row = 5
+	 	column = 1   
+		width = medium
+	)
+	Payer_Email
+	(
+    	type = email
+		displayname = "Payer Email"
+		maxchar = 80
+	 	row = 5
+	 	column = 1   
+		width = medium
+		personal data = true
+	)
+	Recipient_Name
+	(
+    	type = text
+		displayname = "Recipient Name"
+	 	row = 5
+	 	column = 1   
+		width = medium
+	)
+	Recipient_Email
+	(
+    	type = email
+		displayname = "Recipient Email"
+		maxchar = 80
+	 	row = 5
+	 	column = 1   
+		width = medium
+		personal data = true
+	)
+	
+	actions
+	{
+		on add
+		{
+			submit
+			(
+   				type = submit
+   				displayname = "Submit"
+			)
+		}
+		on edit
+		{
+			update
+			(
+   				type = submit
+   				displayname = "Update"
+			)
+			cancel
+			(
+   				type = cancel
+   				displayname = "Cancel"
+			)
+		}
+	}
+}

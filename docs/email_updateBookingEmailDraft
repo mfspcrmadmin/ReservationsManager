@@ -1,0 +1,99 @@
+string standalone.email_updateBookingEmailDraft(String bookingId,String draftId,String email_to,String email_from,String email_cc,String email_subject,String email_content)
+{
+res = Map();
+res.put("error",false);
+bookingId = ifnull(bookingId,"").toString().trim();
+draftId = ifnull(draftId,"").toString().trim();
+email_to = ifnull(email_to,"").toString().trim();
+email_from = ifnull(email_from,"").toString().trim();
+email_cc = ifnull(email_cc,"").toString().trim();
+email_subject = ifnull(email_subject,"").toString();
+email_content = ifnull(email_content,"").toString();
+if(bookingId == "")
+{
+	res.put("error",true);
+	res.put("message","bookingId is empty.");
+	return res.toString();
+}
+if(draftId == "")
+{
+	res.put("error",true);
+	res.put("message","draftId is empty.");
+	return res;
+}
+dataMap = Map();
+if(email_to != "")
+{
+	toList = List();
+	for each  emailItem in email_to.toList(",")
+	{
+		emailValue = ifnull(emailItem,"").toString().trim();
+		if(emailValue != "")
+		{
+			toMap = Map();
+			toMap.put("email",emailValue);
+			toList.add(toMap);
+		}
+	}
+	dataMap.put("to",toList);
+}
+if(email_cc != "")
+{
+	ccList = List();
+	for each  emailItem in email_cc.toList(",")
+	{
+		emailValue = ifnull(emailItem,"").toString().trim();
+		if(emailValue != "")
+		{
+			ccMap = Map();
+			ccMap.put("email",emailValue);
+			ccList.add(ccMap);
+		}
+	}
+	dataMap.put("cc",ccList);
+}
+if(email_from != "")
+{
+	normalizedFrom = email_from.toLowerCase();
+	if(normalizedFrom == "loginuserid")
+	{
+		email_from = zoho.loginuserid;
+	}
+	else if(normalizedFrom == "crmadmin")
+	{
+		email_from = "crmadmin@madeforspainandportugal.com";
+	}
+	dataMap.put("from",email_from);
+}
+dataMap.put("subject",email_subject);
+dataMap.put("content",email_content);
+dataMap.put("rich_text",true);
+body = Map();
+body.put("__email_drafts",{dataMap});
+url = "https://www.zohoapis.eu/crm/v8/Deals/" + bookingId + "/__email_drafts/" + draftId;
+apiResp = invokeurl
+[
+	url :url
+	type :PUT
+	parameters:body.toString()
+	connection:"crm_oauth_connection"
+	content-type:"application/json"
+];
+
+if(isnull(apiResp))
+{
+	res.put("error",true);
+	res.put("message","Empty response from Zoho API.");
+	return res;
+}
+if(apiResp.containKey("code") && apiResp.get("code") != null)
+{
+	res.put("error",true);
+	res.put("message","Zoho API returned an error.");
+	res.put("api_response",apiResp);
+	return res.toString();
+}
+res.put("message","Draft updated successfully.");
+res.put("data",apiResp);
+return res;
+}

@@ -1,0 +1,47 @@
+Validate_Data_Travellers_ as "Validate Data - Travellers Payment Request Form"
+{
+	type =  form
+	form = Travellers_Payment_Request_Form
+
+	record event = on add or edit
+
+	on validate
+	{
+		actions 
+		{
+			custom deluge script
+			(
+					if(input.Desk_Ticket_ID == null || input.Desk_Ticket_ID.equalsIgnoreCase(""))
+				{
+					alert "ERROR: There is no Desk ticket associated to this booking. Please, associate a Desk ticket before submitting this requested.";
+					cancel submit;
+				}
+				totalAmount = 0.0;
+				totalPercent = 0;
+				for each  rec in input.Recipients
+				{
+					if(rec.Use_this_recipient.equals(true))
+					{
+						if(input.Payment_Action == "🔴 Record & Send Request" && rec.Email.isEmpty())
+						{
+							alert "ERROR: Recipient with 'Use this recipient' selected has no email. Please, review it.";
+							cancel submit;
+						}
+						totalAmount = totalAmount + rec.Amount_to_Pay;
+						totalPercent = totalPercent + rec.Percent_to_Pay;
+					}
+					else if(rec.Use_this_recipient.equals(true))
+					{
+					}
+				}
+				if(totalAmount < input.Total_Payment_Request_Amount)
+				{
+					alert "ERROR: Total amount to pay of Recipients with 'Use this recipient' selected is not equals Total Payment Request Amount . Please, review it.";
+					cancel submit;
+				}
+			)
+		}
+	}
+
+}
+

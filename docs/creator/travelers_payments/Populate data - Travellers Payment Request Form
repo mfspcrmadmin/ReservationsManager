@@ -1,0 +1,128 @@
+Populate_data_Travellers_ as "Populate data - Travellers Payment Request Form"
+{
+	type =  form
+	form = Travellers_Payment_Request_Form
+
+	record event = on add
+
+	on load
+	{
+		actions 
+		{
+			custom deluge script
+			(
+					if(isnull(input.Booking_Id) || input.Booking_Id.equals(""))
+				{
+					alert "No se ha podido cargar la información de ningún booking porque no hay un ID asociado.";
+				}
+				else
+				{
+					booking = zoho.crm.getRecordById("Deals",input.Booking_Id.toLong());
+					input.Booking_Name = ifnull(booking.get("Deal_Name"),"");
+					if(booking.get("Layout") == null)
+					{
+						info "ERROR: layout is null. Please, contact the IT team to help you.";
+					}
+					// Layout: Ezus - 616617000135016286 | Tourplan - 616617000000032043
+					if(booking.get("Layout").get("id").equals("616617000135016286"))
+					{
+						input.Pipeline = "Ezus";
+						input.Total_Booking_Amount = ifnull(booking.get("Sales_Price_inc_Taxes"),null);
+						input.Balance_Due_Amount = ifnull(booking.get("Balance_Amount"),null);
+						if(booking.get("Desk_Ticket_ID") != null && !booking.get("Desk_Ticket_ID").equalsIgnoreCase(""))
+						{
+							input.Desk_Ticket_ID = booking.get("Desk_Ticket_ID");
+						}
+					}
+					else
+					{
+						input.Pipeline = "Tourplan";
+						input.Total_Booking_Amount = ifnull(booking.get("Amount"),null);
+						input.Balance_Due_Amount = ifnull(booking.get("Balance_due_amount"),null);
+						if(booking.get("Primary_ticket_ID") != null && !booking.get("Primary_ticket_ID").equalsIgnoreCase(""))
+						{
+							input.Desk_Ticket_ID = booking.get("Primary_ticket_ID");
+						}
+					}
+					if(zoho.loginuserid.equals("r.bautista@madeforspainandportugal.com"))
+					{
+						input.Requested_by_name = "Rebecca Bautista";
+						input.Requested_by_email = "r.bautista@madeforspainandportugal.com";
+					}
+					else if(zoho.loginuserid.equals("andersson@madeforspainandportugal.com"))
+					{
+						input.Requested_by_name = "Andersson Flechas";
+						input.Requested_by_email = "andersson@madeforspainandportugal.com";
+					}
+					else
+					{
+						if(booking.get("Owner") != null && !booking.get("Owner").isEmpty())
+						{
+							input.Requested_by_name = booking.get("Owner").get("name");
+							input.Requested_by_email = booking.get("Owner").get("email");
+						}
+						else
+						{
+							input.Requested_by_email = zoho.loginuserid;
+						}
+					}
+					input.MFSP_Reference = ifnull(booking.get("MFSP_Reference"),"");
+					if(input.Total_Booking_Amount != null)
+					{
+						input.Deposit_Amount = input.Total_Booking_Amount * 30 / 100;
+						input.Deposit_percentage = 30;
+						input.Total_Payment_Request_Amount = input.Deposit_Amount;
+					}
+					rowAgent = Travellers_Payment_Request_Form.Recipients();
+					if(booking.get("Contact_Name") != null)
+					{
+						rowAgent.Full_Name=ifnull(booking.get("Contact_Name").get("name"),"");
+					}
+					rowAgent.Role="Agent";
+					rowAgent.Email=ifnull(booking.get("Agent_Email"),"");
+					rowAgent.Use_this_recipient=true;
+					if(input.Total_Payment_Request_Amount != null)
+					{
+						rowAgent.Amount_to_Pay=input.Total_Payment_Request_Amount;
+						rowAgent.Percent_to_Pay=100;
+					}
+					input.Recipients.insert(rowAgent);
+					hide Planning_Fee;
+					hide Travellers_Payments;
+					disable Balance_Due_Amount;
+					disable Deposit_Amount;
+					disable Total_Booking_Amount;
+					disable MFSP_Reference;
+					disable Booking_Id;
+					disable Desk_Ticket_ID;
+					disable Pipeline;
+					disable Booking_Name;
+					hide Mark_as_Paid;
+					bookingPAXRelation = zoho.crm.searchRecords("PAX_X_Bookings","(Bookings:equals:" + input.Booking_Id + ")");
+					if(bookingPAXRelation != null && !bookingPAXRelation.isEmpty())
+					{
+						for each  PAXRel in bookingPAXRelation
+						{
+							if(PAXRel.get("PAX") != null)
+							{
+								traveller = zoho.crm.getRecordById("PAX",PAXRel.get("PAX").get("id").toLong());
+								if(traveller != null && !traveller.isEmpty())
+								{
+									rowTraveller = Travellers_Payment_Request_Form.Recipients();
+									rowTraveller.Email=ifnull(traveller.get("Email"),"");
+									first = ifnull(traveller.get("Forename"),"").trim();
+									last = ifnull(traveller.get("Name"),"").trim();
+									rowTraveller.Full_Name=(first + " " + last).trim();
+									rowTraveller.Use_this_recipient=false;
+									input.Recipients.insert(rowTraveller);
+								}
+							}
+						}
+					}
+				}
+			)
+		}
+	}
+
+}
+

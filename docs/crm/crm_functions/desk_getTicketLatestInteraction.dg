@@ -1,0 +1,105 @@
+string standalone.desk_getTicketLatestInteraction(string ticketId)
+{
+res = Map();
+res.put("error",false);
+res.put("message","");
+res.put("ticket",Map());
+
+// Configure this once with the Desk organisation ID and an OAuth connection
+// whose scopes include Desk.tickets.READ.
+deskOrgId = "20093303993";
+
+try
+{
+	ticketId = ifnull(ticketId,"").toString().trim();
+	if(ticketId == "")
+	{
+		res.put("error",true);
+		res.put("message","ticketId is empty.");
+		return res.toString();
+	}
+
+	headers = Map();
+	headers.put("orgId",deskOrgId);
+	ticketResponse = invokeurl
+	[
+		url :"https://desk.zoho.eu/api/v1/tickets/" + ticketId
+		type :GET
+		headers:headers
+		connection:"zoho_desk_connection"
+	];
+	threadsResponse = invokeurl
+	[
+		url :"https://desk.zoho.eu/api/v1/tickets/" + ticketId + "/threads?limit=100"
+		type :GET
+		headers:headers
+		connection:"zoho_desk_connection"
+	];
+
+	if(ticketResponse.containKey("id") == false)
+	{
+		res.put("error",true);
+		res.put("message",ifnull(ticketResponse.get("message"),"Desk ticket could not be retrieved."));
+		return res.toString();
+	}
+
+	latestThread = Map();
+	latestCreatedTime = "";
+	latestCreatedAt = "1970-01-01 00:00:00".toTime("yyyy-MM-dd HH:mm:ss");
+	threads = ifnull(threadsResponse.get("data"),List());
+	for each thread in threads
+	{
+		createdTime = ifnull(thread.get("createdTime"),"").toString();
+		// Desk returns ISO 8601 timestamps. Convert their date and time part to
+		// Date-Time before comparing; Deluge cannot compare TEXT with >.
+		if(createdTime != "")
+		{
+			createdAt = createdTime.subString(0,19).replaceAll("T"," ").toTime("yyyy-MM-dd HH:mm:ss");
+			if(latestCreatedTime == "" || createdAt > latestCreatedAt)
+			{
+				latestThread = thread;
+				latestCreatedTime = createdTime;
+				latestCreatedAt = createdAt;
+			}
+		}
+	}
+
+	interaction = Map();
+	if(latestThread.isEmpty() == false)
+	{
+		author = ifnull(latestThread.get("author"),Map());
+		authorType = ifnull(author.get("type"),"").toString().toUpperCase();
+		direction = ifnull(latestThread.get("direction"),"").toString().toLowerCase();
+		party = "customer";
+		if(authorType == "AGENT" || direction == "out")
+		{
+			party = "agent";
+		}
+		else if(authorType == "SYSTEM")
+		{
+			party = "system";
+		}
+		summary = ifnull(latestThread.get("summary"),latestThread.get("content")).toString();
+		interaction.put("party",party);
+		interaction.put("author_name",ifnull(author.get("name"),author.get("email")).toString());
+		interaction.put("created_time",latestCreatedTime);
+		interaction.put("summary",summary.replaceAll("<[^>]*>"," ").trim());
+	}
+
+	ticket = Map();
+	ticket.put("id",ticketResponse.get("id"));
+	ticket.put("ticket_number",ifnull(ticketResponse.get("ticketNumber"),ticketResponse.get("ticketNumberString")));
+	ticket.put("status",ifnull(ticketResponse.get("status"),""));
+	ticket.put("priority",ifnull(ticketResponse.get("priority"),""));
+	ticket.put("url","https://desk.zoho.eu/agent/madeforspainandportugal/new-request-handling/tickets/details/" + ticketId);
+	ticket.put("latest_interaction",interaction);
+	res.put("ticket",ticket);
+	res.put("message","Desk ticket retrieved successfully.");
+}
+catch (e)
+{
+	res.put("error",true);
+	res.put("message","Error retrieving Desk ticket: " + e.toString());
+}
+return res.toString();
+}

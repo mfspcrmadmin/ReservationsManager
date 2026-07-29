@@ -1,0 +1,28 @@
+Populate_Data_on_Edit_Pre as "Populate Data on Edit - Prepayments Form"
+{
+	type =  form
+	form = Pre_Payments_Form
+
+	record event = on edit
+
+	on load
+	{
+		actions 
+		{
+			custom deluge script
+			(
+					AccExecutive = AM_Users[Email == zoho.loginuserid];
+				if(AccExecutive.count() < 1)
+				{
+					disable Accounted;
+				}
+				if(input.Status == "Paid")
+				{
+					disable Status;
+				}
+			)
+		}
+	}
+
+}
+

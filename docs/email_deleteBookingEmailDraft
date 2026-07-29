@@ -1,0 +1,59 @@
+string standalone.email_deleteBookingEmailDraft(String bookingId,String draftId)
+{
+res = Map();
+res.put("error",false);
+bookingId = ifnull(bookingId,"").toString().trim();
+draftId = ifnull(draftId,"").toString().trim();
+if(bookingId == "")
+{
+	res.put("error",true);
+	res.put("message","bookingId is empty.");
+	return res;
+}
+if(draftId == "")
+{
+	res.put("error",true);
+	res.put("message","draftId is empty.");
+	return res;
+}
+url = "https://www.zohoapis.eu/crm/v8/Deals/" + bookingId + "/__email_drafts/" + draftId;
+apiResp = invokeurl
+[
+	url :url
+	type :DELETE
+	connection:"crm_oauth_connection"
+];
+if(isnull(apiResp))
+{
+	res.put("error",true);
+	res.put("message","Empty response from Zoho API.");
+	return res;
+}
+if(apiResp.containKey("code") && apiResp.get("code") != null)
+{
+	res.put("error",true);
+	res.put("message","Zoho API returned an error.");
+	res.put("api_response",apiResp);
+	return res;
+}
+deleteItems = ifnull(apiResp.get("__email_drafts"),List());
+if(deleteItems.isEmpty())
+{
+	res.put("message","Draft deleted successfully.");
+	res.put("data",apiResp);
+	return res;
+}
+deleteItem = deleteItems.get(0);
+deleteStatus = ifnull(deleteItem.get("status"),"").toString().trim().toLowerCase();
+deleteCode = ifnull(deleteItem.get("code"),"").toString().trim().toUpperCase();
+if(deleteStatus == "success" || deleteCode == "SUCCESS")
+{
+	res.put("message",ifnull(deleteItem.get("message"),"Draft deleted successfully."));
+	res.put("data",apiResp);
+	return res;
+}
+res.put("error",true);
+res.put("message","Zoho API did not confirm the draft deletion.");
+res.put("api_response",apiResp);
+return res;
+}

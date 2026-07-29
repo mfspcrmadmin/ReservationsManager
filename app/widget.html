@@ -1,0 +1,673 @@
+app\styles\widget.css:3204:.booking-form-currency-symbol {
+app\js\services-controller.js:649:  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" value="' + escapeHtml(value) + '" type="number" min="0.01" step="0.01" required></div></label>';
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservations Manager</title>
+    <link rel="stylesheet" href="./styles/widget.css">
+    <link rel="stylesheet" href="./styles/booking-shell.css">
+    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+  </head>
+  <body>
+    <main class="app-shell app-shell--booking-hub">
+      <section id="booking-hub-shell" class="booking-hub-shell">
+        <aside id="booking-browser-panel" class="booking-browser card">
+          <button id="booking-browser-rail-toggle" class="button tertiary compact booking-browser-rail-toggle" type="button" title="Open booking queue" aria-label="Open booking queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5zM8 9h7M8 13h7"/></svg><span>Bookings</span></button>
+          <div class="card-header compact-card-header booking-browser-header">
+            <h2 class="panel-mini-title">Booking Queue</h2>
+            <div class="booking-browser-header-actions">
+              <button id="booking-browser-size-toggle" class="button tertiary compact booking-browser-size-toggle icon-button" type="button" title="Expand booking queue" aria-label="Expand booking queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M3 3l6 6M16 3h5v5M21 3l-6 6M8 21H3v-5M3 21l6-6M16 21h5v-5M21 21l-6-6"/></svg></button>
+              <button id="booking-browser-collapse-toggle" class="button tertiary compact booking-browser-collapse-toggle icon-button" type="button" title="Close booking queue" aria-label="Close booking queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+            </div>
+          </div>
+
+          <div class="booking-browser-filters">
+            <label class="field compact-field booking-browser-filter-field">
+              <span>Owner</span>
+              <select id="booking-browser-owner"></select>
+            </label>
+            <div class="field compact-field booking-browser-filter-field">
+              <span id="booking-browser-stage-label">Stage</span>
+              <div class="booking-stage-filter-row">
+                <div class="booking-stage-filter">
+                  <button id="booking-browser-stages-toggle" class="button tertiary booking-stage-filter-toggle" type="button" aria-labelledby="booking-browser-stage-label booking-browser-stages-toggle">Select stages</button>
+                  <div id="booking-browser-stages-menu" class="booking-stage-filter-menu" hidden></div>
+                </div>
+                <button id="booking-browser-load" class="button tertiary compact booking-browser-load-button icon-button" type="button" title="Search bookings" aria-label="Search bookings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap booking-browser-table-wrap">
+            <div id="booking-browser-count" class="booking-browser-results-label" aria-live="polite">Bookings (0)</div>
+            <div class="booking-browser-results-scroll">
+              <table class="services-table booking-browser-table">
+                <thead>
+                  <tr id="booking-browser-head">
+                    <th>Booking</th>
+                    <th>MFSP</th>
+                    <th>Arrival date</th>
+                    <th>Stage</th>
+                  </tr>
+                </thead>
+                <tbody id="booking-browser-body">
+                  <tr class="booking-browser-empty-row">
+                    <td colspan="4" class="table-empty booking-browser-empty">
+                      <strong>No bookings found</strong>
+                      <span>Try changing the owner or stage filters.</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
+
+        <section id="booking-main-shell" class="booking-main-shell is-empty-workspace">
+          <section id="search-results-card" class="card search-results-card" hidden>
+            <div class="card-header">
+              <h2>Search results</h2>
+              <span id="search-results-count" class="badge subtle">0 matches</span>
+            </div>
+
+            <div class="table-wrap">
+              <table class="services-table">
+                <thead>
+                  <tr>
+                    <th>MFSP</th>
+                    <th>Booking name</th>
+                    <th>Agency</th>
+                    <th>Stage</th>
+                    <th>Arrival</th>
+                  </tr>
+                </thead>
+                <tbody id="search-results-body">
+                  <tr>
+                    <td colspan="5" class="table-empty">No matching bookings yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="booking-summary booking-summary--workspace">
+            <div class="booking-summary-shell">
+              <div class="booking-summary-main">
+                <div class="summary-topbar">
+                  <div class="summary-title-block">
+                    <span class="summary-panel-label">Booking workspace</span>
+                  </div>
+
+                  <div id="summary-search-shell" class="summary-search">
+                    <div class="search-inline">
+                      <input id="booking-search" type="search" placeholder="Search by MFSP Reference or booking name">
+                      <button id="load-booking" class="button tertiary compact icon-button workspace-search-action" type="button" title="Load booking" aria-label="Load booking"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12M13 7l5 5-5 5"/></svg></button>
+                      <button id="clear-booking" class="button tertiary compact icon-button workspace-search-action summary-search-clear" type="button" title="Close booking" aria-label="Close booking" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+                    </div>
+                  </div>
+                </div>
+
+                <section class="booking-sync-strip">
+                  <div class="booking-sync-strip-main">
+                    <span class="booking-sync-title">Synchronization</span>
+                    <div id="action-ezus-sync-warning" class="action-sync-message" hidden></div>
+                    <button id="sync-ezus" class="button booking-action-button booking-action-button--sync" type="button">Sync booking with EZUS</button>
+                  </div>
+                  <div class="booking-sync-strip-meta">
+                    <article class="action-meta-item">
+                      <span class="label">Last Ezus Sync At</span>
+                      <strong id="action-ezus-sync-at">-</strong>
+                    </article>
+                    <article class="action-meta-item">
+                      <span class="label">Last Ezus Sync By</span>
+                      <strong id="action-ezus-sync-by">-</strong>
+                    </article>
+                    <article class="action-meta-item">
+                      <span class="label">Itinerary format</span>
+                      <strong id="action-has-axus" class="action-status-badge">-</strong>
+                    </article>
+                  </div>
+                </section>
+
+                <section class="workspace-top-grid">
+                  <div id="summary-dashboard" class="workspace-dashboard">
+                    <section class="workspace-surface workspace-empty-state workspace-empty-state--loading" aria-live="polite">
+                      <div class="workspace-empty-state-copy">
+                        <span class="table-loading-indicator" aria-hidden="true"></span>
+                        <strong>Please wait, loading your workspace…</strong>
+                      </div>
+                    </section>
+                  </div>
+                  <div id="summary-blueprint-panel" class="summary-blueprint-panel-host">
+                    <div class="summary-blueprint-empty">Load a booking to inspect its workflow here.</div>
+                  </div>
+                </section>
+
+                <section class="booking-summary-lower-grid">
+                  <section class="booking-details-card booking-details-card--embedded">
+                    <div class="card-header booking-details-card-header">
+                      <div>
+                        <h2 class="panel-mini-title">Booking Information</h2>
+                      </div>
+                    </div>
+
+                    <div id="summary-booking-hero"></div>
+
+                    <div class="summary-view-controls">
+                      <div class="segmented-control segmented-control-minimal summary-mode-switch summary-mode-switch--details" role="tablist" aria-label="Booking summary view">
+                        <button id="summary-view-basic" class="segmented-control-button is-active" type="button">Basic</button>
+                        <button id="summary-view-financial" class="segmented-control-button" type="button">Financial</button>
+                        <button id="summary-view-contact" class="segmented-control-button" type="button">Contacts</button>
+                        <button id="summary-view-analytics" class="segmented-control-button" type="button">Analytics</button>
+                        <button id="summary-view-travelers" class="segmented-control-button" type="button">Travelers</button>
+                        <button id="summary-view-team" class="segmented-control-button" type="button">Team</button>
+                      </div>
+                      <button id="summary-view-desk" class="summary-desk-button" type="button">Desk</button>
+                    </div>
+
+                    <div id="summary-content" class="summary-content booking-details-content"></div>
+                    <section id="summary-travelers-view" class="summary-travelers-view" hidden>
+                      <div id="travelers-body" class="travelers-list" aria-live="polite">
+                        <p class="travelers-list-empty">Load a booking to see travelers.</p>
+                      </div>
+                    </section>
+                  </section>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <aside class="booking-actions-rail" aria-label="Booking actions">
+            <h2 class="booking-actions-rail-title">Booking Actions</h2>
+            <div id="summary-quick-access" class="summary-quick-access-panel"></div>
+
+            <section class="summary-actions-panel">
+              <div class="summary-actions-panel-header">
+                <h3 class="summary-actions-title">Operations</h3>
+              </div>
+
+              <div class="action-area-grid">
+                <section class="action-area-block">
+                  <h3 class="action-area-section-title">Payments &amp; reports</h3>
+                  <div class="summary-actions summary-actions--stacked">
+                    <button id="create-payment-request" class="button booking-action-button booking-action-button--payment" type="button">Create payment request</button>
+                    <button id="open-booking-report-dialog" class="button booking-action-button booking-action-button--alert" type="button">Report cancellation / change</button>
+                  </div>
+                </section>
+
+                <section class="action-area-block action-area-block--axus">
+                  <h3 class="action-area-section-title">Itinerary</h3>
+                  <div class="action-area-section action-area-section--axus">
+                    <div class="action-area-section-top">
+                      <button id="create-axus" class="button booking-action-button booking-action-button--itinerary" type="button">Create AXUS itinerary</button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section id="booking-admin-actions" class="summary-actions-panel booking-admin-actions" hidden>
+              <div class="summary-actions-panel-header">
+                <h3 class="summary-actions-title">Administrator tools</h3>
+              </div>
+              <div class="summary-actions summary-actions--stacked">
+                <a id="open-native-booking" class="button booking-action-button booking-admin-action" target="_blank" rel="noopener noreferrer">Open native booking</a>
+                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Project Info</button>
+                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Travelers</button>
+                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Services</button>
+                <button class="button booking-action-button booking-admin-action" type="button">Sync Contact</button>
+              </div>
+            </section>
+          </aside>
+
+          <section class="booking-workspace-section">
+            <nav class="page-tabs" aria-label="Booking workspace sections">
+              <button id="tab-services" class="page-tab active" type="button">Services</button>
+              <button id="tab-emails" class="page-tab" type="button">Emails</button>
+            </nav>
+          </section>
+
+          <div id="booking-report-dialog" class="booking-action-dialog" hidden>
+            <div id="booking-report-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
+            <div class="booking-action-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="booking-report-dialog-title">
+              <h4 id="booking-report-dialog-title">Report booking issue</h4>
+              <p>Choose what you want to report for the active booking.</p>
+              <div class="booking-action-dialog-options">
+                <button id="booking-report-cancellation" class="button booking-action-button compact" type="button">Cancellation</button>
+                <button id="booking-report-change" class="button booking-action-button compact" type="button">Change request</button>
+              </div>
+              <div class="booking-action-dialog-footer">
+                <button id="booking-report-dialog-close" class="button tertiary compact" type="button">Close</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="card-purchase-dialog" class="booking-action-dialog" hidden>
+            <div id="card-purchase-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
+            <div class="booking-action-dialog-panel booking-action-dialog-panel--wide card-purchase-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="card-purchase-dialog-title">
+              <div class="card-purchase-dialog-heading"><h4 id="card-purchase-dialog-title">Record Card Purchase</h4><code id="card-purchase-service-id" class="card-purchase-service-id">Service ID: -</code></div>
+              <form id="card-purchase-form" class="booking-form">
+                <input id="card-purchase-requested-by" type="hidden">
+                <div class="booking-form-grid">
+                  <section class="card-purchase-context booking-form-field booking-form-field--full" aria-label="Booking and service information"><div><span>MFSP</span><strong id="card-purchase-mfsp-reference">-</strong><span>Booking</span><strong id="card-purchase-booking-name">-</strong></div><div><span>Supplier</span><strong id="card-purchase-supplier-name">-</strong><span>Code</span><strong id="card-purchase-supplier-code">-</strong></div><div><span>Service</span><strong id="card-purchase-service-name">-</strong></div></section>
+
+                  <label class="field booking-form-field">
+                    <span>Amount <em>*</em></span>
+                    <div class="booking-form-currency">
+                      <span class="booking-form-currency-symbol">EUR</span>
+                      <input id="card-purchase-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required>
+                    </div>
+                  </label>
+
+                  <label class="field booking-form-field">
+                    <span>Service Date <em>*</em></span>
+                    <input id="card-purchase-service-date" type="date" required>
+                  </label>
+
+                  <label class="field booking-form-field">
+                    <span>Status <em>*</em></span>
+                    <select id="card-purchase-status" required><option value="Pending Accounting Review">Pending Accounting Review</option><option value="Ok">Ok</option></select>
+                  </label>
+
+                  <label class="field booking-form-field booking-form-field--full">
+                    <span>Observations</span>
+                    <textarea id="card-purchase-observations" rows="4"></textarea>
+                  </label>
+                </div>
+
+                <div class="booking-action-dialog-footer booking-action-dialog-footer--split">
+                  <button id="card-purchase-dialog-close" class="button tertiary compact" type="button">Cancel</button>
+                  <button id="card-purchase-submit" class="button booking-action-button compact" type="submit">Submit</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div id="prepayment-request-dialog" class="booking-action-dialog" hidden>
+            <div id="prepayment-request-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
+            <div class="booking-action-dialog-panel booking-action-dialog-panel--wide prepayment-request-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="prepayment-request-dialog-title">
+              <h4 id="prepayment-request-dialog-title">Request PRE-Payment</h4>
+              <form id="prepayment-request-form" class="booking-form">
+                <div class="prepayment-request-grid">
+                  <section><h5>Booking information</h5><label class="field"><span>MFSP Reference</span><input id="prepayment-mfsp-reference" readonly></label><label class="field"><span>Booking Name</span><input id="prepayment-booking-name" readonly></label></section>
+                  <section><h5>Supplier information</h5><label class="field"><span>Supplier Reference</span><input id="prepayment-supplier-reference" readonly></label><label class="field"><span>Supplier Name</span><input id="prepayment-supplier-name" readonly></label></section>
+                  <section><h5>Service information</h5><label class="field"><span>Service ID</span><input id="prepayment-service-id" readonly></label><label class="field"><span>Service Name</span><input id="prepayment-service-name" readonly></label><label class="field"><span>Service Date</span><input id="prepayment-service-date" type="date" readonly></label></section>
+                  <section><h5>Request information</h5><label class="field"><span>Requested by</span><input id="prepayment-requested-by" type="email" readonly></label><label class="field"><span>Requested Date</span><input id="prepayment-requested-date" type="date" readonly></label><label class="field"><span>Proforma Attached <em>*</em></span><input id="prepayment-proforma" type="file" required accept="application/pdf,image/*"></label><label class="field"><span>Observations</span><textarea id="prepayment-observations" rows="3"></textarea></label></section>
+                  <section><h5>Payment</h5><label class="field"><span>Transaction Type</span><select id="prepayment-transaction-type"><option value="Full Payment">Full Payment</option><option value="Partial Payment">Partial Payment</option></select></label><label class="field"><span>Total Proforma Amount</span><input id="prepayment-total-amount" type="number" min="0" step="0.01" required></label><div class="prepayment-payments-heading"><span>Payments</span><button id="prepayment-add-payment" class="button tertiary compact" type="button" hidden>+ Add payment</button></div><div id="prepayment-payments-list" class="prepayment-payments-list"></div></section>
+                </div>
+                <aside class="prepayment-warning"><strong>ATENCIÓN:</strong> a partir de las 14h no se pueden registrar pagos para el día en curso. Selecciona el día siguiente para registrarlo.<br><br>En caso de <strong>urgencia</strong>, contactar directamente con Administración.</aside>
+                <div class="booking-action-dialog-footer booking-action-dialog-footer--split"><button id="prepayment-request-dialog-close" class="button tertiary compact" type="button">Cancel</button><button id="prepayment-request-submit" class="button booking-action-button compact" type="submit">Submit</button></div>
+              </form>
+            </div>
+          </div>
+
+      <section id="manage-services-panel" class="tab-panel">
+      <section class="workspace">
+        <aside class="detail-panel card">
+          <div class="card-header">
+            <h2 id="selection-title" class="panel-mini-title">Service details</h2>
+            <span id="service-count" class="badge subtle">0 services</span>
+          </div>
+
+          <div id="service-empty" class="empty-state">
+            Select a booking and then click a booking service or a step in the grouped view to inspect it here.
+          </div>
+
+          <section id="service-panel" class="service-panel" hidden>
+            <form id="service-form" class="service-form">
+              <section class="detail-section detail-service-hero">
+                <div class="service-hero-main">
+                  <span id="detail-date" class="service-hero-date">-</span>
+                  <strong id="detail-description" class="service-hero-title">-</strong>
+                  <span id="detail-name" class="service-hero-sequence" hidden>-</span>
+                </div>
+              </section>
+
+              <section class="detail-section detail-service-edit">
+                <div class="service-edit-block">
+                  <div class="service-edit-label-row">
+                    <span class="label">Status</span>
+                    <select id="field-status-ezus" class="service-status-select service-status-select--interactive" title="Change service status" aria-label="Change service status"></select>
+                    <button id="save-service" class="button primary compact" type="submit" hidden>Update status</button>
+                  </div>
+                </div>
+
+                <div class="service-edit-block">
+                  <div class="service-edit-label-row">
+                    <span class="label">Actions</span>
+                  </div>
+                  <div class="service-action-buttons">
+                    <button id="service-action-prepayment" class="button tertiary compact" type="button">Request PRE-Payment</button>
+                    <button id="service-action-card-purchase" class="button tertiary compact" type="button">Record Card Purchase</button>
+                    <button id="service-action-renfe" class="button secondary compact" type="button" hidden>Record RENFE Payment</button>
+                  </div>
+                </div>
+              </section>
+
+              <div class="summary-mode-switch service-detail-tabs" role="tablist" aria-label="Service detail view">
+                <button id="service-detail-tab-basic" class="summary-mode-button active" type="button">Basic</button>
+                <button id="service-detail-tab-financial" class="summary-mode-button" type="button">Financial</button>
+                <button id="service-detail-tab-step" class="summary-mode-button" type="button">Step</button>
+              </div>
+
+              <section id="service-detail-content" class="detail-section service-detail-content"></section>
+
+              <section class="detail-section">
+                <h3>Service notes</h3>
+                <label class="field">
+                  <textarea id="field-service-notes" rows="5" placeholder="Internal notes for the booking team"></textarea>
+                </label>
+              </section>
+            </form>
+          </section>
+
+          <section id="step-panel" class="step-panel" hidden>
+            <section class="detail-section detail-section-hero">
+              <div class="detail-hero-main">
+                <span class="label">Step</span>
+                <strong id="step-name">-</strong>
+                <span id="step-reference" class="detail-description">-</span>
+              </div>
+              <div class="detail-hero-side">
+                <div>
+                  <span class="label">Status</span>
+                  <strong id="step-status">-</strong>
+                </div>
+                <div>
+                  <span class="label">Type</span>
+                  <strong id="step-type">-</strong>
+                </div>
+              </div>
+            </section>
+
+            <section class="detail-section">
+              <h3>Step details</h3>
+              <div class="detail-meta compact-meta">
+                <div>
+                  <span class="label">Category</span>
+                  <strong id="step-category">-</strong>
+                </div>
+                <div>
+                  <span class="label">Travelers</span>
+                  <strong id="step-travellers">-</strong>
+                </div>
+                <div>
+                  <span class="label">Start</span>
+                  <strong id="step-start">-</strong>
+                </div>
+                <div>
+                  <span class="label">End</span>
+                  <strong id="step-end">-</strong>
+                </div>
+                <div>
+                  <span class="label">PCM Code</span>
+                  <strong id="step-pcm">-</strong>
+                </div>
+                <div>
+                  <span class="label">Related services</span>
+                  <strong id="step-service-count">-</strong>
+                </div>
+              </div>
+            </section>
+          </section>
+        </aside>
+
+        <section class="table-panel card">
+          <div class="card-header services-card-header">
+            <div class="services-toolbar">
+              <div class="services-toolbar-top">
+                <h2 class="panel-mini-title">Services</h2>
+                <div class="services-toolbar-actions">
+                  <div class="view-switcher">
+                    <button id="view-flat" class="view-button active" type="button">Simple</button>
+                    <button id="view-grouped" class="view-button" type="button">By step</button>
+                  </div>
+                  <button id="toggle-service-columns" class="button tertiary table-config-button" type="button">Columns</button>
+                </div>
+              </div>
+              <div class="services-filter-row">
+                <div class="field compact-field service-filter-field">
+                  <span>Status</span>
+                  <div class="service-multi-filter">
+                    <button id="service-filter-status-toggle" class="button tertiary service-multi-filter-toggle" type="button">All statuses</button>
+                    <div id="service-filter-status-menu" class="service-multi-filter-menu" hidden></div>
+                  </div>
+                </div>
+                <label class="field compact-field service-filter-field">
+                  <span>Supplier</span>
+                  <select id="service-filter-supplier"></select>
+                </label>
+                <div class="field compact-field service-filter-field">
+                  <span>Category</span>
+                  <div class="service-multi-filter">
+                    <button id="service-filter-category-toggle" class="button tertiary service-multi-filter-toggle" type="button">All categories</button>
+                    <div id="service-filter-category-menu" class="service-multi-filter-menu" hidden></div>
+                  </div>
+                </div>
+                <div class="field compact-field service-filter-field">
+                  <span>Subcategory</span>
+                  <div class="service-multi-filter">
+                    <button id="service-filter-subcategory-toggle" class="button tertiary service-multi-filter-toggle" type="button">All subcategories</button>
+                    <div id="service-filter-subcategory-menu" class="service-multi-filter-menu" hidden></div>
+                  </div>
+                </div>
+                <div class="field compact-field service-filter-field">
+                  <span>Subdestination</span>
+                  <div class="service-multi-filter">
+                    <button id="service-filter-subdestination-toggle" class="button tertiary service-multi-filter-toggle" type="button">All subdestinations</button>
+                    <div id="service-filter-subdestination-menu" class="service-multi-filter-menu" hidden></div>
+                  </div>
+                </div>
+                <label class="service-operational-filter" title="Show only services that require operational management">
+                  <input id="hide-non-operational-services" type="checkbox" checked>
+                  <span>Hide non-operational</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <section id="bulk-actions" class="bulk-actions" hidden>
+            <div class="bulk-actions-row">
+              <span id="bulk-selection-copy" class="bulk-selection-copy">0 services selected</span>
+              <button id="clear-service-selection" class="button tertiary compact" type="button">Clear selection</button>
+              <div class="bulk-actions-controls">
+                <label class="field bulk-mode-field compact-field bulk-mode-picker">
+                  <select id="bulk-action-mode">
+                    <option value="status">Bulk status update</option>
+                    <option value="drafts">Create email drafts</option>
+                  </select>
+                </label>
+
+                <div id="bulk-status-panel" class="bulk-panel">
+                  <label class="field bulk-field compact-field">
+                    <select id="bulk-status-ezus"></select>
+                  </label>
+                  <button id="apply-bulk-status" class="button secondary compact" type="button">Apply status</button>
+                </div>
+
+                <div id="bulk-drafts-panel" class="bulk-panel bulk-drafts-panel" hidden>
+                  <button id="create-availability-draft" class="button secondary compact" type="button">Availability draft</button>
+                  <button id="create-reservations-draft" class="button tertiary compact" type="button">Reservations draft</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="service-columns-panel" class="columns-panel" role="dialog" aria-modal="true" aria-labelledby="service-columns-title" hidden>
+            <div id="service-columns-backdrop" class="columns-panel-backdrop"></div>
+            <div class="columns-panel-dialog">
+              <div class="columns-panel-header">
+                <div>
+                  <h3 id="service-columns-title">Visible columns</h3>
+                  <p class="columns-panel-copy">Choose the columns to show and drag them to change their order.</p>
+                </div>
+                <div class="columns-panel-actions">
+                  <button id="reset-service-columns" class="button tertiary compact" type="button">Reset</button>
+                  <button id="close-service-columns" class="button tertiary compact" type="button" aria-label="Close column settings">Close</button>
+                </div>
+              </div>
+              <div id="service-columns-list" class="columns-list"></div>
+            </div>
+          </section>
+
+          <div class="table-wrap">
+            <table class="services-table">
+              <thead>
+                <tr id="services-head-row"></tr>
+              </thead>
+              <tbody id="services-body">
+                <tr>
+                  <td colspan="1" class="table-empty">Load a booking to see its services.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+      </section>
+
+
+      <section id="manage-emails-panel" class="tab-panel" hidden>
+        <section class="emails-workspace">
+          <section class="emails-column card">
+            <div class="card-header emails-card-header">
+              <div class="emails-card-title">
+                <h2 class="panel-mini-title">Booking emails</h2>
+              </div>
+            </div>
+
+            <div id="emails-empty-state" class="empty-state">
+              Load a booking to see related email drafts.
+            </div>
+
+            <section id="emails-content-panel" class="emails-content" hidden>
+              <section class="mail-browser">
+                <section class="mail-browser-list-pane">
+                  <div class="section-header-inline">
+                    <h3 id="mail-list-heading">Drafts</h3>
+                    <div class="mail-list-header-actions">
+                      <span id="active-mail-list-count" class="badge subtle">0 drafts</span>
+                      <button
+                        id="refresh-booking-mails"
+                        class="button tertiary icon-button refresh-mails-button"
+                        type="button"
+                        title="Refresh drafts"
+                        aria-label="Refresh drafts"
+                      >&#8635;</button>
+                    </div>
+                  </div>
+                  <div id="active-mail-list" class="mail-list"></div>
+                </section>
+
+                <section class="mail-browser-viewer">
+                  <div id="mail-viewer-empty" class="empty-state">
+                    <span class="mail-viewer-empty-eyebrow">Draft preview</span>
+                    <strong>Select a draft</strong>
+                    <p>Choose a draft from the list to view its content.</p>
+                  </div>
+
+                  <div id="mail-viewer-content" class="mail-viewer" hidden>
+                    <div class="mail-viewer-header">
+                      <div class="mail-viewer-header-main">
+                        <div class="mail-viewer-header-top">
+                          <div class="mail-viewer-header-top-left">
+                            <span id="mail-viewer-kind" class="status-pill">Draft</span>
+                            <div id="mail-viewer-actions" class="mail-viewer-actions" hidden>
+                              <button id="mail-open-outlook" class="button outlook compact" type="button">Open in Outlook</button>
+                              <button id="mail-copy-formatted-body" class="button outlook-outline compact" type="button">Copy formatted body</button>
+                              <button id="mail-edit-draft" class="button violet compact" type="button">Edit draft</button>
+                              <button id="mail-delete-draft" class="button danger compact" type="button">Delete draft</button>
+                            </div>
+                          </div>
+                          <span id="mail-viewer-time" class="mail-viewer-time">-</span>
+                        </div>
+                        <h3 id="mail-viewer-subject" class="mail-viewer-subject">No subject</h3>
+                        <p id="mail-viewer-preview" class="mail-viewer-preview" hidden></p>
+                      </div>
+
+                      <div id="mail-viewer-meta" class="mail-viewer-meta">
+                        <div class="mail-meta-item">
+                          <span class="label">To</span>
+                          <strong id="mail-viewer-to">-</strong>
+                        </div>
+                        <div class="mail-meta-item">
+                          <span class="label">CC</span>
+                          <strong id="mail-viewer-cc">-</strong>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <form id="mail-draft-editor" class="mail-draft-editor" hidden>
+                      <div class="mail-draft-editor-topbar">
+                        <div class="mail-editor-mode-switch" role="tablist" aria-label="Draft editor mode">
+                          <button id="mail-editor-mode-visual" class="mail-editor-mode-button active" type="button">Visual</button>
+                          <button id="mail-editor-mode-html" class="mail-editor-mode-button" type="button">HTML</button>
+                        </div>
+                        <div class="mail-draft-editor-actions">
+                          <button id="mail-save-draft" class="button success compact" type="submit">Save draft</button>
+                          <button id="mail-cancel-draft-edit" class="button danger compact" type="button">Cancel</button>
+                        </div>
+                      </div>
+
+                      <div class="mail-draft-editor-grid">
+                        <label class="field">
+                          <span>To</span>
+                          <input id="mail-edit-to" type="text" placeholder="one@example.com, two@example.com">
+                        </label>
+                        <label class="field">
+                          <span>CC</span>
+                          <input id="mail-edit-cc" type="text" placeholder="copy@example.com">
+                        </label>
+                        <label class="field mail-draft-editor-subject">
+                          <span>Subject</span>
+                          <input id="mail-edit-subject" type="text" placeholder="Draft subject">
+                        </label>
+                      </div>
+
+                      <label class="field">
+                        <span id="mail-edit-content-label">Content</span>
+                        <div id="mail-edit-visual" class="mail-edit-visual" contenteditable="true"></div>
+                        <textarea id="mail-edit-content" rows="16" placeholder="<div>Your draft HTML</div>" hidden></textarea>
+                      </label>
+                    </form>
+
+                  <div id="mail-viewer-body" class="mail-viewer-body"></div>
+                  <div id="mail-draft-debug-id" class="mail-draft-debug-id" hidden></div>
+                  <div id="mail-outlook-confirm" class="mail-outlook-confirm" hidden>
+                    <div class="mail-outlook-confirm-backdrop"></div>
+                    <div class="mail-outlook-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="mail-outlook-confirm-title">
+                      <h4 id="mail-outlook-confirm-title">Mark this email as sent?</h4>
+                      <p>In a few seconds, the draft will open in Outlook.</p>
+                      <p id="mail-outlook-confirm-message">If you choose Yes, this draft will be removed from this view.</p>
+                      <div class="mail-outlook-confirm-actions">
+                        <button id="mail-outlook-confirm-yes" class="button success compact" type="button">Yes</button>
+                        <button id="mail-outlook-confirm-no" class="button tertiary compact" type="button">No</button>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                </section>
+              </section>
+            </section>
+          </section>
+        </section>
+      </section>
+
+      <div class="app-feedback" aria-live="polite" aria-atomic="true">
+        <section id="notice" class="notice info" hidden>
+          <span id="notice-text" class="notice-text"></span>
+          <button id="notice-close" class="notice-close" type="button" aria-label="Close message">x</button>
+        </section>
+        <section id="error" class="notice error" hidden>
+          <span id="error-text" class="notice-text"></span>
+          <button id="error-close" class="notice-close" type="button" aria-label="Close error">x</button>
+        </section>
+      </div>
+    </main>
+
+    <script type="module" src="./widget.js"></script>
+  </body>
+</html>

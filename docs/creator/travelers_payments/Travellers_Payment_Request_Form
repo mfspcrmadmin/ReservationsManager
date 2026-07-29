@@ -1,0 +1,306 @@
+form Travellers_Payment_Request_Form
+{
+	displayname = "Travellers Payment Request Form"
+	success message = "Payment Request Added Successfully"
+	feature property = 512
+	Booking_Information
+	(
+		type = section
+		displayname = "Booking Information"
+		visibility = true
+	 	row = 1
+	 	column = 0   
+		width = medium
+	)
+	Booking_Id
+	(
+    	type = text
+		displayname = "Booking Id"
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Desk_Ticket_ID
+	(
+    	type = text
+		displayname = "Desk Ticket ID"
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Pipeline
+	(
+		type = picklist
+		maxchar = 100
+		values = {"Ezus","Tourplan"}
+		private = true
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Booking_Name
+	(
+    	type = text
+		displayname = "Booking Name"
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	MFSP_Reference
+	(
+    	type = text
+		displayname = "MFSP Reference"
+	 	row = 1
+	 	column = 1   
+		width = medium
+	)
+	Finance_Information
+	(
+		type = section
+		displayname = "Finance Information"
+		visibility = true
+	 	row = 2
+	 	column = 0   
+		width = medium
+	)
+	Balance_Due_Amount
+	(
+		displayname = "Balance Due Amount"
+		type = EUR
+		format = dotcomma
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Deposit_percentage
+	(
+    	type = percentage
+		displayname = "Deposit %"
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Deposit_Amount
+	(
+		displayname = "Deposit Amount"
+		type = EUR
+		format = dotcomma
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Planning_Fee
+	(
+		displayname = "Planning Fee"
+		type = EUR
+		format = dotcomma
+		initial value = 300
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Total_Booking_Amount
+	(
+		displayname = "Total Booking Amount"
+		type = EUR
+		format = dotcomma
+	 	row = 2
+	 	column = 1   
+		width = medium
+	)
+	Payment_Request
+	(
+		type = section
+		displayname = "Payment Request"
+		visibility = true
+	 	row = 3
+	 	column = 0   
+		width = medium
+	)
+	Payment_Action
+	(
+		type = radiobuttons
+		displayname = "Payment Action"
+		maxchar = 100
+		values = {"🔴 Record & Send Request","⚪ Record Only"}
+		initial value = "🔴 Record & Send Request"
+    	description
+    	[
+    		type = help_text
+    	 	message = "Record & Send Request: Saves the payment in the report and automatically sends a payment request to the client.\nRecord Only: Saves the payment internally without sending any notification or request to the client."
+    	]
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Mark_as_Paid
+	(
+    	type = checkbox
+		displayname = "Mark as Paid"
+		initial value = false
+    	description
+    	[
+    		type = tooltip
+    	 	message = "If checked, the system will mark as paid all the payments of the request -[Option just available for Record Only option]"
+    	]
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Requested_by_name
+	(
+    	type = text
+		displayname = "Requested by - Name"
+    	description
+    	[
+    		type = tooltip
+    	 	message = "This is the name that will appear in the email signature when the payment link is sent to the client."
+    	]
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Requested_by_email
+	(
+    	type = text
+		displayname = "Requested by - Email"
+    	description
+    	[
+    		type = tooltip
+    	 	message = "This is the email address that will be notified once the client has completed the payment."
+    	]
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Payment_Method
+	(
+		type = picklist
+		displayname = "Payment Method"
+		maxchar = 100
+		values = {"Airwallex","Bank Transfer","Credit Applied"}
+		initial value = "Airwallex"
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Event_Type
+	(
+		type = picklist
+		displayname = "Event Type"
+		maxchar = 100
+		values = {"Deposit","Balance","Planning Fee","Supplement"}
+		initial value = "Deposit"
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Total_Payment_Request_Amount
+	(
+		displayname = "Total Payment Request Amount"
+		type = EUR
+		format = dotcomma
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Split_Method
+	(
+		type = radiobuttons
+		displayname = "Split Method"
+		maxchar = 100
+		values = {"Manual Split","Equal Split"}
+		initial value = "Manual Split"
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Travellers_Payments
+	(
+		type = list	
+		displayname = "Travellers Payments"
+		values  = Travellers_Payment_Form.ID
+    	bidirectional = Travellers_Payment_Request
+    	displayformat = [Amount + "€ | " + Recipient_Name]
+		sortorder = ascending
+		height = 60px
+	 	row = 3
+	 	column = 1   
+		width = medium
+	)
+	Recipients
+	(
+		type = grid
+		Amount_to_Pay
+		(
+			displayname = "Amount to Pay"
+			type = EUR
+			format = dotcomma
+			width = medium
+		)
+		Percent_to_Pay
+		(
+    		type = percentage
+			displayname = "Percent to Pay"
+			width = medium
+		)
+		Use_this_recipient
+		(
+    		type = checkbox
+			displayname = "Use this recipient"
+			initial value = true
+			width = medium
+		)
+		Role
+		(
+			type = picklist
+			maxchar = 100
+			values = {"Agent","Traveller"}
+			initial value = "Traveller"
+			width = medium
+		)
+		Full_Name
+		(
+    		type = text
+			displayname = "Full Name"
+			width = medium
+		)
+		Email
+		(
+    		type = email
+			maxchar = 80
+			width = medium
+			personal data = true
+		)
+	 	row = 4
+	 	column = 1   
+		width = medium
+	)
+	
+	actions
+	{
+		on add
+		{
+			submit
+			(
+   				type = submit
+   				displayname = "Submit"
+			)
+		}
+		on edit
+		{
+			update
+			(
+   				type = submit
+   				displayname = "Update"
+			)
+			cancel
+			(
+   				type = cancel
+   				displayname = "Cancel"
+			)
+		}
+	}
+}
