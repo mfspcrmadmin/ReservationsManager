@@ -34,7 +34,7 @@ import {
 } from "./travelers-controller.js";
 import {
   applyServiceFilter,
-  clearServiceSelection,
+  closeServiceDetails,
   configureServicesController,
   createSelectionSnapshot,
   initializeServiceTableColumns,
@@ -83,10 +83,10 @@ import {
   DRAFT_FROM_LOGIN_USER_VALUE,
   buildBookingLabel,
   dedupeBookings,
+  escapeHtml,
   escapeCriteriaValue,
   getApiErrorDetails,
   getBookingOwnerInfo,
-  getLayoutValue,
   normalizeBookingCandidate,
   normalizeComparableText
 } from "./utils.js";
@@ -118,6 +118,16 @@ function bindEvents() {
   elements.clearBooking.addEventListener("click", onClearBookingClick);
   elements.createAxus.addEventListener("click", onCreateAxusClick);
   elements.syncEzus.addEventListener("click", onSyncEzusClick);
+  elements.syncProjectInfo.addEventListener("click", function () {
+    onRunAdminEzusSync("project", "Project information");
+  });
+  elements.syncTravelers.addEventListener("click", function () {
+    onRunAdminEzusSync("travellers", "Travelers");
+  });
+  elements.syncServices.addEventListener("click", function () {
+    onRunAdminEzusSync("services", "Services");
+  });
+  elements.syncContact.addEventListener("click", onSyncContactToEzus);
   elements.openBookingReportDialog.addEventListener("click", onOpenBookingReportDialog);
   elements.createPaymentRequest.addEventListener("click", onCreatePaymentRequestClick);
   elements.bookingReportDialogBackdrop.addEventListener("click", onCloseBookingReportDialog);
@@ -138,6 +148,7 @@ function bindEvents() {
   elements.prepaymentTransactionType.addEventListener("change", onPrepaymentTransactionTypeChange);
   if (elements.tabBooking) {
     elements.tabBooking.addEventListener("click", function () {
+      setSummaryView("basic");
       switchTab("booking");
     });
   }
@@ -147,6 +158,16 @@ function bindEvents() {
   elements.tabEmails.addEventListener("click", function () {
     switchTab("emails");
   });
+  if (elements.tabPayments) {
+    elements.tabPayments.addEventListener("click", function () {
+      switchTab("payments");
+    });
+  }
+  if (elements.tabReports) {
+    elements.tabReports.addEventListener("click", function () {
+      switchTab("reports");
+    });
+  }
   if (elements.tabTravelers) {
     elements.tabTravelers.addEventListener("click", function () {
       switchTab("travelers");
@@ -169,7 +190,7 @@ function bindEvents() {
   });
   if (elements.summaryViewDesk) {
     elements.summaryViewDesk.addEventListener("click", function () {
-      setSummaryView("desk");
+      switchTab("desk");
     });
   }
   elements.summaryViewAnalytics.addEventListener("click", function () {
@@ -185,9 +206,6 @@ function bindEvents() {
   });
   elements.summaryBlueprintPanel.addEventListener("click", onWorkspaceActionClick);
   elements.summaryDashboard.addEventListener("click", onWorkspaceActionClick);
-  if (elements.summaryQuickAccess) {
-    elements.summaryQuickAccess.addEventListener("click", onWorkspaceActionClick);
-  }
   elements.bookingBrowserOwner.addEventListener("change", onBookingBrowserOwnerChange);
   elements.bookingBrowserStagesToggle.addEventListener("click", onBookingBrowserStagesToggleClick);
   elements.bookingBrowserStagesMenu.addEventListener("change", onBookingBrowserStagesChange);
@@ -202,6 +220,12 @@ function bindEvents() {
   }
   if (elements.bookingBrowserRailToggle) {
     elements.bookingBrowserRailToggle.addEventListener("click", onBookingBrowserCollapseToggleClick);
+  }
+  if (elements.bookingRailToggle) {
+    elements.bookingRailToggle.addEventListener("click", onBookingRailToggleClick);
+  }
+  if (elements.bookingRailCollapseToggle) {
+    elements.bookingRailCollapseToggle.addEventListener("click", onBookingRailToggleClick);
   }
   document.addEventListener("click", onDocumentClick);
   elements.refreshBookingMails.addEventListener("click", onRefreshBookingMailsClick);
@@ -254,7 +278,7 @@ function bindEvents() {
     onServiceMultiFilterChange("subdestination", elements.serviceFilterSubdestinationMenu);
   });
   elements.applyBulkStatus.addEventListener("click", onApplyBulkStatus);
-  elements.clearServiceSelection.addEventListener("click", clearServiceSelection);
+  elements.closeServiceDetails.addEventListener("click", closeServiceDetails);
   elements.bulkActionMode.addEventListener("change", syncBulkPanels);
   elements.bulkStatusEzus.addEventListener("change", syncBulkStatusActionState);
   elements.fieldStatusEzus.addEventListener("change", onSelectedServiceStatusChange);
@@ -359,6 +383,10 @@ function getWorkspaceExternalLinkUrl(linkKey) {
 
   if (normalizedKey === "prepayments") {
     return "https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments";
+  }
+
+  if (normalizedKey === "product-request") {
+    return "https://creatorapp.zoho.eu/madeforspainandportugal/product-manager#Form:Product_Request";
   }
 
   return "";
@@ -498,6 +526,11 @@ function onBookingBrowserStagesChange(event) {
     return input.value;
   });
   renderBookingBrowserPanel();
+}
+
+function onBookingRailToggleClick() {
+  state.bookingRailCollapsed = !state.bookingRailCollapsed;
+  renderBookingWorkspace(elements, state);
 }
 
 async function onBookingBrowserLoadClick() {
@@ -2061,6 +2094,10 @@ async function switchTab(tabName) {
   state.activeTab = tabName;
   renderActiveTab(elements, state);
 
+  if (tabName === "desk") {
+    setSummaryView("desk");
+  }
+
   if (tabName === "emails") {
     clearSelectedMailPreview();
     await ensureBookingEmailsLoaded();
@@ -2129,6 +2166,7 @@ async function ensureDeskTicketLoaded() {
   var bookingId = state.selectedBookingId;
   state.deskTicketLoading = true;
   state.deskTicketError = "";
+  renderBookingWorkspace(elements, state);
   renderBookingSummary(elements, state);
 
   try {
@@ -2155,6 +2193,7 @@ async function ensureDeskTicketLoaded() {
   } finally {
     if (bookingId === state.selectedBookingId) {
       state.deskTicketLoading = false;
+      renderBookingWorkspace(elements, state);
       renderBookingSummary(elements, state);
     }
   }
@@ -2223,8 +2262,8 @@ function findSelectedBookingBlueprintTransition(transitionId) {
 
 async function loadBookingMailRecordsFromFunction(bookingId, mode) {
   const response = await crmExecuteFunction(getMailListFunctionName(mode), {
-    bookingId: bookingId,
-    mode: mode
+    module: MODULES.bookings,
+    recordId: bookingId
   });
   const payload = extractFunctionPayload(response);
   const errorDetails = getFunctionPayloadErrorDetails(payload);
@@ -2264,7 +2303,7 @@ function clearSelectedMailPreview() {
 }
 
 function getMailListFunctionName() {
-  return "email_getbookingemaildrafts";
+  return "email_getmoduleemaildrafts";
 }
 
 function getMailCacheKey(tabName, recordId) {
@@ -2620,7 +2659,8 @@ async function onSaveDraftEdit(event) {
   const cacheKey = getMailCacheKey("drafts", draftId);
   const currentFields = state.draftEditorFields || buildDraftEditorFields(getSelectedDraftViewerRecord());
   const args = {
-    bookingId: state.selectedBookingId,
+    module: MODULES.bookings,
+    recordId: state.selectedBookingId,
     draftId: draftId,
     email_to: (currentFields.email_to || "").trim(),
     email_from: DRAFT_FROM_LOGIN_USER_VALUE,
@@ -2631,7 +2671,8 @@ async function onSaveDraftEdit(event) {
   const comparableDraftFields = Object.assign({}, currentFields);
 
   logDraftEditorDebug("save-submit-args", {
-    bookingId: args.bookingId,
+    module: args.module,
+    recordId: args.recordId,
     draftId: args.draftId,
     email_to: args.email_to,
     email_from: args.email_from,
@@ -2649,7 +2690,7 @@ async function onSaveDraftEdit(event) {
   renderEmailsPanel(elements, state);
 
   try {
-    const response = await crmExecuteFunction("email_updatebookingemaildraft", args);
+    const response = await crmExecuteFunction("email_updatemoduleemaildraft", args);
     logDraftEditorDebug("save-submit-response", response);
     const payload = extractFunctionPayload(response);
     logDraftEditorDebug("save-submit-payload", payload);
@@ -3408,6 +3449,7 @@ async function loadBookingWorkspace(bookingId, options) {
   state.bookingBlueprint = null;
   state.bookingBlueprintLoading = true;
   state.bookingBlueprintError = "";
+  state.bookingBlueprintClosingMenuOpen = false;
 
   try {
     const bookingBlueprintPromise = loadBookingBlueprintForBooking(bookingId)
@@ -3497,6 +3539,7 @@ async function loadBookingWorkspace(bookingId, options) {
 
     renderBookingWorkspace(elements, state);
     renderBookingSummary(elements, state);
+    void ensureDeskTicketLoaded();
     applyServiceFilter();
     renderSelectionPanel(elements, state);
     renderEmailsPanel(elements, state);
@@ -3530,19 +3573,28 @@ async function loadBookingWorkspace(bookingId, options) {
 }
 
 function onWorkspaceActionClick(event) {
+  const closingMenuToggle = event.target && event.target.closest ? event.target.closest("[data-blueprint-closing-menu-toggle]") : null;
+
+  if (closingMenuToggle) {
+    event.stopPropagation();
+    state.bookingBlueprintClosingMenuOpen = !state.bookingBlueprintClosingMenuOpen;
+    renderBookingWorkspace(elements, state);
+    return;
+  }
+
   const transitionButton = event.target && event.target.closest ? event.target.closest("[data-blueprint-transition-id]") : null;
 
   if (transitionButton) {
+    event.stopPropagation();
     const transitionId = transitionButton.getAttribute("data-blueprint-transition-id") || "";
     const transitionName = transitionButton.getAttribute("data-blueprint-transition-name") || "This transition";
     const transition = findSelectedBookingBlueprintTransition(transitionId);
-    const requiredFields = Array.isArray(transition && transition.fields) ? transition.fields.length : 0;
-    const message = requiredFields
-      ? 'Blueprint action "' + transitionName + '" is shown, but transition execution is not integrated yet. It requires ' + requiredFields + (requiredFields === 1 ? " field." : " fields.")
-      : 'Blueprint action "' + transitionName + '" is shown, but transition execution is not integrated yet.';
+    if (!transition || !state.selectedBookingId) {
+      setError(elements, "This workflow action is no longer available. Refresh the booking and try again.");
+      return;
+    }
 
-    setError(elements, "");
-    setNotice(elements, message);
+    openBlueprintTransitionDialog(transition, transitionName);
     return;
   }
 
@@ -3569,6 +3621,113 @@ function onWorkspaceActionClick(event) {
   }
 }
 
+function openBlueprintTransitionDialog(transition, transitionName) {
+  const fields = Array.isArray(transition.fields) ? transition.fields.filter(function (field) {
+    return field && field.api_name && !field.read_only && !field.field_read_only;
+  }) : [];
+  const dialog = document.createElement("div");
+  const processInfo = state.bookingBlueprint && state.bookingBlueprint.processInfo || {};
+  const currentPicklist = processInfo.current_picklist && typeof processInfo.current_picklist === "object" ? processInfo.current_picklist : {};
+  const previousState = currentPicklist.value || processInfo.field_value || "Current state";
+  const nextState = transition.next_field_value || transitionName;
+  const previousColor = normalizeBlueprintColor(currentPicklist.colour_code, "#0f766e");
+  const nextColor = normalizeBlueprintColor(transition.color_code, "#2385ef");
+  dialog.className = "booking-action-dialog blueprint-transition-dialog";
+  dialog.innerHTML = [
+    '<div class="booking-action-dialog-panel" role="dialog" aria-modal="true" aria-label="' + escapeHtml(transitionName) + '">',
+    '<div class="blueprint-transition-dialog-heading"><span class="blueprint-transition-dialog-eyebrow">Workflow transition</span><h4>' + escapeHtml(transitionName) + "</h4></div>",
+    '<div class="blueprint-transition-route" aria-label="Transition from ' + escapeHtml(previousState) + " to " + escapeHtml(nextState) + '">',
+    '  <span class="blueprint-transition-state" style="--blueprint-state-color:' + previousColor + '">' + escapeHtml(previousState) + "</span>",
+    '  <span class="blueprint-transition-arrow" aria-hidden="true">→</span>',
+    '  <span class="blueprint-transition-state" style="--blueprint-state-color:' + nextColor + '">' + escapeHtml(nextState) + "</span>",
+    "</div>",
+    '<p class="blueprint-transition-confirmation">Are you sure you want to move this booking to the new state?</p>',
+    '<form class="booking-form">',
+    fields.length ? '<div class="booking-form-grid">' + fields.map(function (field) { return renderBlueprintTransitionField(field, transition.data || {}); }).join("") + "</div>" : "",
+    '<div class="booking-action-dialog-footer booking-action-dialog-footer--split"><button class="button tertiary compact" type="button" data-close>Cancel</button><button class="button booking-action-button compact" type="submit">Execute</button></div>',
+    "</form></div>"
+  ].join("");
+
+  document.body.appendChild(dialog);
+  dialog.querySelector("[data-close]").addEventListener("click", function () { dialog.remove(); });
+  dialog.addEventListener("click", function (event) {
+    if (event.target === dialog) {
+      dialog.remove();
+    }
+  });
+  dialog.querySelector("form").addEventListener("submit", async function (submitEvent) {
+    submitEvent.preventDefault();
+    const data = collectBlueprintTransitionData(fields, dialog.querySelector("form"));
+    const submitButton = dialog.querySelector('[type="submit"]');
+    submitButton.disabled = true;
+    try {
+      await executeBlueprintTransition(transition, data);
+      dialog.remove();
+    } catch (error) {
+      submitButton.disabled = false;
+      setError(elements, error && error.message ? error.message : "The workflow action could not be executed.");
+    }
+  });
+}
+
+function normalizeBlueprintColor(color, fallback) {
+  const candidate = String(color || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(candidate) ? candidate : fallback;
+}
+
+function renderBlueprintTransitionField(field, initialData) {
+  const apiName = String(field.api_name || "");
+  const label = field.field_label || field.display_label || apiName;
+  const value = initialData[apiName] === undefined || initialData[apiName] === null ? "" : initialData[apiName];
+  const required = field.mandatory || field.system_mandatory ? " required" : "";
+  const dataType = String(field.data_type || "").toLowerCase();
+  const options = Array.isArray(field.pick_list_values) ? field.pick_list_values : [];
+  let control;
+  if (options.length) {
+    control = '<select name="' + escapeHtml(apiName) + '"' + required + '><option value="">Select…</option>' + options.map(function (option) {
+      const optionValue = option.actual_value || option.display_value || option.value || "";
+      return '<option value="' + escapeHtml(optionValue) + '"' + (String(optionValue) === String(value) ? " selected" : "") + ">" + escapeHtml(option.display_value || optionValue) + "</option>";
+    }).join("") + "</select>";
+  } else if (dataType === "boolean") {
+    control = '<input name="' + escapeHtml(apiName) + '" type="checkbox"' + (value === true ? " checked" : "") + ">";
+  } else if (dataType === "textarea") {
+    control = '<textarea name="' + escapeHtml(apiName) + '" rows="3"' + required + ">" + escapeHtml(value) + "</textarea>";
+  } else {
+    const type = dataType === "date" ? "date" : (dataType === "integer" || dataType === "double" || dataType === "currency" ? "number" : "text");
+    control = '<input name="' + escapeHtml(apiName) + '" type="' + type + '" value="' + escapeHtml(value) + '"' + required + ">";
+  }
+  return '<label class="field booking-form-field"><span>' + escapeHtml(label) + (required ? " <em>*</em>" : "") + "</span>" + control + "</label>";
+}
+
+function collectBlueprintTransitionData(fields, form) {
+  const data = {};
+  fields.forEach(function (field) {
+    const input = form.elements[field.api_name];
+    if (!input) return;
+    data[field.api_name] = input.type === "checkbox" ? input.checked : input.value;
+  });
+  return data;
+}
+
+async function executeBlueprintTransition(transition, data) {
+  const response = await crmExecuteFunction("blueprint_executetransition", {
+    moduleApiName: MODULES.bookings,
+    recordId: String(state.selectedBookingId),
+    expectedCurrentState: String(state.bookingBlueprint && state.bookingBlueprint.processInfo && state.bookingBlueprint.processInfo.field_value || ""),
+    transitionId: String(transition.id),
+    transitionDataJson: JSON.stringify(data || {})
+  });
+  const payload = extractFunctionPayload(response);
+  const errorDetails = getFunctionPayloadErrorDetails(payload);
+  if (errorDetails || !payload || payload.success !== true) {
+    throw buildFunctionPayloadError(errorDetails || { message: payload && payload.message || "Zoho CRM rejected the workflow action." });
+  }
+  state.bookingBlueprintClosingMenuOpen = false;
+  setError(elements, "");
+  setNotice(elements, payload.message || "Workflow action executed successfully.");
+  await loadBookingWorkspace(state.selectedBookingId, { preserveSelection: true });
+}
+
 async function onSyncEzusClick() {
   if (!state.selectedBooking) {
     setError(elements, "Load a booking before syncing with Ezus.");
@@ -3578,9 +3737,6 @@ async function onSyncEzusClick() {
   const booking = state.selectedBooking;
   const bookingId = booking.id;
   const ezusProjectRef = booking.Ezus_Project_ID || "";
-  const bookingStage = booking.Stage || "";
-  const bookingOwnerId = booking.Owner && booking.Owner.id ? booking.Owner.id : "";
-  const layout = getLayoutValue(booking.Layout);
 
   if (!ezusProjectRef) {
     setError(elements, "This booking does not have Ezus_Project_ID, so the sync cannot start.");
@@ -3597,10 +3753,11 @@ async function onSyncEzusClick() {
   try {
     const response = await crmExecuteFunction("syncprojectfromezus", {
       bookingId: bookingId,
-      ezusProjectRef: ezusProjectRef,
-      bookingStage: bookingStage,
-      bookingOwnerId: bookingOwnerId,
-      layout: layout
+      args: JSON.stringify({
+        sync: {
+          syncActionUserEmail: state.currentUserEmail || ""
+        }
+      })
     });
 
     let message = "Ezus sync launched.";
@@ -3617,6 +3774,89 @@ async function onSyncEzusClick() {
     setNotice(elements, message);
   } catch (error) {
     setError(elements, "Could not run the Ezus sync function from this widget.");
+  } finally {
+    state.syncingEzus = false;
+    clearLoading(elements, state);
+  }
+}
+
+async function onRunAdminEzusSync(syncType, label) {
+  if (!state.selectedBooking) {
+    setError(elements, "Load a booking before syncing with Ezus.");
+    return;
+  }
+
+  if (!state.selectedBooking.Ezus_Project_ID) {
+    setError(elements, "This booking does not have Ezus_Project_ID, so the sync cannot start.");
+    return;
+  }
+
+  state.syncingEzus = true;
+  setButtonsDisabled(elements, state, true);
+  setError(elements, "");
+  setNotice(elements, "Syncing " + label.toLowerCase() + " with Ezus...", { loading: true });
+
+  try {
+    const response = await crmExecuteFunction("sync_runprojectfromezus", {
+      bookingId: state.selectedBooking.id,
+      args: {
+        sync: {
+          syncActionUserEmail: state.currentUserEmail || ""
+        }
+      },
+      syncType: syncType
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+
+    if (errorDetails) {
+      throw buildFunctionPayloadError(errorDetails);
+    }
+
+    await loadBookingWorkspace(state.selectedBooking.id, { preserveNotice: true });
+    setNotice(elements, payload && payload.message || label + " synced with Ezus.");
+  } catch (error) {
+    setError(elements, error && error.message ? error.message : "Could not sync " + label.toLowerCase() + " with Ezus.");
+  } finally {
+    state.syncingEzus = false;
+    clearLoading(elements, state);
+  }
+}
+
+async function onSyncContactToEzus() {
+  const booking = state.selectedBooking;
+  const contact = booking && (booking.Contact_Name || booking.Primary_Contact);
+  const contactId = contact && typeof contact === "object" ? contact.id : contact;
+
+  if (!booking) {
+    setError(elements, "Load a booking before syncing its contact with Ezus.");
+    return;
+  }
+
+  if (!contactId) {
+    setError(elements, "This booking does not have a contact to sync with Ezus.");
+    return;
+  }
+
+  state.syncingEzus = true;
+  setButtonsDisabled(elements, state, true);
+  setError(elements, "");
+  setNotice(elements, "Syncing contact with Ezus...", { loading: true });
+
+  try {
+    const response = await crmExecuteFunction("upsertcontactinezus", {
+      contactId: String(contactId)
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+
+    if (errorDetails) {
+      throw buildFunctionPayloadError(errorDetails);
+    }
+
+    setNotice(elements, payload && payload.message || "Contact synced with Ezus.");
+  } catch (error) {
+    setError(elements, error && error.message ? error.message : "Could not sync the contact with Ezus.");
   } finally {
     state.syncingEzus = false;
     clearLoading(elements, state);

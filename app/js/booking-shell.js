@@ -65,6 +65,7 @@ export function renderBookingSummary(elements, state) {
 export function renderBookingWorkspace(elements, state) {
   const booking = state.selectedBooking;
   applyBookingBrowserLayoutState(elements, state);
+  applyBookingRailLayoutState(elements, state);
   renderBookingAdminActions(elements, state, booking);
 
   if (!booking) {
@@ -72,15 +73,12 @@ export function renderBookingWorkspace(elements, state) {
       elements.bookingMainShell.classList.add("is-empty-workspace");
     }
     elements.summaryDashboard.innerHTML = renderWorkspaceEmptyState(state);
-    if (elements.summaryQuickAccess) {
-      elements.summaryQuickAccess.innerHTML = renderWorkspaceQuickAccess(true);
-    }
     elements.summaryBlueprintPanel.innerHTML = renderBookingBlueprintPlaceholder(
       "Workflow",
       "Load a booking to review its current state and next actions."
     );
     elements.summarySearchShell.classList.remove("is-booking-loaded");
-    renderBookingActionArea(elements, null);
+    renderBookingActionArea(elements, null, state);
     if (elements.clearBooking) {
       elements.clearBooking.disabled = true;
     }
@@ -95,16 +93,13 @@ export function renderBookingWorkspace(elements, state) {
     elements.bookingMainShell.classList.remove("is-empty-workspace");
   }
   elements.summaryDashboard.innerHTML = renderWorkspaceDashboard(booking, state);
-  if (elements.summaryQuickAccess) {
-    elements.summaryQuickAccess.innerHTML = renderWorkspaceQuickAccess(false);
-  }
   elements.summaryBlueprintPanel.innerHTML = renderBookingBlueprintPanel(state);
   const workflowSlot = elements.summaryDashboard.querySelector(".workspace-workflow-slot");
   if (workflowSlot) {
     workflowSlot.appendChild(elements.summaryBlueprintPanel);
   }
   elements.summarySearchShell.classList.add("is-booking-loaded");
-  renderBookingActionArea(elements, booking);
+  renderBookingActionArea(elements, booking, state);
   if (elements.clearBooking) {
     elements.clearBooking.disabled = false;
   }
@@ -112,6 +107,20 @@ export function renderBookingWorkspace(elements, state) {
   elements.syncEzus.disabled = state.syncingEzus;
   elements.openBookingReportDialog.disabled = false;
   elements.createPaymentRequest.disabled = false;
+}
+
+function applyBookingRailLayoutState(elements, state) {
+  const isCollapsed = Boolean(state.bookingRailCollapsed);
+
+  if (elements.bookingMainShell) {
+    elements.bookingMainShell.classList.toggle("is-rail-collapsed", isCollapsed);
+  }
+  if (elements.bookingRail) {
+    elements.bookingRail.classList.toggle("is-collapsed", isCollapsed);
+  }
+  if (elements.bookingRailToggle) {
+    elements.bookingRailToggle.hidden = !isCollapsed;
+  }
 }
 
 function renderBookingAdminActions(elements, state, booking) {
@@ -419,7 +428,6 @@ function renderDeskSummaryPanel(booking, state) {
     '  <div class="summary-cards-grid">',
     buildSummaryItem("Ticket", ticket.ticket_number || ticket.id || ticketId),
     buildSummaryItem("Status", ticket.status || "-"),
-    buildSummaryItem("Priority", ticket.priority || "-"),
     buildSummaryItem("Last interaction", party),
     buildSummaryItem("When", interaction.created_time ? formatDateTime(interaction.created_time) : "-"),
     buildSummaryItem("By", interaction.author_name || "-"),
@@ -505,20 +513,13 @@ function renderWorkspaceEmptyState(state) {
     '<section class="workspace-surface workspace-empty-state">',
     '  <div class="workspace-empty-state-copy">',
     '    <span class="workspace-section-eyebrow">Booking workspace</span>',
-    '    <strong>Choose a booking to start working.</strong>',
-    '    <p>Select a record from the queue or search by MFSP reference or booking name.</p>',
+    '    <strong>Choose a booking to start working</strong>',
     "  </div>",
-    '  <ol class="workspace-empty-steps">',
-    '    <li><span>1</span>Review booking status and workflow</li>',
-    '    <li><span>2</span>Check trip information and actions</li>',
-    '    <li><span>3</span>Manage services, emails and travelers</li>',
-    "  </ol>",
     "</section>"
   ].join("");
 }
 
 function renderWorkspaceDashboard(booking) {
-  const owner = getBookingOwnerInfo(booking);
   const tripContactLabel = normalizeComparableText(getBookingValue(booking, ["Client_Type"])) === "direct client"
     ? "Trip main contact"
     : "Agent";
@@ -528,10 +529,10 @@ function renderWorkspaceDashboard(booking) {
     '  <div class="workspace-hero-top booking-header-top">',
     '    <div class="workspace-hero-copy">',
     '      <span class="workspace-section-eyebrow">Active booking</span>',
-    '      <h2>' + escapeHtml(booking.Deal_Name || booking.MFSP_Reference || "Booking") + "</h2>",
-    '      <p>' + escapeHtml(booking.MFSP_Reference || "-") + " · " + escapeHtml(getLookupName(booking.Account_Name) || "No agency linked") + "</p>",
+    '      <h2>' + escapeHtml([booking.MFSP_Reference, booking.Deal_Name].filter(Boolean).join(" · ") || "Booking") + "</h2>",
+    '      <p class="booking-header-agency-contact-line"><span>' + escapeHtml(getLookupName(booking.Account_Name) || "No agency linked") + '</span><span class="booking-header-agent-inline" aria-label="' + escapeHtml(tripContactLabel) + '"><b aria-hidden="true">|</b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3 2.4-5 5.5-5s5 2 5.5 5M16 5.5a3 3 0 0 1 0 5.7M17.5 14c1.8.4 3 1.8 3.4 4"/></svg>' + escapeHtml(getLookupName(booking.Contact_Name) || "-") + "</span></p>",
+    '      <p class="booking-header-agency-line"><span>' + escapeHtml(booking.MFSP_Reference || "-") + " · " + escapeHtml(getLookupName(booking.Account_Name) || "No agency linked") + '</span><span class="booking-header-agent-inline" aria-label="' + escapeHtml(tripContactLabel) + '"><b aria-hidden="true">|</b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3 2.4-5 5.5-5s5 2 5.5 5M16 5.5a3 3 0 0 1 0 5.7M17.5 14c1.8.4 3 1.8 3.4 4"/></svg>' + escapeHtml(getLookupName(booking.Contact_Name) || "-") + "</span></p>",
     "    </div>",
-    '    <div class="booking-header-contacts"><div class="booking-header-contact"><span class="label">Owner</span><strong>' + escapeHtml(owner && owner.label ? owner.label : "-") + '</strong></div><div class="booking-header-contact"><span class="label">' + escapeHtml(tripContactLabel) + '</span><strong>' + escapeHtml(getLookupName(booking.Contact_Name) || "-") + "</strong></div></div>",
     "  </div>",
     '  <div class="booking-header-metadata" aria-label="Booking details">',
     '    <span class="booking-header-metadata-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>' + escapeHtml(formatDate(booking.Arrival_Date)) + " - " + escapeHtml(formatDate(booking.Departure_Date)) + "</span>",
@@ -540,36 +541,6 @@ function renderWorkspaceDashboard(booking) {
     "  </div>",
     '  <div class="booking-header-trip-line">' + escapeHtml(formatDate(booking.Arrival_Date)) + " → " + escapeHtml(formatDate(booking.Departure_Date)) + "<span>·</span>" + escapeHtml(getTripDurationLabel(booking)) + "<span>·</span>" + escapeHtml(firstTextValue(booking.Travelers_Number, booking.Travellers_Number)) + " travelers</div>",
     '  <div class="workspace-workflow-slot"></div>',
-    "</section>"
-  ].join("");
-}
-
-function renderWorkspaceQuickAccess(isDisabled) {
-  return [
-    '<section class="summary-quick-access-card">',
-    '  <div class="workspace-surface-header">',
-    "    <h3>Quick access</h3>",
-    "  </div>",
-    '  <div class="workspace-system-grid">',
-    buildWorkspaceSystemButton("Desk", "desk", isDisabled),
-    buildWorkspaceSystemButton("Ezus", "ezus", isDisabled),
-    buildWorkspaceSystemButton("WorkDrive", "workdrive", isDisabled),
-    buildWorkspaceSystemButton("Itinerary Link", "itinerary", isDisabled),
-    "  </div>",
-    '  <div class="quick-access-payments">',
-    '    <span class="label">Payments & reports</span>',
-    '  <div class="workspace-admin-grid">',
-    buildWorkspaceAdminButton("Travelers Payments", "travellers-payments", isDisabled),
-    buildWorkspaceAdminButton("Prepayments", "prepayments", isDisabled),
-    "  </div>",
-    "  </div>",
-    '  <div class="quick-access-internal-requests">',
-    '    <span class="label">Internal requests</span>',
-    '    <div class="workspace-admin-grid">',
-    buildWorkspaceInternalRequestButton("Create Product Request", "product", isDisabled),
-    buildWorkspaceInternalRequestButton("Create IT Request", "it", isDisabled),
-    "    </div>",
-    "  </div>",
     "</section>"
   ].join("");
 }
@@ -583,15 +554,26 @@ function buildWorkspaceContextItem(label, value) {
   ].join("");
 }
 
-function renderBookingActionArea(elements, booking) {
+function renderBookingActionArea(elements, booking, state) {
   if (!booking) {
     elements.actionEzusSyncAt.textContent = "-";
-    elements.actionEzusSyncBy.textContent = "-";
-    elements.actionHasAxus.textContent = "Not set";
-    elements.actionHasAxus.className = "action-status-badge action-status-badge--neutral";
+    if (elements.bookingTravelStatus) {
+      elements.bookingTravelStatus.textContent = "-";
+    }
+    if (elements.bookingDeskStatus) {
+      elements.bookingDeskStatus.textContent = "-";
+    }
+    if (elements.bookingSyncInfo) {
+      elements.bookingSyncInfo.removeAttribute("data-tooltip");
+      elements.bookingSyncInfo.hidden = true;
+    }
+    if (elements.actionHasAxus) {
+      elements.actionHasAxus.textContent = "Not set";
+      elements.actionHasAxus.className = "";
+    }
     elements.actionEzusSyncWarning.hidden = true;
     elements.actionEzusSyncWarning.textContent = "";
-    elements.actionEzusSyncWarning.className = "action-sync-message";
+    elements.actionEzusSyncWarning.className = "booking-status-note";
     return;
   }
 
@@ -613,14 +595,69 @@ function renderBookingActionArea(elements, booking) {
   ]);
   const hasAxusState = resolveHasAxusState(hasAxus);
   const syncMessage = buildEzusSyncMessage(booking, lastSyncAtRaw);
+  const travelStatus = getBookingTravelStatus(booking);
 
-  elements.actionEzusSyncAt.textContent = lastSyncAtRaw ? formatDateTime(lastSyncAtRaw) : "-";
-  elements.actionEzusSyncBy.textContent = lastSyncBy || "-";
-  elements.actionHasAxus.textContent = hasAxusState.label;
-  elements.actionHasAxus.className = "action-status-badge " + hasAxusState.className;
+  var lastSyncAt = lastSyncAtRaw ? new Date(lastSyncAtRaw) : null;
+  elements.actionEzusSyncAt.textContent = lastSyncAt && !Number.isNaN(lastSyncAt.getTime())
+    ? formatElapsedTime(Date.now() - lastSyncAt.getTime()) + " ago"
+    : "No sync recorded";
+  if (elements.bookingSyncInfo) {
+    elements.bookingSyncInfo.hidden = !lastSyncAtRaw;
+    elements.bookingSyncInfo.setAttribute(
+      "data-tooltip",
+      "Last synchronized by: " + (lastSyncBy || "Unknown") + ". When: " + (lastSyncAtRaw ? formatDateTime(lastSyncAtRaw) : "Unknown")
+    );
+  }
+  if (elements.bookingTravelStatus) {
+    elements.bookingTravelStatus.textContent = travelStatus ? travelStatus.label : "Dates unavailable";
+  }
+  if (elements.actionHasAxus) {
+    elements.actionHasAxus.textContent = hasAxusState.label;
+    elements.actionHasAxus.className = "action-status-badge " + hasAxusState.className;
+  }
+  renderBookingDeskStatus(elements, booking, state);
   elements.actionEzusSyncWarning.hidden = !syncMessage;
   elements.actionEzusSyncWarning.textContent = syncMessage ? syncMessage.text : "";
-  elements.actionEzusSyncWarning.className = "action-sync-message " + (syncMessage ? syncMessage.className : "");
+  elements.actionEzusSyncWarning.className = "booking-status-note " + (syncMessage ? syncMessage.className : "");
+}
+
+function renderBookingDeskStatus(elements, booking, state) {
+  if (!elements.bookingDeskStatus) {
+    return;
+  }
+
+  var ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
+  var ticket = state && state.deskTicket;
+
+  if (!ticketId || ticketId === "-") {
+    elements.bookingDeskStatus.textContent = "No Desk ticket";
+    return;
+  }
+
+  if (state && state.deskTicketLoading) {
+    elements.bookingDeskStatus.textContent = "Loading latest interaction…";
+    return;
+  }
+
+  if (state && state.deskTicketError) {
+    elements.bookingDeskStatus.textContent = "Interaction unavailable";
+    return;
+  }
+
+  if (!ticket) {
+    elements.bookingDeskStatus.textContent = "No interaction available";
+    return;
+  }
+
+  var interaction = ticket.latest_interaction || {};
+  var party = interaction.party === "agent" ? "Our team" : interaction.party === "customer" ? "Client" : "System";
+  var author = interaction.author_name ? " · " + interaction.author_name : "";
+  var interactionTime = interaction.created_time ? new Date(interaction.created_time) : null;
+  var elapsed = interactionTime && !Number.isNaN(interactionTime.getTime())
+    ? " · " + formatElapsedTime(Date.now() - interactionTime.getTime()) + " ago"
+    : "";
+
+  elements.bookingDeskStatus.textContent = party + author + elapsed;
 }
 
 function renderBookingBlueprintPanel(state) {
@@ -685,16 +722,8 @@ function renderBookingBlueprintPlaceholder(title, message, modifierClass) {
 }
 
 function renderBookingBlueprintTransitions(transitions) {
-  const openTransitions = transitions.filter(function (transition) {
-    return !isClosingBookingTransition(transition);
-  });
-  const closingTransitions = transitions.filter(function (transition) {
-    return isClosingBookingTransition(transition);
-  });
-
   return '<div class="summary-blueprint-transition-list">' +
-    '<div class="workflow-transition-group workflow-transition-group--open">' + renderWorkflowTransitionButtons(openTransitions, true) + "</div>" +
-    (closingTransitions.length ? '<div class="workflow-transition-group workflow-transition-group--closing">' + renderWorkflowTransitionButtons(closingTransitions, false) + "</div>" : "") +
+    '<div class="workflow-transition-group">' + renderWorkflowTransitionButtons(transitions, true) + "</div>" +
     "</div>";
 }
 
@@ -758,30 +787,6 @@ function buildSummaryMetricRow(label, value) {
   ].join("");
 }
 
-function buildWorkspaceSystemButton(label, systemKey, isDisabled) {
-  return [
-    '<button class="workspace-system-button" type="button" data-workspace-link="' + escapeHtml(systemKey) + '"' + (isDisabled ? " disabled" : "") + ">",
-    '  <span class="workspace-system-title">' + escapeHtml(label) + "</span>",
-    "</button>"
-  ].join("");
-}
-
-function buildWorkspaceAdminButton(label, linkKey, isDisabled) {
-  return [
-    '<button class="workspace-admin-button" type="button" data-workspace-link="' + escapeHtml(linkKey) + '"' + (isDisabled ? " disabled" : "") + ">",
-    '  <span class="workspace-admin-title">' + escapeHtml(label) + "</span>",
-    "</button>"
-  ].join("");
-}
-
-function buildWorkspaceInternalRequestButton(label, requestType, isDisabled) {
-  return [
-    '<button class="workspace-admin-button workspace-internal-request-button" type="button" data-internal-request="' + escapeHtml(requestType) + '"' + (isDisabled ? " disabled" : "") + ">",
-    '  <span class="workspace-admin-title">' + escapeHtml(label) + "</span>",
-    "</button>"
-  ].join("");
-}
-
 function buildEzusSyncMessage(booking, lastSyncAtRaw) {
   const stage = String(getBookingStageValue(booking) || "").trim();
   const staleStages = {
@@ -794,38 +799,28 @@ function buildEzusSyncMessage(booking, lastSyncAtRaw) {
   const normalizedStage = normalizeComparableText(stage);
 
   if (!lastSyncAtRaw) {
-    return {
-      text: staleStages[normalizedStage]
-        ? "Synchronization required: this trip is in an active stage and no EZUS sync has been recorded yet."
-        : "No EZUS sync has been recorded yet for this trip.",
-      className: staleStages[normalizedStage] ? "action-sync-message--alert" : "action-sync-message--success"
-    };
+    return staleStages[normalizedStage]
+      ? { text: "You must sync", className: "action-sync-message--alert" }
+      : null;
   }
 
   const lastSyncAt = new Date(lastSyncAtRaw);
 
   if (Number.isNaN(lastSyncAt.getTime())) {
-    return {
-      text: "The last EZUS sync date is not available yet.",
-      className: "action-sync-message--success"
-    };
+    return null;
   }
 
   const elapsedMs = Date.now() - lastSyncAt.getTime();
   const dayMs = 24 * 60 * 60 * 1000;
-  const relativeText = formatElapsedTime(elapsedMs);
 
   if (staleStages[normalizedStage] && elapsedMs > dayMs) {
     return {
-      text: "Synchronization required: this trip was last synced " + relativeText + " ago.",
+      text: "You must sync",
       className: "action-sync-message--alert"
     };
   }
 
-  return {
-    text: "This trip was synced " + relativeText + " ago.",
-    className: "action-sync-message--success"
-  };
+  return null;
 }
 
 function resolveHasAxusState(value) {
@@ -894,6 +889,37 @@ function getTripDurationLabel(booking) {
   var normalizedDays = Math.max(diffDays, 1);
 
   return normalizedDays + (normalizedDays === 1 ? " day" : " days");
+}
+
+function getBookingTravelStatus(booking) {
+  var arrival = parseDateOnlyValue(booking.Arrival_Date);
+  var departure = parseDateOnlyValue(booking.Departure_Date);
+
+  if (!arrival || !departure) {
+    return null;
+  }
+
+  var today = new Date();
+  today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  var dayMs = 24 * 60 * 60 * 1000;
+
+  if (today < arrival) {
+    var daysToArrival = Math.round((arrival.getTime() - today.getTime()) / dayMs);
+    return {
+      type: "upcoming",
+      label: daysToArrival + (daysToArrival === 1 ? " day to arrival" : " days to arrival")
+    };
+  }
+
+  if (today <= departure) {
+    return { type: "on-tour", label: "On Tour" };
+  }
+
+  var daysSinceDeparture = Math.round((today.getTime() - departure.getTime()) / dayMs);
+  return {
+    type: "past",
+    label: daysSinceDeparture + (daysSinceDeparture === 1 ? " day since departure" : " days since departure")
+  };
 }
 
 function parseDateOnlyValue(value) {

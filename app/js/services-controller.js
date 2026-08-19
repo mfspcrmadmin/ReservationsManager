@@ -339,18 +339,24 @@ export function applyServiceFilter() {
 }
 
 function serviceRequiresOperationalManagement(service) {
-  const value = service && (
-    service.Requires_Operational_Management ||
-    service.Requires_Operational_Management_ ||
-    service.Requires_Operational ||
-    service.Operational_Management_Required
-  );
+  const fieldNames = [
+    "Requires_Operational_Management",
+    "Requires_Operational_Management_",
+    "Requires_Operational",
+    "Operational_Management_Required"
+  ];
 
-  if (value === undefined || value === null || value === "") {
-    return true;
+  for (let index = 0; index < fieldNames.length; index += 1) {
+    const value = service && service[fieldNames[index]];
+
+    // Do not use truthiness here: an unchecked CRM checkbox is `false`.
+    if (value !== undefined && value !== null && value !== "") {
+      return ["true", "yes", "1", "required"].indexOf(normalizeComparableText(value)) !== -1;
+    }
   }
 
-  return ["true", "yes", "1", "required"].indexOf(normalizeComparableText(value)) !== -1;
+  // If the checkbox is absent, it is not marked and therefore non-operational.
+  return false;
 }
 
 export function selectService(serviceId) {
@@ -367,6 +373,17 @@ export function selectService(serviceId) {
   renderServicesWorkspace();
 }
 
+export function closeServiceDetails() {
+  state.selectedServiceId = "";
+  state.selectedService = null;
+  state.selectedStepId = "";
+  state.selectedStep = null;
+  state.selectedItemType = "";
+  state.serviceStatusDraftValue = "";
+
+  renderServicesWorkspace();
+}
+
 export function selectStep(stepId, rawStepId) {
   state.selectedStepId = rawStepId || stepId || "";
   state.selectedStep = stepId ? state.stepIndex[stepId] || null : null;
@@ -375,11 +392,6 @@ export function selectStep(stepId, rawStepId) {
   state.selectedItemType = "step";
   state.serviceStatusDraftValue = "";
 
-  renderServicesWorkspace();
-}
-
-export function clearServiceSelection() {
-  state.selectedServiceIds = {};
   renderServicesWorkspace();
 }
 

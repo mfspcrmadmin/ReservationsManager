@@ -1,5 +1,3 @@
-app\styles\widget.css:3204:.booking-form-currency-symbol {
-app\js\services-controller.js:649:  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" value="' + escapeHtml(value) + '" type="number" min="0.01" step="0.01" required></div></label>';
 <!DOCTYPE html>
 <html lang="es">
   <head>
@@ -109,28 +107,6 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
                   </div>
                 </div>
 
-                <section class="booking-sync-strip">
-                  <div class="booking-sync-strip-main">
-                    <span class="booking-sync-title">Synchronization</span>
-                    <div id="action-ezus-sync-warning" class="action-sync-message" hidden></div>
-                    <button id="sync-ezus" class="button booking-action-button booking-action-button--sync" type="button">Sync booking with EZUS</button>
-                  </div>
-                  <div class="booking-sync-strip-meta">
-                    <article class="action-meta-item">
-                      <span class="label">Last Ezus Sync At</span>
-                      <strong id="action-ezus-sync-at">-</strong>
-                    </article>
-                    <article class="action-meta-item">
-                      <span class="label">Last Ezus Sync By</span>
-                      <strong id="action-ezus-sync-by">-</strong>
-                    </article>
-                    <article class="action-meta-item">
-                      <span class="label">Itinerary format</span>
-                      <strong id="action-has-axus" class="action-status-badge">-</strong>
-                    </article>
-                  </div>
-                </section>
-
                 <section class="workspace-top-grid">
                   <div id="summary-dashboard" class="workspace-dashboard">
                     <section class="workspace-surface workspace-empty-state workspace-empty-state--loading" aria-live="polite">
@@ -145,43 +121,38 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
                   </div>
                 </section>
 
-                <section class="booking-summary-lower-grid">
-                  <section class="booking-details-card booking-details-card--embedded">
-                    <div class="card-header booking-details-card-header">
-                      <div>
-                        <h2 class="panel-mini-title">Booking Information</h2>
-                      </div>
-                    </div>
-
-                    <div id="summary-booking-hero"></div>
-
-                    <div class="summary-view-controls">
-                      <div class="segmented-control segmented-control-minimal summary-mode-switch summary-mode-switch--details" role="tablist" aria-label="Booking summary view">
-                        <button id="summary-view-basic" class="segmented-control-button is-active" type="button">Basic</button>
-                        <button id="summary-view-financial" class="segmented-control-button" type="button">Financial</button>
-                        <button id="summary-view-contact" class="segmented-control-button" type="button">Contacts</button>
-                        <button id="summary-view-analytics" class="segmented-control-button" type="button">Analytics</button>
-                        <button id="summary-view-travelers" class="segmented-control-button" type="button">Travelers</button>
-                        <button id="summary-view-team" class="segmented-control-button" type="button">Team</button>
-                      </div>
-                      <button id="summary-view-desk" class="summary-desk-button" type="button">Desk</button>
-                    </div>
-
-                    <div id="summary-content" class="summary-content booking-details-content"></div>
-                    <section id="summary-travelers-view" class="summary-travelers-view" hidden>
-                      <div id="travelers-body" class="travelers-list" aria-live="polite">
-                        <p class="travelers-list-empty">Load a booking to see travelers.</p>
-                      </div>
-                    </section>
-                  </section>
-                </section>
               </div>
             </div>
           </section>
 
+          <div id="booking-rail" class="booking-rail">
+          <button id="booking-rail-toggle" class="button tertiary compact booking-rail-toggle" type="button" title="Open quick actions" aria-label="Open quick actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14v13H5zM8 9h7M8 13h7"/></svg><span>Quick actions</span></button>
+          <section class="booking-status-rail" aria-label="Booking status" aria-live="polite">
+            <div class="booking-rail-heading"><h2 class="booking-status-rail-title">Booking status</h2><button id="booking-rail-collapse-toggle" class="button tertiary compact booking-rail-collapse-toggle icon-button" type="button" title="Close quick actions" aria-label="Close quick actions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+            <section class="booking-status-panel" aria-label="Booking status" aria-live="polite">
+              <article class="booking-status-item booking-status-item--trip">
+                <span class="label">Trip</span>
+                <strong id="booking-travel-status">-</strong>
+              </article>
+              <article class="booking-status-item booking-status-item--sync">
+                <span class="label">Sync</span>
+                <strong id="action-ezus-sync-at">-</strong><span id="booking-sync-info" class="booking-sync-info" tabindex="0" aria-label="Last synchronization details"></span>
+                <span id="action-ezus-sync-warning" class="booking-status-note" hidden></span>
+                <button id="sync-ezus" class="button tertiary compact booking-status-sync-button" type="button">Sync EZUS</button>
+              </article>
+              <article class="booking-status-item booking-status-item--desk">
+                <span class="label">DESK · Last interaction</span>
+                <strong id="booking-desk-status">-</strong>
+              </article>
+              <article class="booking-status-item">
+                <span class="label">Itinerary format</span>
+                <strong id="action-has-axus">-</strong>
+              </article>
+            </section>
+          </section>
+
           <aside class="booking-actions-rail" aria-label="Booking actions">
             <h2 class="booking-actions-rail-title">Booking Actions</h2>
-            <div id="summary-quick-access" class="summary-quick-access-panel"></div>
 
             <section class="summary-actions-panel">
               <div class="summary-actions-panel-header">
@@ -214,26 +185,62 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
               </div>
               <div class="summary-actions summary-actions--stacked">
                 <a id="open-native-booking" class="button booking-action-button booking-admin-action" target="_blank" rel="noopener noreferrer">Open native booking</a>
-                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Project Info</button>
-                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Travelers</button>
-                <button class="button booking-action-button booking-admin-action" type="button">Sync Only Services</button>
-                <button class="button booking-action-button booking-admin-action" type="button">Sync Contact</button>
+                <button id="sync-project-info" class="button booking-action-button booking-admin-action" type="button">Sync Only Project Info</button>
+                <button id="sync-travelers" class="button booking-action-button booking-admin-action" type="button">Sync Only Travelers</button>
+                <button id="sync-services" class="button booking-action-button booking-admin-action" type="button">Sync Only Services</button>
+                <button id="sync-contact" class="button booking-action-button booking-admin-action" type="button">Sync Contact</button>
               </div>
             </section>
           </aside>
+          </div>
 
           <section class="booking-workspace-section">
             <nav class="page-tabs" aria-label="Booking workspace sections">
+              <button id="tab-booking" class="page-tab" type="button">Booking</button>
               <button id="tab-services" class="page-tab active" type="button">Services</button>
               <button id="tab-emails" class="page-tab" type="button">Emails</button>
+              <button id="tab-payments" class="page-tab" type="button">Payments</button>
+              <button id="tab-reports" class="page-tab" type="button">Reports</button>
+              <button id="summary-view-desk" class="page-tab" type="button">Desk</button>
             </nav>
+          </section>
+
+          <section id="manage-booking-panel" class="tab-panel booking-summary-lower-grid" hidden>
+            <section class="booking-details-card booking-details-card--embedded">
+              <div class="card-header booking-details-card-header">
+                <div>
+                  <h2 class="panel-mini-title">Booking Information</h2>
+                </div>
+              </div>
+
+              <div id="summary-booking-hero"></div>
+
+              <div class="summary-view-controls">
+                <div class="segmented-control segmented-control-minimal summary-mode-switch summary-mode-switch--details" role="tablist" aria-label="Booking summary view">
+                  <button id="summary-view-basic" class="segmented-control-button is-active" type="button">Basic</button>
+                  <button id="summary-view-financial" class="segmented-control-button" type="button">Financial</button>
+                  <button id="summary-view-contact" class="segmented-control-button" type="button">Contacts</button>
+                  <button id="summary-view-analytics" class="segmented-control-button" type="button">Analytics</button>
+                  <button id="summary-view-travelers" class="segmented-control-button" type="button">Travelers</button>
+                  <button id="summary-view-team" class="segmented-control-button" type="button">Team</button>
+                </div>
+              </div>
+
+              <div id="summary-content" class="summary-content booking-details-content"></div>
+              <section id="summary-travelers-view" class="summary-travelers-view" hidden>
+                <div id="travelers-body" class="travelers-list" aria-live="polite">
+                  <p class="travelers-list-empty">Load a booking to see travelers.</p>
+                </div>
+              </section>
+            </section>
           </section>
 
           <div id="booking-report-dialog" class="booking-action-dialog" hidden>
             <div id="booking-report-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
-            <div class="booking-action-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="booking-report-dialog-title">
-              <h4 id="booking-report-dialog-title">Report booking issue</h4>
-              <p>Choose what you want to report for the active booking.</p>
+            <div class="booking-action-dialog-panel booking-report-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="booking-report-dialog-title">
+              <span class="booking-report-dialog-eyebrow">Booking report</span>
+              <h4 id="booking-report-dialog-title">Cancellation or change</h4>
+              <p>What would you like to report for the active booking?</p>
               <div class="booking-action-dialog-options">
                 <button id="booking-report-cancellation" class="button booking-action-button compact" type="button">Cancellation</button>
                 <button id="booking-report-change" class="button booking-action-button compact" type="button">Change request</button>
@@ -251,7 +258,11 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
               <form id="card-purchase-form" class="booking-form">
                 <input id="card-purchase-requested-by" type="hidden">
                 <div class="booking-form-grid">
-                  <section class="card-purchase-context booking-form-field booking-form-field--full" aria-label="Booking and service information"><div><span>MFSP</span><strong id="card-purchase-mfsp-reference">-</strong><span>Booking</span><strong id="card-purchase-booking-name">-</strong></div><div><span>Supplier</span><strong id="card-purchase-supplier-name">-</strong><span>Code</span><strong id="card-purchase-supplier-code">-</strong></div><div><span>Service</span><strong id="card-purchase-service-name">-</strong></div></section>
+                  <section class="record-context card-purchase-context booking-form-field booking-form-field--full" aria-label="Booking, supplier and service information">
+                    <div class="record-context-section"><h5>Booking</h5><dl><div><dt>MFSP</dt><dd id="card-purchase-mfsp-reference">-</dd></div><div><dt>Name</dt><dd id="card-purchase-booking-name">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Supplier</h5><dl><div><dt>Name</dt><dd id="card-purchase-supplier-name">-</dd></div><div><dt>Code</dt><dd id="card-purchase-supplier-code">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Service</h5><dl><div><dt>Name</dt><dd id="card-purchase-service-name">-</dd></div></dl></div>
+                  </section>
 
                   <label class="field booking-form-field">
                     <span>Amount <em>*</em></span>
@@ -264,11 +275,6 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
                   <label class="field booking-form-field">
                     <span>Service Date <em>*</em></span>
                     <input id="card-purchase-service-date" type="date" required>
-                  </label>
-
-                  <label class="field booking-form-field">
-                    <span>Status <em>*</em></span>
-                    <select id="card-purchase-status" required><option value="Pending Accounting Review">Pending Accounting Review</option><option value="Ok">Ok</option></select>
                   </label>
 
                   <label class="field booking-form-field booking-form-field--full">
@@ -288,14 +294,27 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
           <div id="prepayment-request-dialog" class="booking-action-dialog" hidden>
             <div id="prepayment-request-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
             <div class="booking-action-dialog-panel booking-action-dialog-panel--wide prepayment-request-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="prepayment-request-dialog-title">
-              <h4 id="prepayment-request-dialog-title">Request PRE-Payment</h4>
+              <div class="prepayment-request-dialog-heading"><h4 id="prepayment-request-dialog-title">Request PRE-Payment</h4><code id="prepayment-service-id" class="prepayment-service-id">Service ID: -</code></div>
               <form id="prepayment-request-form" class="booking-form">
                 <div class="prepayment-request-grid">
-                  <section><h5>Booking information</h5><label class="field"><span>MFSP Reference</span><input id="prepayment-mfsp-reference" readonly></label><label class="field"><span>Booking Name</span><input id="prepayment-booking-name" readonly></label></section>
-                  <section><h5>Supplier information</h5><label class="field"><span>Supplier Reference</span><input id="prepayment-supplier-reference" readonly></label><label class="field"><span>Supplier Name</span><input id="prepayment-supplier-name" readonly></label></section>
-                  <section><h5>Service information</h5><label class="field"><span>Service ID</span><input id="prepayment-service-id" readonly></label><label class="field"><span>Service Name</span><input id="prepayment-service-name" readonly></label><label class="field"><span>Service Date</span><input id="prepayment-service-date" type="date" readonly></label></section>
-                  <section><h5>Request information</h5><label class="field"><span>Requested by</span><input id="prepayment-requested-by" type="email" readonly></label><label class="field"><span>Requested Date</span><input id="prepayment-requested-date" type="date" readonly></label><label class="field"><span>Proforma Attached <em>*</em></span><input id="prepayment-proforma" type="file" required accept="application/pdf,image/*"></label><label class="field"><span>Observations</span><textarea id="prepayment-observations" rows="3"></textarea></label></section>
-                  <section><h5>Payment</h5><label class="field"><span>Transaction Type</span><select id="prepayment-transaction-type"><option value="Full Payment">Full Payment</option><option value="Partial Payment">Partial Payment</option></select></label><label class="field"><span>Total Proforma Amount</span><input id="prepayment-total-amount" type="number" min="0" step="0.01" required></label><div class="prepayment-payments-heading"><span>Payments</span><button id="prepayment-add-payment" class="button tertiary compact" type="button" hidden>+ Add payment</button></div><div id="prepayment-payments-list" class="prepayment-payments-list"></div></section>
+                  <section class="record-context prepayment-request-context" aria-label="Booking, supplier, service and request information">
+                    <div class="record-context-section"><h5>Booking</h5><dl><div><dt>MFSP</dt><dd id="prepayment-mfsp-reference">-</dd></div><div><dt>Name</dt><dd id="prepayment-booking-name">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Supplier</h5><dl><div><dt>Name</dt><dd id="prepayment-supplier-name">-</dd></div><div><dt>Reference</dt><dd id="prepayment-supplier-reference">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Service</h5><dl><div><dt>Name</dt><dd id="prepayment-service-name">-</dd></div><div><dt>Date</dt><dd id="prepayment-service-date">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Request</h5><dl><div><dt>Requested by</dt><dd id="prepayment-requested-by">-</dd></div><div><dt>Date</dt><dd id="prepayment-requested-date">-</dd></div></dl></div>
+                  </section>
+                  <section class="prepayment-request-details">
+                    <h5>Request information</h5>
+                    <label class="field prepayment-proforma-field"><span>Proforma Attached <em>*</em></span><input id="prepayment-proforma" type="file" required accept="application/pdf,image/*"></label>
+                    <label class="field"><span>Observations</span><textarea id="prepayment-observations" rows="3"></textarea></label>
+                  </section>
+                  <section class="prepayment-payment-section">
+                    <h5>Payment</h5>
+                    <label class="field"><span>Transaction Type</span><select id="prepayment-transaction-type"><option value="Full Payment">Full Payment</option><option value="Partial Payment">Partial Payment</option></select></label>
+                    <label class="field"><span>Total Proforma Amount</span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input id="prepayment-total-amount" type="number" min="0" step="0.01" required></div></label>
+                    <div class="prepayment-payments-heading"><span>Payments</span><button id="prepayment-add-payment" class="button tertiary compact" type="button" hidden>+ Add payment</button></div>
+                    <div id="prepayment-payments-list" class="prepayment-payments-list"></div>
+                  </section>
                 </div>
                 <aside class="prepayment-warning"><strong>ATENCIÓN:</strong> a partir de las 14h no se pueden registrar pagos para el día en curso. Selecciona el día siguiente para registrarlo.<br><br>En caso de <strong>urgencia</strong>, contactar directamente con Administración.</aside>
                 <div class="booking-action-dialog-footer booking-action-dialog-footer--split"><button id="prepayment-request-dialog-close" class="button tertiary compact" type="button">Cancel</button><button id="prepayment-request-submit" class="button booking-action-button compact" type="submit">Submit</button></div>
@@ -304,11 +323,14 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
           </div>
 
       <section id="manage-services-panel" class="tab-panel">
-      <section class="workspace">
+      <section id="services-workspace" class="workspace">
         <aside class="detail-panel card">
           <div class="card-header">
             <h2 id="selection-title" class="panel-mini-title">Service details</h2>
-            <span id="service-count" class="badge subtle">0 services</span>
+            <div class="services-details-header-actions">
+              <span id="service-count" class="badge subtle">0 services</span>
+              <button id="close-service-details" class="service-details-close" type="button" aria-label="Close service details" title="Close service details">&times;</button>
+            </div>
           </div>
 
           <div id="service-empty" class="empty-state">
@@ -471,7 +493,6 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
           <section id="bulk-actions" class="bulk-actions" hidden>
             <div class="bulk-actions-row">
               <span id="bulk-selection-copy" class="bulk-selection-copy">0 services selected</span>
-              <button id="clear-service-selection" class="button tertiary compact" type="button">Clear selection</button>
               <div class="bulk-actions-controls">
                 <label class="field bulk-mode-field compact-field bulk-mode-picker">
                   <select id="bulk-action-mode">
@@ -653,6 +674,29 @@ app\js\services-controller.js:649:  return '<label class="field"><span>' + label
               </section>
             </section>
           </section>
+        </section>
+      </section>
+
+      <section id="manage-payments-panel" class="tab-panel creator-reports-panel" hidden>
+        <section class="creator-reports-card card">
+          <div class="card-header"><div><h2 class="panel-mini-title">Payments</h2><p class="creator-reports-intro">Review the related Administration Manager records in Creator.</p></div></div>
+          <div class="table-wrap"><table class="services-table creator-reports-table"><thead><tr><th>Payment area</th><th>Creator reports</th><th></th></tr></thead><tbody>
+            <tr><td><strong>Prepayments &amp; proformas</strong><span>Requests and their associated proforma records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Prepayments</a><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Proformas" target="_blank" rel="noopener noreferrer">Proformas</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
+            <tr><td><strong>Traveler payments</strong><span>Payment requests and completed traveler payments.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payment_Requests" target="_blank" rel="noopener noreferrer">Payment requests</a><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Traveler payments</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
+            <tr><td><strong>Card purchases</strong><span>Card purchase records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Card_Purchases" target="_blank" rel="noopener noreferrer">Card purchases</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Card_Purchases" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
+            <tr><td><strong>RENFE payments</strong><span>RENFE payment records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Renfe_Payments" target="_blank" rel="noopener noreferrer">RENFE payments</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Renfe_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
+          </tbody></table></div>
+        </section>
+      </section>
+
+      <section id="manage-reports-panel" class="tab-panel creator-reports-panel" hidden>
+        <section class="creator-reports-card card">
+          <div class="card-header"><div><h2 class="panel-mini-title">Reports</h2><p class="creator-reports-intro">Open the corresponding Administration Manager report.</p></div></div>
+          <div class="table-wrap"><table class="services-table creator-reports-table"><thead><tr><th>Report</th><th>Description</th><th></th></tr></thead><tbody>
+            <tr><td><strong>Cancellations</strong></td><td>Booking cancellation reports.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Cancellations" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
+            <tr><td><strong>Changes</strong></td><td>Booking change reports.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Changes" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
+            <tr><td><strong>Refunds</strong></td><td>Refund records.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Refunds" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
+          </tbody></table></div>
         </section>
       </section>
 

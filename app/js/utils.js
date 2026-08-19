@@ -62,9 +62,11 @@ export function formatCurrency(value) {
     return "-";
   }
 
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("es-ES", {
     style: "currency",
-    currency: "EUR"
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(Number(value) || 0);
 }
 

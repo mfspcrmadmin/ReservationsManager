@@ -132,6 +132,9 @@ export function renderActiveTab(elements, state) {
   const isBookingTab = activeTab === "booking";
   const isServicesTab = activeTab === "services";
   const isEmailsTab = activeTab === "emails";
+  const isPaymentsTab = activeTab === "payments";
+  const isReportsTab = activeTab === "reports";
+  const isDeskTab = activeTab === "desk";
   const isTravelersTab = activeTab === "travelers";
 
   if (elements.tabBooking) {
@@ -140,16 +143,32 @@ export function renderActiveTab(elements, state) {
 
   elements.tabServices.classList.toggle("active", isServicesTab);
   elements.tabEmails.classList.toggle("active", isEmailsTab);
+  if (elements.tabPayments) {
+    elements.tabPayments.classList.toggle("active", isPaymentsTab);
+  }
+  if (elements.tabReports) {
+    elements.tabReports.classList.toggle("active", isReportsTab);
+  }
+  if (elements.summaryViewDesk) {
+    elements.summaryViewDesk.classList.toggle("active", isDeskTab);
+  }
   if (elements.tabTravelers) {
     elements.tabTravelers.classList.toggle("active", isTravelersTab);
   }
 
   if (elements.manageBookingPanel) {
-    elements.manageBookingPanel.hidden = !isBookingTab;
+    elements.manageBookingPanel.hidden = !isBookingTab && !isDeskTab;
+    elements.manageBookingPanel.classList.toggle("is-desk-view", isDeskTab);
   }
 
   elements.manageServicesPanel.hidden = !isServicesTab;
   elements.manageEmailsPanel.hidden = !isEmailsTab;
+  if (elements.managePaymentsPanel) {
+    elements.managePaymentsPanel.hidden = !isPaymentsTab;
+  }
+  if (elements.manageReportsPanel) {
+    elements.manageReportsPanel.hidden = !isReportsTab;
+  }
   if (elements.manageTravelersPanel) {
     elements.manageTravelersPanel.hidden = !isTravelersTab;
   }
@@ -189,6 +208,11 @@ export function setButtonsDisabled(elements, state, disabled) {
   }
   elements.createAxus.disabled = disabled || !state.selectedBooking;
   elements.syncEzus.disabled = disabled || !state.selectedBooking || state.syncingEzus;
+  [elements.syncProjectInfo, elements.syncTravelers, elements.syncServices, elements.syncContact].forEach(function (button) {
+    if (button) {
+      button.disabled = disabled || !state.selectedBooking || state.syncingEzus;
+    }
+  });
   elements.openBookingReportDialog.disabled = disabled || !state.selectedBooking;
   elements.createPaymentRequest.disabled = disabled || !state.selectedBooking;
   elements.saveService.disabled = disabled || !state.selectedService;
@@ -2208,6 +2232,9 @@ function renderServiceTableCell(column, service, state) {
 }
 
 export function renderSelectionPanel(elements, state) {
+  const hasOpenDetails = Boolean(state.selectedService || state.selectedStep);
+  elements.servicesWorkspace.classList.toggle("details-open", hasOpenDetails);
+  elements.closeServiceDetails.hidden = !hasOpenDetails;
   elements.selectionTitle.textContent = state.selectedService
     ? "Service details"
     : state.selectedItemType === "step"
