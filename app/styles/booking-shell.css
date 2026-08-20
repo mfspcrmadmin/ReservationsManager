@@ -1262,6 +1262,9 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   z-index: 2;
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable;
+  padding-top: 34px;
+  transform-origin: right top;
+  transition: opacity 180ms ease, filter 220ms ease;
 }
 .booking-rail > :not(.booking-rail-toggle) {
   opacity: 1;
@@ -1285,7 +1288,7 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 .booking-rail-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .booking-rail-toggle span { color: currentColor; font: 700 10px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
 .booking-rail-toggle:hover { background: #e6f3ee; border-color: #167b62; color: #0d624d; }
-.booking-rail.is-collapsed { display: block; }
+.booking-rail.is-collapsed { display: block; padding-top: 0; }
 .booking-rail.is-collapsed > :not(.booking-rail-toggle) {
   visibility: hidden;
   opacity: 0;
@@ -1294,6 +1297,29 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   transition: opacity 120ms ease, transform 180ms ease, visibility 0s linear 180ms;
 }
 .booking-rail.is-collapsed .booking-rail-toggle { display: inline-flex; }
+.booking-rail:not(.is-collapsed) > :not(.booking-rail-toggle) { animation: booking-rail-content-in 240ms cubic-bezier(0.2, 0.75, 0.3, 1); }
+.booking-rail.is-collapsed .booking-rail-toggle { animation: booking-rail-toggle-in 220ms cubic-bezier(0.2, 0.75, 0.3, 1); }
+
+@keyframes booking-rail-content-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes booking-rail-toggle-in {
+  from { opacity: 0; transform: translateX(6px) scale(.94); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-main-shell,
+  .booking-rail,
+  .booking-rail > :not(.booking-rail-toggle),
+  .booking-rail-toggle {
+    transition: none;
+    animation: none;
+  }
+}
+
 .booking-status-rail {
   display: grid;
   gap: 8px;
@@ -1304,7 +1330,18 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 }
 .booking-rail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .booking-status-rail-title { margin: 0; color: #1f2937; font: 700 13px/1.2 var(--font-heading); }
-.booking-rail-collapse-toggle { width: 28px; min-width: 28px; height: 28px; padding: 0; }
+.booking-rail-collapse-toggle {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #667085;
+}
+.booking-rail-collapse-toggle:hover { background: #f2f4f7; color: #344054; }
 .booking-rail-collapse-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .booking-actions-rail {
   display: grid;
@@ -2833,14 +2870,45 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 #manage-services-panel .services-table th { font-size: 11px; }
 #manage-services-panel .services-table td { font-size: 13px; }
 
-/* Keep booking status visually distinct from the action rail. */
+/* Booking Status is the contextual dashboard; actions remain a quieter tool rail. */
 .booking-status-rail {
-  border-color: #d6e4f5;
-  background: #f3f8fe;
+  gap: 10px;
+  margin-bottom: 4px;
+  border-color: #d8e0e8;
+  border-left: 3px solid #647c96;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
+
 .booking-status-rail .booking-status-panel {
-  border-color: #dbe7f5;
-  background: rgba(255, 255, 255, .72);
+  border-color: #e4e9ee;
+  background: #fff;
+}
+
+.booking-status-rail-title { color: #25364a; font-size: 14px; }
+.booking-status-item { padding: 10px; }
+.booking-status-item--trip { padding-block: 13px; background: #fcfdfd; }
+.booking-status-item--trip strong { font-size: 15px; }
+
+.booking-status-item--sync {
+  gap: 4px;
+  padding-block: 11px;
+}
+
+.booking-status-item--sync > strong { color: #344054; font-size: 13px; }
+.booking-status-note.action-sync-message--alert {
+  color: #b42318;
+  font-weight: 750;
+}
+
+.booking-status-item--desk { padding-block: 9px; }
+.booking-status-item--desk strong { color: #667085; font-size: 11px; font-weight: 600; }
+.booking-status-item:last-child { background: #fcfcfd; }
+
+.booking-actions-rail {
+  border-color: #e6e8ec;
+  background: #fff;
+  box-shadow: none;
 }
 
 #manage-booking-panel.is-desk-view .summary-view-controls { display: none; }
