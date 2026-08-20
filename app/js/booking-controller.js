@@ -34,6 +34,8 @@ import {
 } from "./travelers-controller.js";
 import {
   applyServiceFilter,
+  closeBulkActionMenus,
+  clearServiceSelection,
   closeServiceDetails,
   configureServicesController,
   createSelectionSnapshot,
@@ -56,13 +58,16 @@ import {
   onServiceSupplierFilterChange,
   onServicesHeadRowChange,
   onToggleServiceColumnsPanel,
+  onUpdateServiceNotes,
   renderServicesWorkspace,
   resetServiceFilters,
   restoreSelectionSnapshot,
   setServiceDetailTab,
   setServiceView,
   syncBulkPanels,
-  syncBulkStatusActionState
+  syncBulkStatusActionState,
+  toggleBulkDraftsMenu,
+  toggleBulkStatusPopover
 } from "./services-controller.js";
 import { elements } from "./dom.js";
 import {
@@ -278,10 +283,27 @@ function bindEvents() {
     onServiceMultiFilterChange("subdestination", elements.serviceFilterSubdestinationMenu);
   });
   elements.applyBulkStatus.addEventListener("click", onApplyBulkStatus);
+  elements.clearServiceSelection.addEventListener("click", clearServiceSelection);
+  elements.bulkStatusToggle.addEventListener("click", function (event) {
+    event.stopPropagation();
+    toggleBulkStatusPopover();
+  });
+  elements.bulkStatusPopover.addEventListener("click", function (event) {
+    event.stopPropagation();
+  });
+  elements.bulkStatusCancel.addEventListener("click", closeBulkActionMenus);
+  elements.bulkDraftsToggle.addEventListener("click", function (event) {
+    event.stopPropagation();
+    toggleBulkDraftsMenu();
+  });
+  elements.bulkDraftsMenu.addEventListener("click", function (event) {
+    event.stopPropagation();
+  });
+  document.addEventListener("click", closeBulkActionMenus);
   elements.closeServiceDetails.addEventListener("click", closeServiceDetails);
-  elements.bulkActionMode.addEventListener("change", syncBulkPanels);
   elements.bulkStatusEzus.addEventListener("change", syncBulkStatusActionState);
   elements.fieldStatusEzus.addEventListener("change", onSelectedServiceStatusChange);
+  elements.updateServiceNotes.addEventListener("click", onUpdateServiceNotes);
   elements.serviceDetailTabBasic.addEventListener("click", function () {
     setServiceDetailTab("basic");
   });
@@ -296,9 +318,11 @@ function bindEvents() {
   elements.serviceActionRenfe.addEventListener("click", onRecordRenfePrepayment);
   elements.createAvailabilityDraft.addEventListener("click", function () {
     onCreateDraftForSelection("SUPPLIER_AVAILABILITY_REQUEST", "availability");
+    closeBulkActionMenus();
   });
   elements.createReservationsDraft.addEventListener("click", function () {
     onCreateDraftForSelection("SUPPLIER_BOOKING_REQUEST", "reservations");
+    closeBulkActionMenus();
   });
   elements.viewFlat.addEventListener("click", function () {
     setServiceView("flat");
@@ -3863,14 +3887,39 @@ async function onSyncContactToEzus() {
   }
 }
 
-function onCreateAxusClick() {
+async function onCreateAxusClick() {
   if (!state.selectedBooking) {
     setError(elements, "Load a booking before creating it in Axus.");
     return;
   }
 
-  setError(elements, "");
-  setNotice(elements, "Create in Axus is visible and ready, but it is not wired to a backend action yet.");
+  const bookingId = String(state.selectedBooking.id || state.selectedBookingId || "");
+
+  if (!bookingId) {
+    setError(elements, "The selected booking does not have a valid ID.");
+    return;
+  }
+
+  showLoading(elements, state, "Creating AXUS itinerary...");
+
+  try {
+    const response = await crmExecuteFunction("sendfullbookingtoaxus", {
+      bookingId: bookingId
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+
+    if (errorDetails) {
+      throw buildFunctionPayloadError(errorDetails);
+    }
+
+    await loadBookingWorkspace(bookingId, { preserveNotice: true, preserveSelection: true });
+    setNotice(elements, payload && payload.message || "AXUS itinerary was created successfully.");
+  } catch (error) {
+    setError(elements, error && error.message ? error.message : "Could not create the AXUS itinerary.");
+  } finally {
+    clearLoading(elements, state);
+  }
 }
 
 export async function init() {

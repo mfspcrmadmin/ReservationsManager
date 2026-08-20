@@ -1896,10 +1896,6 @@ textarea:focus {
   justify-content: flex-start;
 }
 
-.bulk-drafts-panel {
-  gap: 8px;
-}
-
 .empty-state,
 .table-empty {
   color: var(--muted);
@@ -3173,6 +3169,54 @@ body:has(.booking-action-dialog:not([hidden])) { overflow: hidden; }
   color: var(--muted);
   font: 600 12px/1.55 var(--font-body);
 }
+
+.booking-action-dialog-dismiss {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid #dfe3e8;
+  border-radius: 6px;
+  background: #fff;
+  color: #667085;
+  cursor: pointer;
+  font: 500 22px/1 var(--font-body);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.booking-action-dialog-dismiss:hover {
+  border-color: #98a2b3;
+  background: #f8fafc;
+  color: #344054;
+  box-shadow: 0 4px 10px rgba(16, 24, 40, .12);
+  transform: translateY(-1px);
+}
+
+.booking-action-dialog-dismiss:active { box-shadow: none; transform: translateY(1px) scale(.96); }
+.booking-action-dialog-dismiss:focus-visible { outline: 2px solid #2e90fa; outline-offset: 2px; }
+
+.booking-action-dialog-panel .button,
+.columns-panel-dialog .button,
+.mail-outlook-confirm-dialog .button {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.booking-action-dialog-panel .button:hover:not(:disabled),
+.columns-panel-dialog .button:hover:not(:disabled),
+.mail-outlook-confirm-dialog .button:hover:not(:disabled) {
+  box-shadow: 0 4px 10px rgba(16, 24, 40, .12);
+  transform: translateY(-1px);
+}
+
+.booking-action-dialog-panel .button:active:not(:disabled),
+.columns-panel-dialog .button:active:not(:disabled),
+.mail-outlook-confirm-dialog .button:active:not(:disabled) { box-shadow: none; transform: translateY(1px) scale(.98); }
 
 body:has(.blueprint-transition-dialog) .notice { backdrop-filter: none; }
 .blueprint-transition-dialog { display: block; padding: 0; background: rgba(10, 18, 15, 0.32); backdrop-filter: blur(2px); pointer-events: none; }

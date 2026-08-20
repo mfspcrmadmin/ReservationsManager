@@ -20,6 +20,11 @@ export async function onRecordCardPurchase() {
 }
 
 export function onOpenPrepaymentRequestDialog() {
+  if (!state.currentUserIsAdministrator) {
+    setError(elements, "Work in progress: PRE-Payment requests are currently available only to Administrators.");
+    return;
+  }
+
   if (!state.selectedService || !state.selectedBooking) {
     return;
   }
@@ -350,6 +355,11 @@ function renderChangeCurrencyField(label, name, value) {
 }
 
 export async function onCreatePaymentRequestClick() {
+  if (!state.currentUserIsAdministrator) {
+    setError(elements, "Work in progress: payment requests are currently available only to Administrators.");
+    return;
+  }
+
   if (!state.selectedBooking) {
     setError(elements, "Load a booking before creating a payment request.");
     return;
@@ -366,7 +376,7 @@ function openTravelersPaymentRequestDialog() {
   var deposit = total * 0.3;
   var recipients = [{ role: "Agent", name: booking.Contact_Name && booking.Contact_Name.name || "", email: booking.Agent_Email || "", selected: true, amount: deposit, percent: 100 }].concat((state.travelers || []).map(function (traveler) { return { role: "Traveller", name: [traveler.Forename, traveler.Name].filter(Boolean).join(" "), email: traveler.Email || "", selected: false, amount: "", percent: "" }; }));
   var dialog = document.createElement("div");
-  dialog.className = "booking-action-dialog";
+  dialog.className = "booking-action-dialog travelers-payment-request-dialog";
   dialog.innerHTML = '<div class="booking-action-dialog-backdrop"></div><div class="booking-action-dialog-panel booking-action-dialog-panel--wide" role="dialog"><h4>Travelers Payment Request</h4><form class="booking-form"><div class="prepayment-request-grid"><section><h5>Booking Information</h5><label class="field"><span>Booking Id</span><input name="booking_id" readonly value="' + escapeHtml(booking.id || "") + '"></label><label class="field"><span>Desk Ticket ID</span><input name="desk_ticket_id" required value="' + escapeHtml(booking.Desk_Ticket_ID || booking.Primary_ticket_ID || "") + '"></label><label class="field"><span>Pipeline</span><select name="pipeline"><option>Ezus</option><option>Tourplan</option></select></label><label class="field"><span>Booking Name</span><input name="booking_name" readonly value="' + escapeHtml(booking.Deal_Name || "") + '"></label><label class="field"><span>MFSP Reference</span><input name="mfsp_reference" readonly value="' + escapeHtml(booking.MFSP_Reference || "") + '"></label></section><section><h5>Finance Information</h5><label class="field"><span>Balance Due Amount</span><input name="balance_due_amount" readonly value="' + balance + '"></label><label class="field"><span>Deposit %</span><input name="deposit_percentage" type="number" value="30"></label><label class="field"><span>Deposit Amount</span><input name="deposit_amount" readonly value="' + deposit.toFixed(2) + '"></label><label class="field"><span>Total Booking Amount</span><input name="total_booking_amount" readonly value="' + total + '"></label></section><section><h5>Payment Request</h5><label class="field"><span>Payment Action</span><select name="payment_action"><option>Record &amp; Send Request</option><option>Record Only</option></select></label><label class="field"><span>Requested by - Name</span><input name="requested_by_name" value="' + escapeHtml(state.currentUserName || booking.Owner && booking.Owner.name || "") + '"></label><label class="field"><span>Requested by - Email</span><input name="requested_by_email" value="' + escapeHtml(state.currentUserEmail || booking.Owner && booking.Owner.email || "") + '"></label><label class="field"><span>Payment Method</span><select name="payment_method"><option>Airwallex</option><option>Bank Transfer</option><option>Credit Applied</option></select></label><label class="field"><span>Event Type</span><select name="event_type"><option>Deposit</option><option>Balance</option><option>Planning Fee</option><option>Supplement</option></select></label><label class="field"><span>Total Payment Request Amount</span><input name="total_payment_request_amount" type="number" step="0.01" value="' + deposit.toFixed(2) + '"></label><label class="field"><span>Split Method</span><select name="split_method"><option>Manual Split</option><option>Equal Split</option></select></label></section><section class="prepayment-request-grid"><h5>Recipients</h5><div class="travelers-payment-recipients">' + recipients.map(renderRecipient).join("") + '</div></section></div><div class="booking-action-dialog-footer booking-action-dialog-footer--split"><button class="button tertiary compact" type="button" data-close>Cancel</button><button class="button booking-action-button compact" type="submit">Submit</button></div></form></div>';
   document.body.appendChild(dialog);
   dialog.querySelector("[data-close]").onclick = function () { dialog.remove(); };

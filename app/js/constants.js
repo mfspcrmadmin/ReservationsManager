@@ -66,10 +66,6 @@ export const SERVICE_TABLE_COLUMNS = [
   {
     key: "sales",
     label: "Sales"
-  },
-  {
-    key: "serviceNotes",
-    label: "Service Notes"
   }
 ];
 

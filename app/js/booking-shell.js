@@ -106,7 +106,7 @@ export function renderBookingWorkspace(elements, state) {
   elements.createAxus.disabled = false;
   elements.syncEzus.disabled = state.syncingEzus;
   elements.openBookingReportDialog.disabled = false;
-  elements.createPaymentRequest.disabled = false;
+  elements.createPaymentRequest.disabled = !state.currentUserIsAdministrator;
 }
 
 function applyBookingRailLayoutState(elements, state) {
@@ -532,12 +532,12 @@ function renderWorkspaceDashboard(booking) {
     '      <h2>' + escapeHtml([booking.MFSP_Reference, booking.Deal_Name].filter(Boolean).join(" · ") || "Booking") + "</h2>",
     '      <p class="booking-header-agency-contact-line"><span>' + escapeHtml(getLookupName(booking.Account_Name) || "No agency linked") + '</span><span class="booking-header-agent-inline" aria-label="' + escapeHtml(tripContactLabel) + '"><b aria-hidden="true">|</b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3 2.4-5 5.5-5s5 2 5.5 5M16 5.5a3 3 0 0 1 0 5.7M17.5 14c1.8.4 3 1.8 3.4 4"/></svg>' + escapeHtml(getLookupName(booking.Contact_Name) || "-") + "</span></p>",
     '      <p class="booking-header-agency-line"><span>' + escapeHtml(booking.MFSP_Reference || "-") + " · " + escapeHtml(getLookupName(booking.Account_Name) || "No agency linked") + '</span><span class="booking-header-agent-inline" aria-label="' + escapeHtml(tripContactLabel) + '"><b aria-hidden="true">|</b><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3 2.4-5 5.5-5s5 2 5.5 5M16 5.5a3 3 0 0 1 0 5.7M17.5 14c1.8.4 3 1.8 3.4 4"/></svg>' + escapeHtml(getLookupName(booking.Contact_Name) || "-") + "</span></p>",
-    "    </div>",
-    "  </div>",
     '  <div class="booking-header-metadata" aria-label="Booking details">',
     '    <span class="booking-header-metadata-item"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg>' + escapeHtml(formatDate(booking.Arrival_Date)) + " - " + escapeHtml(formatDate(booking.Departure_Date)) + "</span>",
     '    <span class="booking-header-metadata-item"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>' + escapeHtml(getTripDurationLabel(booking)) + "</span>",
     '    <span class="booking-header-metadata-item"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 19c.5-3 2.4-5 5.5-5s5 2 5.5 5M16 5.5a3 3 0 0 1 0 5.7M17.5 14c1.8.4 3 1.8 3.4 4"/></svg>' + escapeHtml(firstTextValue(booking.Travelers_Number, booking.Travellers_Number)) + " travelers</span>",
+    "  </div>",
+    "    </div>",
     "  </div>",
     '  <div class="booking-header-trip-line">' + escapeHtml(formatDate(booking.Arrival_Date)) + " → " + escapeHtml(formatDate(booking.Departure_Date)) + "<span>·</span>" + escapeHtml(getTripDurationLabel(booking)) + "<span>·</span>" + escapeHtml(firstTextValue(booking.Travelers_Number, booking.Travellers_Number)) + " travelers</div>",
     '  <div class="workspace-workflow-slot"></div>',

@@ -11,8 +11,7 @@ import {
   renderServicesTable,
   setError,
   setNotice,
-  showLoading,
-  syncBulkActionMode
+  showLoading
 } from "./render.js";
 import { state } from "./state.js";
 import { escapeHtml, normalizeComparableText } from "./utils.js";
@@ -66,8 +65,44 @@ export function setServiceDetailTab(tabName) {
 }
 
 export function syncBulkPanels() {
-  syncBulkActionMode(elements);
   syncBulkStatusActionState();
+}
+
+export function clearServiceSelection() {
+  state.selectedServiceIds = {};
+  closeBulkActionMenus();
+  renderServicesWorkspace();
+}
+
+export function toggleBulkStatusPopover() {
+  const shouldOpen = elements.bulkStatusPopover.hidden;
+  elements.bulkStatusPopover.hidden = !shouldOpen;
+  elements.bulkStatusToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  elements.bulkDraftsMenu.hidden = true;
+  elements.bulkDraftsToggle.setAttribute("aria-expanded", "false");
+}
+
+export function toggleBulkDraftsMenu() {
+  const shouldOpen = elements.bulkDraftsMenu.hidden;
+  elements.bulkDraftsMenu.hidden = !shouldOpen;
+  elements.bulkDraftsToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  elements.bulkStatusPopover.hidden = true;
+  elements.bulkStatusToggle.setAttribute("aria-expanded", "false");
+}
+
+export function closeBulkActionMenus() {
+  if (elements.bulkStatusPopover) {
+    elements.bulkStatusPopover.hidden = true;
+  }
+  if (elements.bulkStatusToggle) {
+    elements.bulkStatusToggle.setAttribute("aria-expanded", "false");
+  }
+  if (elements.bulkDraftsMenu) {
+    elements.bulkDraftsMenu.hidden = true;
+  }
+  if (elements.bulkDraftsToggle) {
+    elements.bulkDraftsToggle.setAttribute("aria-expanded", "false");
+  }
 }
 
 export function syncBulkStatusActionState() {
@@ -427,6 +462,7 @@ export async function onApplyBulkStatus() {
     }
 
     state.selectedServiceIds = {};
+    closeBulkActionMenus();
     renderServicesWorkspace();
     setNotice(
       elements,
@@ -508,6 +544,34 @@ export async function onSaveService(event) {
     setNotice(elements, "Booking service updated successfully.");
   } catch (error) {
     setError(elements, error.message || "Could not save the booking service.");
+  } finally {
+    clearLoading(elements, state);
+  }
+}
+
+export async function onUpdateServiceNotes() {
+  if (!state.selectedService) {
+    return;
+  }
+
+  showLoading(elements, state, "Updating service notes...");
+
+  try {
+    const result = await crmUpdateRecord(MODULES.bookingServices, {
+      id: state.selectedService.id,
+      Service_Notes: elements.fieldServiceNotes.value
+    });
+    const status = String(result.status || result.code || "").toLowerCase();
+
+    if (status && status !== "success") {
+      throw new Error(result.message || "Zoho CRM did not confirm the notes update.");
+    }
+
+    state.selectedService.Service_Notes = elements.fieldServiceNotes.value;
+    renderServicesWorkspace();
+    setNotice(elements, "Service notes updated successfully.");
+  } catch (error) {
+    setError(elements, error.message || "Could not update service notes.");
   } finally {
     clearLoading(elements, state);
   }

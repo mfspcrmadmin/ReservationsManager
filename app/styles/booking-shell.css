@@ -382,18 +382,18 @@
 .booking-browser .booking-browser-table th,
 .booking-browser .booking-browser-table td {
   padding: 7px 8px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.25;
   white-space: nowrap;
 }
 
 .booking-browser .booking-browser-table tbody tr {
-  height: 31px;
+  height: 34px;
 }
 
 .booking-browser .booking-browser-table th {
   background: #f7faf9;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.03em;
 }
 
@@ -1451,6 +1451,13 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 .booking-actions-rail .summary-actions--stacked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .booking-actions-rail .summary-actions .booking-action-button,
 .booking-actions-rail .action-area-section--axus .booking-action-button { min-height: 30px; text-align: center; justify-content: center; }
+.booking-payment-request-action { position: relative; display: block; width: 100%; outline: none; }
+.booking-payment-request-action .booking-action-button { width: 100%; }
+.booking-payment-request-action::after { position: absolute; z-index: 30; bottom: calc(100% + 7px); left: 0; width: max-content; max-width: 250px; padding: 7px 8px; border-radius: 6px; background: #1f2937; color: #fff; content: attr(data-tooltip); font: 500 10px/1.35 var(--font-body); opacity: 0; pointer-events: none; text-align: left; transform: translateY(3px); transition: opacity 120ms ease, transform 120ms ease; visibility: hidden; }
+.booking-payment-request-action:hover::after,
+.booking-payment-request-action:focus-within::after,
+.booking-payment-request-action:focus-visible::after { opacity: 1; transform: translateY(0); visibility: visible; }
+.booking-payment-request-action:focus-visible { outline: 2px solid #2e90fa; outline-offset: 2px; border-radius: 6px; }
 
 /* The booking selector is utilitarian; the header owns the booking identity. */
 .booking-summary-main { gap: 10px; }
@@ -2417,6 +2424,31 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 #manage-services-panel .service-action-buttons .button { min-height: 30px; padding: 5px 8px; font-size: 11px; }
 #manage-services-panel .service-action-buttons { gap: 5px; }
 #manage-services-panel .service-action-buttons .button { justify-content: flex-start; }
+#manage-services-panel .service-panel .button,
+#manage-services-panel .service-detail-tabs .summary-mode-button {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+#manage-services-panel .service-panel .button:hover:not(:disabled),
+#manage-services-panel .service-detail-tabs .summary-mode-button:hover:not(:disabled) {
+  border-color: #98a2b3;
+  box-shadow: 0 4px 10px rgba(16, 24, 40, .1);
+  transform: translateY(-1px);
+}
+#manage-services-panel .service-panel .button:active:not(:disabled),
+#manage-services-panel .service-detail-tabs .summary-mode-button:active:not(:disabled) { box-shadow: none; transform: translateY(1px) scale(.98); }
+#manage-services-panel .service-status-select--interactive { cursor: pointer; transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease; }
+#manage-services-panel .service-status-select--interactive:hover:not(:disabled) { border-color: #98a2b3; background-color: #f8fafc; box-shadow: 0 2px 6px rgba(16, 24, 40, .08); }
+#manage-services-panel .service-status-select--interactive:not(:disabled),
+#field-status-ezus.service-status-select:not(:disabled) {
+  cursor: pointer !important;
+}
+#manage-services-panel .service-prepayment-action { position: relative; display: block; width: 100%; outline: none; }
+#manage-services-panel .service-prepayment-action .button { width: 100%; }
+#manage-services-panel .service-prepayment-action::after { position: absolute; z-index: 30; bottom: calc(100% + 7px); left: 0; width: max-content; max-width: 250px; padding: 7px 8px; border-radius: 6px; background: #1f2937; color: #fff; content: attr(data-tooltip); font: 500 10px/1.35 var(--font-body); opacity: 0; pointer-events: none; text-align: left; transform: translateY(3px); transition: opacity 120ms ease, transform 120ms ease; visibility: hidden; }
+#manage-services-panel .service-prepayment-action:hover::after,
+#manage-services-panel .service-prepayment-action:focus-within::after,
+#manage-services-panel .service-prepayment-action:focus-visible::after { opacity: 1; transform: translateY(0); visibility: visible; }
+#manage-services-panel .service-prepayment-action:focus-visible { outline: 2px solid #2e90fa; outline-offset: 2px; border-radius: 6px; }
 #manage-services-panel .service-detail-tabs {
   gap: 3px;
   padding: 3px;
@@ -2815,3 +2847,359 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 
 /* The header keeps the agent next to the agency instead of a separate contact column. */
 .booking-header .booking-header-contacts { display: none; }
+
+/* Stable contextual toolbar for selected services. */
+#manage-services-panel .bulk-actions {
+  margin: 0 12px 10px;
+  padding: 7px 10px;
+  border-color: #e4e7ec;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+#manage-services-panel .bulk-actions-row {
+  display: flex;
+  min-height: 32px;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+#manage-services-panel .bulk-selection-summary,
+#manage-services-panel .bulk-actions-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#manage-services-panel .bulk-selection-indicator {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e6f3ee;
+  color: #126750;
+  font: 800 11px/1 var(--font-body);
+}
+
+#manage-services-panel .bulk-selection-copy {
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #344054;
+  font: 700 11px/1.2 var(--font-body);
+}
+
+#manage-services-panel .bulk-clear-selection { color: #667085; }
+#manage-services-panel .bulk-actions-controls { margin-left: auto; flex: 0 0 auto; }
+#manage-services-panel .bulk-action-menu { position: relative; flex: 0 0 auto; }
+#manage-services-panel #bulk-status-toggle,
+#manage-services-panel #bulk-drafts-toggle {
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+#manage-services-panel #bulk-status-toggle:hover:not(:disabled),
+#manage-services-panel #bulk-drafts-toggle:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(16, 24, 40, .12);
+}
+#manage-services-panel #bulk-status-toggle:hover:not(:disabled) { border-color: #98a2b3; background: #f8fafc; }
+#manage-services-panel #bulk-drafts-toggle:hover:not(:disabled) { border-color: #167b62; background: #e6f3ee; }
+#manage-services-panel #bulk-status-toggle:active:not(:disabled),
+#manage-services-panel #bulk-drafts-toggle:active:not(:disabled) { transform: translateY(1px) scale(.98); box-shadow: none; }
+#manage-services-panel #bulk-status-toggle[aria-expanded="true"],
+#manage-services-panel #bulk-drafts-toggle[aria-expanded="true"] { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(16, 24, 40, .1); }
+
+#manage-services-panel .bulk-status-popover,
+#manage-services-panel .bulk-drafts-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  width: max-content;
+  min-width: 220px;
+  padding: 9px;
+  border: 1px solid #e4e7ec;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(16, 24, 40, .14);
+}
+
+#manage-services-panel .bulk-status-popover { display: grid; gap: 8px; }
+#manage-services-panel .bulk-status-popover > strong { color: #344054; font: 700 12px/1.2 var(--font-body); }
+#manage-services-panel .bulk-status-popover .bulk-field { display: grid; width: 100%; min-width: 0; gap: 4px; }
+#manage-services-panel .bulk-status-popover .bulk-field > span { color: #667085; font: 600 10px/1.2 var(--font-body); }
+#manage-services-panel .bulk-status-popover .bulk-field select { width: 100%; }
+#manage-services-panel .bulk-status-popover-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+#manage-services-panel .bulk-drafts-menu { display: grid; gap: 3px; min-width: 190px; }
+#manage-services-panel .bulk-drafts-menu button { width: 100%; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: #344054; font: 650 11px/1.25 var(--font-body); text-align: left; cursor: pointer; }
+#manage-services-panel .bulk-drafts-menu button:hover:not(:disabled) { background: #f2f4f7; }
+
+#manage-services-panel .services-table .select-column { width: 62px; min-width: 62px; }
+#manage-services-panel .services-table tbody .select-column:has(.service-notes-indicator.has-notes:hover),
+#manage-services-panel .services-table tbody .select-column:has(.service-notes-indicator.has-notes:focus-visible) { z-index: 5; }
+#manage-services-panel .service-select-control { display: inline-flex; align-items: center; gap: 6px; }
+#manage-services-panel .service-notes-indicator { position: relative; display: inline-flex; width: 16px; height: 16px; align-items: center; justify-content: center; color: #b0b8c4; outline: none; }
+#manage-services-panel .service-notes-indicator.has-notes { color: #167b62; cursor: help; }
+#manage-services-panel .service-notes-indicator svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+#manage-services-panel .service-notes-indicator::after { position: absolute; z-index: 30; bottom: calc(100% + 6px); left: 0; width: max-content; max-width: 260px; padding: 7px 8px; border-radius: 6px; background: #1f2937; color: #fff; content: attr(data-tooltip); font: 500 10px/1.35 var(--font-body); opacity: 0; pointer-events: none; text-align: left; transform: translateY(3px); transition: opacity 120ms ease, transform 120ms ease; visibility: hidden; white-space: pre-wrap; }
+#manage-services-panel .service-notes-indicator.has-notes:hover::after,
+#manage-services-panel .service-notes-indicator.has-notes:focus-visible::after { opacity: 1; transform: translateY(0); visibility: visible; }
+#manage-services-panel .service-notes-indicator:focus-visible { outline: 2px solid #2e90fa; outline-offset: 2px; border-radius: 3px; }
+
+/* Keep agency context and trip metadata together on the active booking header. */
+.booking-header .workspace-hero-copy {
+  display: grid;
+  width: 100%;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  row-gap: 3px;
+}
+
+.booking-header .workspace-section-eyebrow,
+.booking-header .workspace-hero-copy h2 {
+  grid-column: 1 / -1;
+}
+
+.booking-header .booking-header-agency-contact-line {
+  grid-column: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.booking-header .booking-header-metadata {
+  grid-column: 2;
+  grid-row: 3;
+  align-self: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+.booking-header .booking-header-agent-inline svg { display: none; }
+
+/* The active tab fills the remaining visible workspace; its data areas scroll internally. */
+@media (min-width: 768px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    height: calc(100vh - 24px);
+    min-height: 0;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .booking-main-shell:not(.is-empty-workspace) > .booking-summary { grid-row: 1; }
+  .booking-main-shell:not(.is-empty-workspace) > .booking-workspace-section { grid-row: 2; }
+  .booking-main-shell:not(.is-empty-workspace) > .tab-panel {
+    grid-row: 3;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #manage-services-panel .workspace { height: 100%; min-height: 0; }
+  #manage-services-panel .detail-panel,
+  #manage-services-panel .table-panel { height: 100%; max-height: none; min-height: 0; }
+  #manage-services-panel .table-panel { display: flex; flex-direction: column; overflow: hidden; }
+  #manage-services-panel .table-panel > .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
+}
+
+@media (max-width: 640px) {
+  .booking-header .workspace-hero-copy { grid-template-columns: minmax(0, 1fr); }
+  .booking-header .booking-header-agency-contact-line,
+  .booking-header .booking-header-metadata { grid-column: 1; grid-row: auto; }
+  .booking-header .booking-header-metadata { justify-content: flex-start; flex-wrap: wrap; }
+}
+
+/* The main area is much narrower once the booking browser and action rail are
+   visible. Its header must therefore size itself from the workflow content. */
+@media (min-width: 768px) and (max-width: 1280px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    grid-template-rows: minmax(140px, max-content) auto minmax(0, 1fr);
+  }
+
+  .booking-summary--workspace,
+  .booking-summary--workspace .booking-summary-shell,
+  .booking-summary--workspace .booking-summary-main {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .booking-summary--workspace .booking-summary-main {
+    grid-template-rows: auto auto;
+  }
+
+  .booking-summary--workspace .workspace-top-grid {
+    grid-template-rows: auto;
+  }
+}
+
+/* Tooltips are portalled to document.body, outside every scrolling card and
+   stacking context. Existing pseudo-element tooltips are disabled globally. */
+[data-tooltip]::after {
+  content: none !important;
+}
+
+.app-floating-tooltip {
+  position: fixed;
+  z-index: 2000;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: #1f2937;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(16, 24, 40, 0.2);
+  font: 500 10px/1.35 var(--font-body);
+  pointer-events: none;
+  text-align: left;
+}
+
+/* On compact screens the workflow can grow to several rows.  Let the header
+   participate in normal document flow so the workspace tabs start after it. */
+@media (max-width: 767px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .booking-summary--workspace,
+  .booking-summary--workspace .booking-summary-shell,
+  .booking-summary--workspace .booking-summary-main {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .booking-summary--workspace .workspace-top-grid {
+    grid-template-rows: auto;
+  }
+
+  .booking-main-shell:not(.is-empty-workspace) > .tab-panel {
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 620px) {
+  #manage-services-panel .bulk-actions-row { align-items: flex-start; flex-wrap: wrap; }
+  #manage-services-panel .bulk-actions-controls { width: 100%; justify-content: flex-end; }
+}
+
+/* Travelers Payment Request: give the request and recipients their own full-width rows. */
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(3),
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(3) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(3) > h5,
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(4) > h5,
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(4) > .travelers-payment-recipients {
+  grid-column: 1 / -1;
+}
+
+.travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(4) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 720px) {
+  .travelers-payment-request-dialog .prepayment-request-grid > section:nth-child(3) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Keep the desktop workspace inside the viewport; scrolling belongs to its panels. */
+@media (min-width: 768px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell--booking-hub {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+}
+
+/* Active booking has its own real container.  The tabs are a later grid row,
+   so scrolling a panel cannot place them over the booking context. */
+.booking-active-booking-area {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    grid-template-rows: max-content auto minmax(0, 1fr);
+  }
+
+  .booking-main-shell:not(.is-empty-workspace) > .booking-active-booking-area {
+    grid-row: 1;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .booking-main-shell:not(.is-empty-workspace) > .booking-workspace-section { grid-row: 2; }
+  .booking-main-shell:not(.is-empty-workspace) > .tab-panel {
+    grid-row: 3;
+    min-height: 0;
+    overflow: hidden;
+  }
+}
+
+/* The central workspace is a scroll region in its own right.  Individual
+   tables and lists retain their existing inner scroll containers. */
+@media (min-width: 768px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Services keeps a stable card height. The toolbar and filters remain part of
+   the card, while only the table body consumes the remaining space. */
+@media (min-width: 768px) {
+  .booking-main-shell:not(.is-empty-workspace) {
+    grid-template-rows: max-content auto auto;
+    align-content: start;
+  }
+
+  #manage-services-panel .workspace {
+    height: 620px;
+    min-height: 620px;
+  }
+
+  #manage-services-panel .table-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #manage-services-panel .table-panel > .table-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  #manage-services-panel .table-panel thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+}

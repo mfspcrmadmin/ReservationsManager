@@ -176,7 +176,6 @@ export function renderActiveTab(elements, state) {
 
 export function setButtonsDisabled(elements, state, disabled) {
   const hasSelectedServices = Object.keys(state.selectedServiceIds).length > 0;
-  const hasServicesWorkspace = Boolean(state.selectedBooking) && state.services.length > 0;
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
   elements.loadBooking.disabled = disabled;
   elements.bookingSearch.disabled = disabled;
@@ -214,11 +213,12 @@ export function setButtonsDisabled(elements, state, disabled) {
     }
   });
   elements.openBookingReportDialog.disabled = disabled || !state.selectedBooking;
-  elements.createPaymentRequest.disabled = disabled || !state.selectedBooking;
+  elements.createPaymentRequest.disabled = disabled || !state.selectedBooking || !state.currentUserIsAdministrator;
   elements.saveService.disabled = disabled || !state.selectedService;
   elements.fieldStatusEzus.disabled = disabled || !state.selectedService;
+  elements.updateServiceNotes.disabled = disabled || !state.selectedService;
   if (elements.serviceActionPrepayment) {
-    elements.serviceActionPrepayment.disabled = disabled || !state.selectedService;
+    elements.serviceActionPrepayment.disabled = disabled || !state.selectedService || !state.currentUserIsAdministrator;
   }
   if (elements.serviceActionCardPurchase) {
     elements.serviceActionCardPurchase.disabled = disabled || !state.selectedService;
@@ -228,7 +228,9 @@ export function setButtonsDisabled(elements, state, disabled) {
   }
   elements.toggleServiceColumns.disabled = disabled;
   elements.resetServiceColumns.disabled = disabled;
-  elements.bulkActionMode.disabled = disabled || !hasServicesWorkspace;
+  elements.bulkStatusToggle.disabled = disabled || !hasSelectedServices;
+  elements.bulkDraftsToggle.disabled = disabled || !hasSelectedServices;
+  elements.bulkStatusCancel.disabled = disabled || !hasSelectedServices;
   elements.applyBulkStatus.disabled = disabled || !hasSelectedServices || !hasBulkStatusSelection;
   elements.bulkStatusEzus.disabled = disabled || !hasSelectedServices;
   elements.createAvailabilityDraft.disabled = disabled || !hasSelectedServices;
@@ -277,12 +279,6 @@ export function applyStatusSelectAppearance(selectElement, status) {
 
   const statusSelectModifier = getStatusSelectModifier(status);
   selectElement.className = ["service-status-select", statusSelectModifier].filter(Boolean).join(" ");
-}
-
-export function syncBulkActionMode(elements) {
-  const mode = elements.bulkActionMode.value || "status";
-  elements.bulkStatusPanel.hidden = mode !== "status";
-  elements.bulkDraftsPanel.hidden = mode !== "drafts";
 }
 
 export function renderBookingSummary(elements, state) {
@@ -349,7 +345,7 @@ export function renderBookingWorkspace(elements, state) {
   elements.createAxus.disabled = false;
   elements.syncEzus.disabled = state.syncingEzus;
   elements.openBookingReportDialog.disabled = false;
-  elements.createPaymentRequest.disabled = false;
+  elements.createPaymentRequest.disabled = !state.currentUserIsAdministrator;
 }
 
 export function renderTravelersPanel(options) {
@@ -1436,7 +1432,10 @@ export function renderServicesTable(options) {
   elements.bulkActions.hidden = !hasServicesWorkspace || selectedCount === 0;
   elements.serviceColumnsPanel.hidden = !state.serviceColumnsPanelOpen;
   elements.bulkSelectionCopy.textContent = selectedCount + (selectedCount === 1 ? " service selected" : " services selected");
-  elements.bulkActionMode.disabled = !hasServicesWorkspace;
+  elements.applyBulkStatus.textContent = "Apply to " + selectedCount + (selectedCount === 1 ? " service" : " services");
+  elements.bulkStatusToggle.disabled = selectedCount === 0;
+  elements.bulkDraftsToggle.disabled = selectedCount === 0;
+  elements.bulkStatusCancel.disabled = selectedCount === 0;
   elements.applyBulkStatus.disabled = selectedCount === 0 || !hasBulkStatusSelection;
   elements.bulkStatusEzus.disabled = selectedCount === 0;
   elements.createAvailabilityDraft.disabled = selectedCount === 0;
@@ -1445,8 +1444,6 @@ export function renderServicesTable(options) {
   elements.viewGrouped.classList.toggle("active", state.serviceView === "grouped");
   renderServiceColumnsEditor(elements, state);
   renderServiceTableHead(elements, state, visibleColumns);
-  syncBulkActionMode(elements);
-
   if (state.serviceView === "grouped") {
     renderGroupedServicesTable(options);
     return;
@@ -1814,7 +1811,7 @@ function renderFlatServicesTable(options) {
     const selectedClass = state.selectedServiceIds[service.id] ? "is-selected" : "";
     return [
       '<tr class="' + activeClass + " " + selectedClass + '" data-service-id="' + escapeHtml(service.id) + '">',
-      '  <td class="select-column"><input class="table-checkbox service-select-checkbox" type="checkbox" data-service-checkbox="' + escapeHtml(service.id) + '"' + (state.selectedServiceIds[service.id] ? " checked" : "") + ' aria-label="Select service"></td>',
+      renderServiceSelectionCell(service, state),
       visibleColumns.map(function (column) {
         return renderServiceTableCell(column, service, state);
       }).join(""),
@@ -1911,7 +1908,7 @@ function renderGroupedServicesTable(options) {
       const selectedClass = state.selectedServiceIds[service.id] ? "is-selected" : "";
       rows.push(
         '<tr class="step-service-row ' + activeClass + " " + selectedClass + '" data-service-id="' + escapeHtml(service.id) + '">' +
-        '  <td class="select-column"><input class="table-checkbox service-select-checkbox" type="checkbox" data-service-checkbox="' + escapeHtml(service.id) + '"' + (state.selectedServiceIds[service.id] ? " checked" : "") + ' aria-label="Select service"></td>' +
+        renderServiceSelectionCell(service, state) +
         visibleColumns.map(function (column) {
           return renderServiceTableCell(column, service, state);
         }).join("") +
@@ -2218,8 +2215,6 @@ function renderServiceTableCell(column, service, state) {
       return renderServiceCell(column.key, escapeHtml(service.Subcategory || "-"));
     case "supplier":
       return renderServiceCell(column.key, escapeHtml(service.Supplier_Name || "-"));
-    case "serviceNotes":
-      return renderServiceCell(column.key, escapeHtml(getServiceFieldDisplayValue(service.Service_Notes)));
     case "status":
       return renderServiceCell(column.key, renderStatusPill(service.Status_EZUS));
     case "sales":
@@ -2229,6 +2224,17 @@ function renderServiceTableCell(column, service, state) {
     default:
       return renderServiceCell(column.key, "-");
   }
+}
+
+function renderServiceSelectionCell(service, state) {
+  const notes = String(service.Service_Notes || "").trim();
+  const tooltip = notes || "No service notes";
+  const label = notes ? "View service notes" : "No service notes";
+
+  return '<td class="select-column"><div class="service-select-control">' +
+    '<input class="table-checkbox service-select-checkbox" type="checkbox" data-service-checkbox="' + escapeHtml(service.id) + '"' + (state.selectedServiceIds[service.id] ? " checked" : "") + ' aria-label="Select service">' +
+    '<span class="service-notes-indicator' + (notes ? " has-notes" : "") + '" data-service-notes-indicator tabindex="0" role="img" aria-label="' + escapeHtml(label + ": " + tooltip) + '" data-tooltip="' + escapeHtml(tooltip) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v12H9l-4 4v-16Z"/><path d="M8 9h8M8 13h5"/></svg></span>' +
+    "</div></td>";
 }
 
 export function renderSelectionPanel(elements, state) {
@@ -2262,13 +2268,14 @@ function renderSelectedService(elements, state) {
   elements.serviceEmpty.hidden = true;
   elements.saveService.disabled = false;
   elements.fieldStatusEzus.disabled = false;
+  elements.updateServiceNotes.disabled = false;
   elements.detailName.textContent = service.Name || "-";
   elements.detailDescription.textContent = service.Product_Description || "-";
   elements.detailDate.textContent = formatDate(service.Service_Date);
   elements.fieldStatusEzus.value = selectedStatus;
   applyStatusSelectAppearance(elements.fieldStatusEzus, selectedStatus);
   elements.fieldServiceNotes.value = service.Service_Notes || "";
-  elements.serviceActionPrepayment.disabled = false;
+  elements.serviceActionPrepayment.disabled = !state.currentUserIsAdministrator;
   elements.serviceActionCardPurchase.disabled = false;
   elements.serviceActionRenfe.hidden = !showRenfeAction;
   elements.serviceActionRenfe.disabled = !showRenfeAction;
@@ -2291,6 +2298,7 @@ function renderEmptyServiceState(elements, state) {
   elements.servicePanel.hidden = true;
   elements.saveService.disabled = true;
   elements.fieldStatusEzus.disabled = true;
+  elements.updateServiceNotes.disabled = true;
   elements.serviceActionPrepayment.disabled = true;
   elements.serviceActionCardPurchase.disabled = true;
   elements.serviceActionRenfe.disabled = true;

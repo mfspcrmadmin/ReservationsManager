@@ -90,6 +90,7 @@
             </div>
           </section>
 
+          <section class="booking-active-booking-area">
           <section class="booking-summary booking-summary--workspace">
             <div class="booking-summary-shell">
               <div class="booking-summary-main">
@@ -123,6 +124,7 @@
 
               </div>
             </div>
+          </section>
           </section>
 
           <div id="booking-rail" class="booking-rail">
@@ -163,7 +165,7 @@
                 <section class="action-area-block">
                   <h3 class="action-area-section-title">Payments &amp; reports</h3>
                   <div class="summary-actions summary-actions--stacked">
-                    <button id="create-payment-request" class="button booking-action-button booking-action-button--payment" type="button">Create payment request</button>
+                    <span class="booking-payment-request-action" tabindex="0" data-tooltip="Work in progress: this feature is still being developed."><button id="create-payment-request" class="button booking-action-button booking-action-button--payment" type="button"><span aria-hidden="true">🚧</span> Create payment request</button></span>
                     <button id="open-booking-report-dialog" class="button booking-action-button booking-action-button--alert" type="button">Report cancellation / change</button>
                   </div>
                 </section>
@@ -361,7 +363,7 @@
                     <span class="label">Actions</span>
                   </div>
                   <div class="service-action-buttons">
-                    <button id="service-action-prepayment" class="button tertiary compact" type="button">Request PRE-Payment</button>
+                    <span class="service-prepayment-action" tabindex="0" data-tooltip="Work in progress: this feature is still being developed."><button id="service-action-prepayment" class="button tertiary compact" type="button"><span aria-hidden="true">🚧</span> Request PRE-Payment</button></span>
                     <button id="service-action-card-purchase" class="button tertiary compact" type="button">Record Card Purchase</button>
                     <button id="service-action-renfe" class="button secondary compact" type="button" hidden>Record RENFE Payment</button>
                   </div>
@@ -381,6 +383,7 @@
                 <label class="field">
                   <textarea id="field-service-notes" rows="5" placeholder="Internal notes for the booking team"></textarea>
                 </label>
+                <button id="update-service-notes" class="button tertiary compact" type="button">Update notes</button>
               </section>
             </form>
           </section>
@@ -492,25 +495,29 @@
 
           <section id="bulk-actions" class="bulk-actions" hidden>
             <div class="bulk-actions-row">
-              <span id="bulk-selection-copy" class="bulk-selection-copy">0 services selected</span>
+              <div class="bulk-selection-summary">
+                <span class="bulk-selection-indicator" aria-hidden="true">✓</span>
+                <span id="bulk-selection-copy" class="bulk-selection-copy">0 services selected</span>
+                <button id="clear-service-selection" class="button tertiary compact bulk-clear-selection" type="button">Clear selection</button>
+              </div>
               <div class="bulk-actions-controls">
-                <label class="field bulk-mode-field compact-field bulk-mode-picker">
-                  <select id="bulk-action-mode">
-                    <option value="status">Bulk status update</option>
-                    <option value="drafts">Create email drafts</option>
-                  </select>
-                </label>
-
-                <div id="bulk-status-panel" class="bulk-panel">
-                  <label class="field bulk-field compact-field">
-                    <select id="bulk-status-ezus"></select>
-                  </label>
-                  <button id="apply-bulk-status" class="button secondary compact" type="button">Apply status</button>
+                <div class="bulk-action-menu">
+                  <button id="bulk-status-toggle" class="button tertiary compact" type="button" aria-expanded="false" aria-controls="bulk-status-popover">Update status</button>
+                  <section id="bulk-status-popover" class="bulk-status-popover" aria-label="Update status" hidden>
+                    <strong>Update status</strong>
+                    <label class="field bulk-field compact-field"><span>Status</span><select id="bulk-status-ezus"></select></label>
+                    <div class="bulk-status-popover-actions">
+                      <button id="bulk-status-cancel" class="button tertiary compact" type="button">Cancel</button>
+                      <button id="apply-bulk-status" class="button secondary compact" type="button">Apply to selected services</button>
+                    </div>
+                  </section>
                 </div>
-
-                <div id="bulk-drafts-panel" class="bulk-panel bulk-drafts-panel" hidden>
-                  <button id="create-availability-draft" class="button secondary compact" type="button">Availability draft</button>
-                  <button id="create-reservations-draft" class="button tertiary compact" type="button">Reservations draft</button>
+                <div class="bulk-action-menu">
+                  <button id="bulk-drafts-toggle" class="button secondary compact" type="button" aria-expanded="false" aria-controls="bulk-drafts-menu">Create draft <span aria-hidden="true">▾</span></button>
+                  <div id="bulk-drafts-menu" class="bulk-drafts-menu" role="menu" hidden>
+                    <button id="create-availability-draft" type="button" role="menuitem">Availability request</button>
+                    <button id="create-reservations-draft" type="button" role="menuitem">Reservation request</button>
+                  </div>
                 </div>
               </div>
             </div>
