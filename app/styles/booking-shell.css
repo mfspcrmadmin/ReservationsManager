@@ -12,7 +12,7 @@
 }
 
 .booking-hub-shell.is-browser-wide {
-  --booking-browser-width: 720px;
+  --booking-browser-width: 847px;
 }
 
 .booking-hub-shell.is-browser-collapsed {
@@ -475,6 +475,20 @@
   box-shadow: inset 3px 0 0 #167b62;
 }
 
+.booking-browser-stage {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .booking-browser-results-scroll .booking-browser-table {
   min-height: 0;
 }
@@ -773,7 +787,7 @@
   }
   
   .booking-hub-shell.is-browser-wide {
-    --booking-browser-width: 580px;
+    --booking-browser-width: 687px;
   }
 
   .workspace-top-grid,
@@ -1240,6 +1254,7 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   row-gap: 12px;
   align-items: start;
   transition: grid-template-columns 240ms cubic-bezier(0.2, 0.75, 0.3, 1);
+  will-change: grid-template-columns;
 }
 
 .booking-main-shell.is-rail-collapsed { --workspace-side-column-width: 48px; }
@@ -1265,11 +1280,15 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   padding-top: 34px;
   transform-origin: right top;
   transition: opacity 180ms ease, filter 220ms ease;
+  will-change: opacity, transform;
 }
 .booking-rail > :not(.booking-rail-toggle) {
   opacity: 1;
   transform: translateX(0);
   transition: opacity 160ms ease, transform 220ms cubic-bezier(0.2, 0.75, 0.3, 1), visibility 0s linear;
+}
+.booking-actions-rail {
+  will-change: opacity, transform;
 }
 .booking-rail-toggle {
   display: none;
@@ -1288,13 +1307,16 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 .booking-rail-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .booking-rail-toggle span { color: currentColor; font: 700 10px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
 .booking-rail-toggle:hover { background: #e6f3ee; border-color: #167b62; color: #0d624d; }
-.booking-rail.is-collapsed { display: block; padding-top: 0; }
+.booking-rail.is-collapsed {
+  display: block;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+  padding-top: 0;
+}
 .booking-rail.is-collapsed > :not(.booking-rail-toggle) {
-  visibility: hidden;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(12px);
-  transition: opacity 120ms ease, transform 180ms ease, visibility 0s linear 180ms;
+	display: none;
 }
 .booking-rail.is-collapsed .booking-rail-toggle { display: inline-flex; }
 .booking-rail:not(.is-collapsed) > :not(.booking-rail-toggle) { animation: booking-rail-content-in 240ms cubic-bezier(0.2, 0.75, 0.3, 1); }
@@ -1384,6 +1406,67 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 .booking-status-item--sync > .label { grid-column: 1 / span 2; }
 .booking-status-item--sync > strong { grid-column: 2; grid-row: 2; }
 .booking-status-item--sync > .booking-status-note { grid-column: 1 / span 2; }
+
+/* Itinerary is both a status and a compact, in-place action. */
+.itinerary-link-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.itinerary-link-control-open,
+.itinerary-link-control-edit,
+.itinerary-link-control-save {
+  border: 0;
+  background: transparent;
+  color: #126750;
+  font: 700 11px/1.3 var(--font-body);
+  cursor: pointer;
+}
+
+.itinerary-link-control-open { padding: 0; text-align: left; }
+.itinerary-link-control-open:hover { text-decoration: underline; }
+.itinerary-link-control-edit { padding: 1px 4px; border-left: 1px solid #d0d5dd; color: #667085; font-size: 10px; }
+.itinerary-link-control-edit:hover { color: #344054; }
+
+.itinerary-link-control.is-missing .itinerary-link-control-open {
+  color: #b42318;
+}
+
+.itinerary-link-control.is-missing .itinerary-link-control-open::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 5px 1px 0;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.itinerary-link-control-form {
+  display: flex;
+  flex: 1 0 100%;
+  gap: 4px;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.itinerary-link-control-form[hidden] { display: none; }
+.itinerary-link-control-form input {
+  min-width: 0;
+  flex: 1;
+  height: 25px;
+  padding: 4px 6px;
+  border: 1px solid #d0d5dd;
+  border-radius: 5px;
+  font: 500 10px/1.2 var(--font-body);
+}
+.itinerary-link-control-form input:focus { border-color: #98a2b3; outline: 2px solid rgba(152, 162, 179, 0.18); }
+.itinerary-link-control-save { padding: 4px 2px; color: #126750; font-size: 10px; }
+.itinerary-link-control-save:disabled { cursor: wait; opacity: .55; }
 .booking-status-sync-button {
   grid-column: 3;
   grid-row: 1 / span 3;
@@ -1429,7 +1512,22 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 
 .prepayment-request-dialog-panel { max-height: calc(100vh - 28px); overflow: auto; }
 .card-purchase-dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.card-purchase-service-id { padding-top: 3px; color: #98a2b3; font: 500 9px/1.2 var(--font-body); white-space: nowrap; }
+.card-transaction-type-options { display: flex; gap: 8px; }
+.card-transaction-type-options .is-selected { border-color: #126750; background: #126750; color: #fff; }
+.card-transaction-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card-transaction-fields-full { grid-column: 1 / -1; }
+.card-transaction-file-input { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
+.card-transaction-dropzone { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 76px; border: 1px dashed #98a2b3; border-radius: 8px; background: #fcfcfd; color: #475467; cursor: pointer; }
+.card-transaction-dropzone:hover, .card-transaction-dropzone.is-dragging { border-color: #167b62; background: #edf8f3; color: #126750; }
+.card-transaction-dropzone svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.card-transaction-documents { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: stretch; margin-top: 7px; }
+.card-transaction-documents > div:first-child { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 5px; }
+.card-transaction-documents .card-transaction-dropzone { min-height: 52px; font-size: 11px; }
+.card-transaction-file-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 7px; margin: 0; padding: 8px; border: 1px solid #eaecf0; border-radius: 8px; background: #fcfcfd; }
+.card-transaction-file { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 7px 9px; border: 1px solid #9ad9c5; border-radius: 7px; background: #e5f7ef; color: #075f47; box-shadow: 0 1px 2px rgba(8, 91, 68, .08); font: 700 11px/1.3 var(--font-body); }
+.card-transaction-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-transaction-file button { padding: 0; border: 0; background: transparent; color: #087554; font: 700 17px/1 var(--font-body); cursor: pointer; }
+.card-transaction-file button:hover { color: #b42318; }
 .prepayment-request-dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .prepayment-service-id { padding-top: 3px; color: #98a2b3; font: 500 9px/1.2 var(--font-body); white-space: nowrap; }
 .record-context { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 10px; padding: 11px; border: 1px solid #e4e7ec; border-radius: 8px; background: #fafbfc; }
@@ -1753,7 +1851,7 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   .booking-main-shell.is-rail-collapsed { --workspace-side-column-width: minmax(0, 1fr); }
   .booking-main-shell > *:not(.booking-actions-rail), .booking-actions-rail { grid-column: 1; grid-row: auto; }
   .booking-rail, .booking-actions-rail { position: static; height: auto; max-height: none; }
-  .booking-rail.is-collapsed > :not(.booking-rail-toggle) { visibility: visible; opacity: 1; pointer-events: auto; transform: none; }
+  .booking-rail.is-collapsed > :not(.booking-rail-toggle) { display: block; visibility: visible; opacity: 1; pointer-events: auto; transform: none; }
   .booking-rail.is-collapsed .booking-rail-toggle, .booking-rail-collapse-toggle { display: none; }
 }
 
@@ -2359,11 +2457,22 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   box-shadow: none;
   padding: 0;
 }
+.booking-main-shell .mail-browser-list-pane {
+  height: 520px;
+  min-height: 0;
+}
 .booking-main-shell .section-header-inline { padding: 10px 12px; border-bottom: 1px solid #eaecf0; }
 .booking-main-shell .section-header-inline h3 { color: #344054; font-size: 12px; }
 .booking-main-shell .mail-list-header-actions { display: inline-flex; align-items: center; gap: 6px; }
 .booking-main-shell .mail-list-header-actions .refresh-mails-button { width: 28px; min-width: 28px; height: 28px; font-size: 15px; }
-.booking-main-shell .mail-list { padding: 5px; }
+.booking-main-shell .mail-list {
+  min-height: 0;
+  padding: 5px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: #98a2b3 transparent;
+  scrollbar-width: thin;
+}
 .booking-main-shell .mail-list-item {
   border: 1px solid transparent;
   border-radius: 6px;
@@ -3082,6 +3191,19 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   .booking-header .booking-header-metadata { justify-content: flex-start; flex-wrap: wrap; }
 }
 
+/* An expanded queue leaves the workspace narrow on laptop-sized screens.
+   Keep its heading on its own row so it cannot be obscured by Active booking. */
+@media (min-width: 1081px) and (max-width: 1520px) {
+  .booking-hub-shell.is-browser-wide .summary-topbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .booking-hub-shell.is-browser-wide .summary-title-block {
+    min-height: 16px;
+  }
+}
+
 /* The main area is much narrower once the booking browser and action rail are
    visible. Its header must therefore size itself from the workflow content. */
 @media (min-width: 768px) and (max-width: 1280px) {
@@ -3104,6 +3226,72 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   .booking-summary--workspace .workspace-top-grid {
     grid-template-rows: auto;
   }
+}
+
+/* Payments keep client records visually distinct from supplier settlement tools. */
+.payments-workspace { display: grid; gap: 12px; }
+.payments-workspace-header { margin: 0; }
+.payments-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  border-top: 1px solid #edf0f2;
+  border-bottom: 1px solid #edf0f2;
+}
+.payments-tab-group-label { color: #98a2b3; font: 700 9px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase; }
+.payments-tab-divider { width: 1px; height: 20px; margin: 0 3px; background: #e4e7ec; }
+.payments-tab {
+  min-height: 30px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #667085;
+  font: 650 11px/1 var(--font-body);
+  cursor: pointer;
+}
+.payments-tab:hover { background: #f8fafc; color: #344054; }
+.payments-tab.active { border-color: #d7e5df; background: #edf8f3; color: #126750; }
+.payments-tab--client.active { border-color: #c8dbe8; background: #f3f8fc; color: #365d78; }
+.payments-subpanel { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; min-width: 0; padding: 4px 0; }
+.payments-subpanel-copy { display: grid; gap: 3px; }
+.payments-subpanel-copy h3 { margin: 0; color: #344054; font: 700 14px/1.25 var(--font-heading); }
+.payments-subpanel-copy p { margin: 0; color: #667085; font: 500 12px/1.45 var(--font-body); }
+.payments-subpanel-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.payments-proformas-link { color: #167b62; font: 650 11px/1.2 var(--font-body); text-decoration: none; }
+.payments-proformas-link:hover { text-decoration: underline; }
+.payments-subpanel--table { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; width: 100%; }
+.payments-subpanel--table > * { min-width: 0; }
+.payments-card-purchases-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.refresh-card-purchases-button { flex: 0 0 auto; }
+.refresh-card-purchases-button.is-loading svg { animation: card-purchases-refresh-spin .8s linear infinite; }
+@keyframes card-purchases-refresh-spin { to { transform: rotate(360deg); } }
+.payments-card-purchases-table-wrap { width: 100%; max-width: none; max-height: 360px; overflow: auto; border-radius: 8px; }
+.payments-card-purchases-table { width: 100%; min-width: 1680px; }
+.payments-card-purchases-table thead { position: sticky; top: 0; z-index: 2; background: #fafbfc; }
+.payments-card-purchases-table td:nth-child(9), .payments-card-purchases-table td:nth-child(10) { min-width: 220px; white-space: normal; }
+.card-purchase-status { display: inline-flex; align-items: center; min-height: 22px; padding: 3px 8px; border-radius: 999px; font: 700 10px/1 var(--font-body); white-space: nowrap; }
+.card-purchase-status.is-paid { background: #eaf7ef; color: #177245; }
+.card-purchase-status.is-refund { background: #fff0f2; color: #b4233c; }
+.card-purchase-status.is-neutral { background: #f2f4f7; color: #667085; }
+.card-purchase-files { display: grid; gap: 4px; justify-items: start; }
+.card-purchase-file { max-width: 180px; padding: 0; border: 0; background: transparent; color: #216a9b; font: 650 11px/1.35 var(--font-body); overflow: hidden; text-align: left; text-decoration: underline; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.card-purchase-file:hover { color: #174d72; }
+.card-purchase-file-empty { color: #98a2b3; }
+.card-purchase-preview-panel { box-sizing: border-box; width: min(1180px, calc(100vw - 40px)); height: min(820px, calc(100vh - 40px)); max-height: calc(100vh - 40px); grid-template-rows: auto minmax(0, 1fr); }
+.card-purchase-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-purchase-preview-heading h4 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-purchase-preview-content { display: grid; min-height: 0; margin-top: 14px; place-items: center; overflow: hidden; }
+.card-purchase-preview-content iframe { width: 100%; height: 100%; min-height: 0; border: 1px solid #eaecf0; border-radius: 8px; }
+.card-purchase-preview-content img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.card-purchase-preview-error { color: #b4233c; }
+@media (max-width: 700px) {
+  .card-transaction-documents { grid-template-columns: 1fr; }
+  .payments-tabs { align-items: flex-start; }
+  .payments-tab-divider { display: none; }
+  .payments-subpanel { align-items: flex-start; flex-direction: column; }
 }
 
 /* Tooltips are portalled to document.body, outside every scrolling card and

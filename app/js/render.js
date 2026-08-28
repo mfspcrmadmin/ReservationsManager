@@ -17,6 +17,30 @@ let noticeExitTimer = null;
 let errorExitTimer = null;
 const NOTICE_DISMISS_DELAY_MS = 5000;
 const FLOATING_MESSAGE_EXIT_MS = 160;
+const COMMUNICATION_SENDER_EMAILS = [
+  "crmadmin@madeforspainandportugal.com",
+  "reservations@madeforspainandportugal.com",
+  "srodriguez@madeforspainandportugal.com",
+  "alba@madeforspainandportugal.com",
+  "patricia@madeforspainandportugal.com",
+  "s.martin@madeforspainandportugal.com",
+  "silvia@madeforspainandportugal.com",
+  "s.menendez@madeforspainandportugal.com",
+  "rebeca@madeforspainandportugal.com",
+  "inmaculada@madeforspainandportugal.com",
+  "l.fuentes@madeforspainandportugal.com",
+  "sandra@madeforspainandportugal.com",
+  "yaiza@madeforspainandportugal.com",
+  "daniel@madeforspainandportugal.com",
+  "erika@madeforspainandportugal.com",
+  "azahara@madeforspainandportugal.com",
+  "julia@madeforspainandportugal.com",
+  "teo@madeforspainandportugal.com",
+  "garcia@madeforspainandportugal.com",
+  "gema@madeforspainandportugal.com",
+  "marta@madeforspainandportugal.com",
+  "p.gonzalo@madeforspainandportugal.com"
+];
 
 export function hideSearchResults(elements) {
   elements.searchResultsCard.hidden = true;
@@ -235,10 +259,16 @@ export function setButtonsDisabled(elements, state, disabled) {
   elements.bulkStatusEzus.disabled = disabled || !hasSelectedServices;
   elements.createAvailabilityDraft.disabled = disabled || !hasSelectedServices;
   elements.createReservationsDraft.disabled = disabled || !hasSelectedServices;
-  elements.mailEditDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen;
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditContentButton].forEach(function (button) {
+    button.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen;
+  });
+
+  if (elements.mailSendDraft) {
+    elements.mailSendDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  }
 
   if (elements.mailDeleteDraft) {
-    elements.mailDeleteDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailDeleteDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
   }
 
   if (elements.serviceSelectAll) {
@@ -1427,6 +1457,9 @@ export function renderServicesTable(options) {
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
 
   renderServiceFilterControls(elements, state);
+  if (elements.servicesTitleCount) {
+    elements.servicesTitleCount.textContent = state.filteredServices.length + " shown · " + state.services.length + " total";
+  }
   elements.serviceCount.textContent = state.services.length + (state.services.length === 1 ? " service" : " services") +
     (selectedCount ? " | " + selectedCount + " selected" : "");
   elements.bulkActions.hidden = !hasServicesWorkspace || selectedCount === 0;
@@ -1453,16 +1486,21 @@ export function renderServicesTable(options) {
 }
 
 export function renderEmailsPanel(elements, state) {
-  const activeRecords = state.emailDrafts;
-  const activeCountLabel = activeRecords.length + (activeRecords.length === 1 ? " draft" : " drafts");
+  const selectedStatus = state.emailStatusFilter || "Draft";
+  const activeRecords = state.emailDrafts.filter(function (record) {
+    return String(record && record.communication_status || "Draft").toLowerCase() === selectedStatus.toLowerCase();
+  }).sort(compareMailRecordsByMostRecent);
+  const activeCount = activeRecords.length;
 
   state.activeMailTab = "drafts";
+  elements.mailFilterDraft.classList.toggle("active", selectedStatus === "Draft");
+  elements.mailFilterSent.classList.toggle("active", selectedStatus === "Sent");
 
   if (elements.emailsSummaryCount) {
-    elements.emailsSummaryCount.textContent = activeCountLabel;
+    elements.emailsSummaryCount.textContent = String(activeCount);
   }
   if (elements.draftsListCount) {
-    elements.draftsListCount.textContent = activeCountLabel;
+    elements.draftsListCount.textContent = String(activeCount);
   }
   if (elements.refreshBookingMails) {
     elements.refreshBookingMails.disabled = !state.selectedBooking || state.emailsLoading || state.draftEditorSaving;
@@ -1471,14 +1509,14 @@ export function renderEmailsPanel(elements, state) {
 
   if (!state.selectedBooking) {
     elements.emailsEmptyState.hidden = false;
-    elements.emailsEmptyState.textContent = "Load a booking to see related email drafts.";
+    elements.emailsEmptyState.textContent = "Load a booking to see related communications.";
     elements.emailsContentPanel.hidden = true;
     return;
   }
 
   if (state.emailsLoading) {
     elements.emailsEmptyState.hidden = false;
-    elements.emailsEmptyState.textContent = "Loading related email drafts...";
+    elements.emailsEmptyState.innerHTML = '<span class="table-loading-indicator" aria-hidden="true"></span> Loading related communications...';
     elements.emailsContentPanel.hidden = true;
     return;
   }
@@ -1492,10 +1530,9 @@ export function renderEmailsPanel(elements, state) {
 
   elements.emailsEmptyState.hidden = true;
   elements.emailsContentPanel.hidden = false;
-  elements.mailListHeading.textContent = "Drafts";
-  elements.activeMailListCount.textContent = activeCountLabel;
+  elements.mailListHeading.textContent = "Emails (" + activeCount + ")";
 
-  const emptyMessage = state.draftEmailsError || "No related draft emails found.";
+  const emptyMessage = state.draftEmailsError || "No related communications found.";
   const selectedRecordId = getValidatedSelectedMailRecordId(state, activeRecords);
   const selectedRecord = getMailRecordById(activeRecords, "drafts", selectedRecordId);
   const selectedCacheKey = selectedRecordId ? buildMailCacheKey("drafts", selectedRecordId) : "";
@@ -1507,6 +1544,10 @@ export function renderEmailsPanel(elements, state) {
     selectedRecordId,
     emptyMessage
   );
+
+  if (elements.mailServicesIncluded) {
+    elements.mailServicesIncluded.hidden = true;
+  }
 
   if (!selectedRecord) {
     elements.mailViewerEmpty.hidden = false;
@@ -1547,7 +1588,10 @@ export function renderEmailsPanel(elements, state) {
   }
 
   const viewerRecord = selectedContentRecord || selectedRecord;
+  const isCommunicationDraft = Boolean(viewerRecord && viewerRecord.communication_id);
+  const isSentCommunication = String(viewerRecord && viewerRecord.communication_status || "").toLowerCase() === "sent";
   const subject = getMailSubject(viewerRecord);
+  const fromValue = formatMailValue(getMailField(viewerRecord, ["from", "From", "sender_email", "Sender_Email"])) || "-";
   const toValue = formatMailValue(getMailField(viewerRecord, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"])) || "-";
   const ccValue = formatMailValue(getMailField(viewerRecord, ["cc", "CC", "cc_address", "Cc_Address", "carbon_copy", "Carbon_Copy"])) || "-";
   const timeValue = getMailField(viewerRecord, [
@@ -1568,25 +1612,51 @@ export function renderEmailsPanel(elements, state) {
 
   elements.mailViewerEmpty.hidden = true;
   elements.mailViewerContent.hidden = false;
-  elements.mailViewerKind.textContent = "Draft";
+  elements.mailViewerKind.textContent = isSentCommunication ? "Sent" : "Draft";
   elements.mailViewerSubject.textContent = subject;
   elements.mailViewerPreview.textContent = "";
   elements.mailViewerPreview.hidden = true;
+  elements.mailViewerFrom.textContent = fromValue;
   elements.mailViewerTo.textContent = toValue;
   elements.mailViewerCc.textContent = ccValue;
   elements.mailViewerTime.textContent = timeValue ? formatDateTime(timeValue) : "-";
-  elements.mailViewerActions.hidden = false;
-  if (elements.mailOpenOutlook) {
-    elements.mailOpenOutlook.disabled = state.draftEditorSaving || state.outlookConfirmOpen;
+  renderCommunicationServices(elements.mailServicesIncluded, viewerRecord, state);
+  elements.mailViewerActions.hidden = Boolean(state.draftEditorOpen);
+  if (elements.mailSendDraft) {
+    elements.mailSendDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailSendDraft.textContent = state.draftSending ? "Sending..." : "Send";
   }
-  if (elements.mailCopyFormattedBody) {
-    elements.mailCopyFormattedBody.disabled = state.draftEditorSaving || state.outlookConfirmOpen;
-  }
-  elements.mailEditDraft.disabled = state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditContentButton].forEach(function (button) {
+    button.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    button.title = "Edit";
+  });
   if (elements.mailDeleteDraft) {
-    elements.mailDeleteDraft.disabled = state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailDeleteDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
+    elements.mailDeleteDraft.title = isSentCommunication ? "Sent communications cannot be deleted." : "";
   }
   elements.mailDraftEditor.hidden = !state.draftEditorOpen;
+  const editorTarget = "content";
+  elements.mailEditFromField.hidden = !state.draftEditorOpen;
+  elements.mailEditToField.hidden = !state.draftEditorOpen;
+  elements.mailEditCcField.hidden = !state.draftEditorOpen;
+  elements.mailEditContentField.hidden = !state.draftEditorOpen;
+  elements.mailEditorModeSwitch.hidden = !state.draftEditorOpen;
+  if (state.draftEditorOpen) {
+    const hosts = { from: elements.mailViewerFrom.parentElement, to: elements.mailViewerTo.parentElement, cc: elements.mailViewerCc.parentElement };
+    if (editorTarget === "content") {
+      elements.mailContentToolbar.insertAdjacentElement("afterend", elements.mailDraftEditor);
+    } else {
+      hosts[editorTarget].appendChild(elements.mailDraftEditor);
+      const valueElements = { from: elements.mailViewerFrom, to: elements.mailViewerTo, cc: elements.mailViewerCc };
+      const editButtons = { from: elements.mailEditFromButton, to: elements.mailEditToButton, cc: elements.mailEditCcButton };
+      valueElements[editorTarget].hidden = true;
+      editButtons[editorTarget].hidden = true;
+    }
+  } else {
+    [elements.mailViewerFrom, elements.mailViewerTo, elements.mailViewerCc, elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditContentButton].forEach(function (element) {
+      element.hidden = false;
+    });
+  }
   elements.mailSaveDraft.disabled = state.draftEditorSaving;
   elements.mailCancelDraftEdit.disabled = state.draftEditorSaving;
   elements.mailViewerSubject.hidden = state.draftEditorOpen;
@@ -1596,16 +1666,20 @@ export function renderEmailsPanel(elements, state) {
   elements.mailDraftDebugId.textContent = selectedRecordId ? "Draft ID: " + selectedRecordId : "";
 
   const editorFields = state.draftEditorFields || {
+    email_from: getMailEditorValue(getMailField(viewerRecord, ["from", "From", "sender_email", "Sender_Email"])),
     email_to: getMailEditorValue(getMailField(viewerRecord, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"])),
     email_cc: getMailEditorValue(getMailField(viewerRecord, ["cc", "CC", "cc_address", "Cc_Address", "carbon_copy", "Carbon_Copy"])),
     email_subject: subject,
     email_content: htmlContent
   };
+  elements.mailEditFrom.value = editorFields.email_from || "";
   elements.mailEditTo.value = editorFields.email_to || "";
   elements.mailEditCc.value = editorFields.email_cc || "";
   elements.mailEditSubject.value = editorFields.email_subject || "";
   elements.mailEditContent.value = editorFields.email_content || "";
   elements.mailEditVisual.innerHTML = editorFields.email_content || "<p></p>";
+  renderInlineCommunicationEditors(elements, state, editorFields);
+  renderCommunicationServiceEditor(elements, state);
   elements.mailEditorModeVisual.classList.toggle("active", state.draftEditorMode === "visual");
   elements.mailEditorModeHtml.classList.toggle("active", state.draftEditorMode === "html");
   elements.mailEditorModeVisual.setAttribute("aria-selected", state.draftEditorMode === "visual" ? "true" : "false");
@@ -1614,23 +1688,72 @@ export function renderEmailsPanel(elements, state) {
   elements.mailEditVisual.hidden = state.draftEditorMode !== "visual";
   elements.mailEditContent.hidden = state.draftEditorMode !== "html";
   elements.mailSaveDraft.textContent = state.draftEditorSaving ? "Saving..." : "Save draft";
-  if (elements.mailOutlookConfirm) {
-    elements.mailOutlookConfirm.hidden = !state.outlookConfirmOpen;
-  }
-  if (elements.mailOutlookConfirmMessage) {
-    elements.mailOutlookConfirmMessage.textContent = state.draftEditorSaving
-      ? "Removing this draft from this view..."
-      : "If you choose Yes, this draft will be removed from this view.";
-  }
-  if (elements.mailOutlookConfirmYes) {
-    elements.mailOutlookConfirmYes.disabled = state.draftEditorSaving;
-    elements.mailOutlookConfirmYes.textContent = state.draftEditorSaving ? "Removing..." : "Yes";
-  }
-  if (elements.mailOutlookConfirmNo) {
-    elements.mailOutlookConfirmNo.disabled = state.draftEditorSaving;
-  }
 
   elements.mailViewerBody.innerHTML = buildMailViewerMarkup(htmlContent);
+}
+
+function renderInlineCommunicationEditors(elements, state, fields) {
+  const active = state.communicationInlineEdit || "";
+  const editors = { from: elements.mailInlineFrom, to: elements.mailInlineTo, cc: elements.mailInlineCc };
+  Object.keys(editors).forEach(function (field) {
+    editors[field].hidden = active !== field;
+  });
+  const values = { from: elements.mailViewerFrom, to: elements.mailViewerTo, cc: elements.mailViewerCc };
+  Object.keys(values).forEach(function (field) { values[field].hidden = active === field; });
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton].forEach(function (button) { button.hidden = Boolean(active); });
+  if (active === "from") {
+    const selected = COMMUNICATION_SENDER_EMAILS.indexOf(fields.email_from) !== -1
+      ? fields.email_from
+      : COMMUNICATION_SENDER_EMAILS[0];
+    elements.mailInlineFromSelect.innerHTML = COMMUNICATION_SENDER_EMAILS.map(function (email) { return '<option value="' + escapeHtml(email) + '"' + (email === selected ? " selected" : "") + ">" + escapeHtml(email) + "</option>"; }).join("");
+  }
+  ["to", "cc"].forEach(function (field) {
+    if (active !== field) return;
+    const container = field === "to" ? elements.mailInlineToChips : elements.mailInlineCcChips;
+    const values = state.communicationInlineEmails[field] || [];
+    container.innerHTML = values.map(function (email) {
+      return '<span class="mail-email-chip">' + escapeHtml(email) + '<button type="button" data-remove-email="' + escapeHtml(email) + '" data-email-field="' + field + '" aria-label="Remove ' + escapeHtml(email) + '">×</button></span>';
+    }).join("");
+  });
+}
+
+function renderCommunicationServiceEditor(elements, state) {
+  if (!elements.mailEditServices) return;
+  elements.mailEditServices.hidden = !state.draftEditorOpen;
+  const ids = state.draftEditorServiceIds || [];
+  const selected = (state.services || []).filter(function (service) { return ids.indexOf(String(service.id)) !== -1; });
+  elements.mailEditServicesList.innerHTML = selected.length ? selected.map(function (service) {
+    return '<div class="mail-edit-service-row"><span>' + escapeHtml(service.Name || service.Product_Description || "Service") + '</span><button type="button" data-remove-communication-service="' + escapeHtml(String(service.id)) + '" aria-label="Remove service">×</button></div>';
+  }).join("") : '<p class="mail-services-empty">No services associated with this communication.</p>';
+  elements.mailEditServiceOptions.innerHTML = (state.services || []).filter(function (service) { return ids.indexOf(String(service.id)) === -1; }).map(function (service) {
+    return '<option value="' + escapeHtml(String(service.id)) + ' | ' + escapeHtml(service.Name || service.Product_Description || "Service") + ' | ' + escapeHtml(service.Supplier_Name || "") + '"></option>';
+  }).join("");
+}
+
+function renderCommunicationServices(element, record, state) {
+  if (!element) {
+    return;
+  }
+
+  const linked = Array.isArray(record && record.services) ? record.services : [];
+  const ids = Array.isArray(record && record.service_ids) ? record.service_ids.map(String) : [];
+  const services = linked.length ? linked : (state.services || []).filter(function (service) {
+    return ids.indexOf(String(service && service.id || "")) !== -1;
+  });
+  element.hidden = false;
+  if (!services.length) {
+    element.innerHTML = '<div class="mail-section-heading"><h4>Services included <span>· 0</span></h4></div><p class="mail-services-empty">No services associated with this communication.</p>';
+    return;
+  }
+  element.innerHTML = [
+    '<div class="mail-section-heading"><h4>Services included <span>· ' + services.length + '</span></h4></div>',
+    '<div class="mail-services-table"><div class="mail-services-head"><span>Date</span><span>Service</span><span>Supplier</span><span>Status</span></div>',
+    services.map(function (service) {
+      const dateValue = service.Service_Date || service.service_date || service.Date || "";
+      return '<div class="mail-services-row"><span>' + escapeHtml(dateValue ? formatDateTime(dateValue) : "-") + '</span><strong>' + escapeHtml(service.Product_Description || service.product_description || service.Name || service.name || "-") + '</strong><span>' + escapeHtml(service.Supplier_Name || service.supplier_name || service.Supplier && service.Supplier.name || "-") + '</span><span>' + escapeHtml(service.Status_EZUS || service.status || "-") + '</span></div>';
+    }).join(""),
+    '</div>'
+  ].join("");
 }
 
 function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
@@ -1642,20 +1765,7 @@ function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
     const recordId = getMailRecordId(record, index, tabName);
     const subject = getMailSubject(record);
     const toValue = formatMailValue(getMailField(record, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"]));
-    const timeValue = getMailField(record, [
-      "time",
-      "Time",
-      "sent_time",
-      "Sent_Time",
-      "message_time",
-      "Message_Time",
-      "Created_Time",
-      "created_time",
-      "scheduled_time",
-      "Scheduled_Time",
-      "Modified_Time",
-      "modified_time"
-    ]);
+    const timeValue = getMailRecordTimeValue(record);
     const selectedClass = recordId === selectedRecordId ? " active" : "";
 
     return [
@@ -1666,6 +1776,32 @@ function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
       "</article>"
     ].join("");
   }).join("");
+}
+
+function compareMailRecordsByMostRecent(left, right) {
+  return getMailRecordTimestamp(right) - getMailRecordTimestamp(left);
+}
+
+function getMailRecordTimestamp(record) {
+  const timestamp = Date.parse(getMailRecordTimeValue(record));
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getMailRecordTimeValue(record) {
+  return getMailField(record, [
+    "time",
+    "Time",
+    "sent_time",
+    "Sent_Time",
+    "message_time",
+    "Message_Time",
+    "Created_Time",
+    "created_time",
+    "scheduled_time",
+    "Scheduled_Time",
+    "Modified_Time",
+    "modified_time"
+  ]);
 }
 
 function renderMailRow(label, value) {

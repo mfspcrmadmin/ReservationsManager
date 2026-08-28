@@ -149,7 +149,15 @@
               </article>
               <article class="booking-status-item">
                 <span class="label">Itinerary format</span>
-                <strong id="action-has-axus">-</strong>
+                <strong id="action-has-axus" class="action-status-badge action-status-badge--neutral">-</strong>
+                <div id="action-itinerary-link" class="itinerary-link-control">
+                  <button id="action-itinerary-open" class="itinerary-link-control-open" type="button" hidden></button>
+                  <button id="action-itinerary-edit" class="itinerary-link-control-edit" type="button" aria-label="Edit itinerary link" title="Edit itinerary link">Edit</button>
+                  <form id="action-itinerary-form" class="itinerary-link-control-form" hidden>
+                    <input id="action-itinerary-input" type="url" inputmode="url" placeholder="Paste itinerary URL" aria-label="Itinerary link">
+                    <button class="itinerary-link-control-save" type="submit">Save</button>
+                  </form>
+                </div>
               </article>
             </section>
           </section>
@@ -257,33 +265,42 @@
           <div id="card-purchase-dialog" class="booking-action-dialog" hidden>
             <div id="card-purchase-dialog-backdrop" class="booking-action-dialog-backdrop"></div>
             <div class="booking-action-dialog-panel booking-action-dialog-panel--wide card-purchase-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="card-purchase-dialog-title">
-              <div class="card-purchase-dialog-heading"><h4 id="card-purchase-dialog-title">Record Card Purchase</h4><code id="card-purchase-service-id" class="card-purchase-service-id">Service ID: -</code></div>
+              <div class="card-purchase-dialog-heading"><h4 id="card-purchase-dialog-title">Record Card Transaction</h4></div>
               <form id="card-purchase-form" class="booking-form">
-                <input id="card-purchase-requested-by" type="hidden">
                 <div class="booking-form-grid">
+                  <div class="booking-action-dialog-options booking-form-field booking-form-field--full card-transaction-type-options" role="group" aria-label="Transaction type">
+                    <button id="card-purchase-transaction-purchase" class="button booking-action-button compact is-selected" type="button" aria-pressed="true">Purchase</button>
+                    <button id="card-purchase-transaction-refund" class="button tertiary compact" type="button" aria-pressed="false">Cancellation</button>
+                  </div>
                   <section class="record-context card-purchase-context booking-form-field booking-form-field--full" aria-label="Booking, supplier and service information">
                     <div class="record-context-section"><h5>Booking</h5><dl><div><dt>MFSP</dt><dd id="card-purchase-mfsp-reference">-</dd></div><div><dt>Name</dt><dd id="card-purchase-booking-name">-</dd></div></dl></div>
                     <div class="record-context-section"><h5>Supplier</h5><dl><div><dt>Name</dt><dd id="card-purchase-supplier-name">-</dd></div><div><dt>Code</dt><dd id="card-purchase-supplier-code">-</dd></div></dl></div>
-                    <div class="record-context-section"><h5>Service</h5><dl><div><dt>Name</dt><dd id="card-purchase-service-name">-</dd></div></dl></div>
+                    <div class="record-context-section"><h5>Service</h5><dl><div><dt>Name</dt><dd id="card-purchase-service-name">-</dd></div><div><dt>Service date</dt><dd id="card-purchase-service-context-date">-</dd></div></dl></div>
                   </section>
 
-                  <label class="field booking-form-field">
-                    <span>Amount <em>*</em></span>
-                    <div class="booking-form-currency">
-                      <span class="booking-form-currency-symbol">EUR</span>
-                      <input id="card-purchase-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required>
-                    </div>
-                  </label>
-
-                  <label class="field booking-form-field">
-                    <span>Service Date <em>*</em></span>
-                    <input id="card-purchase-service-date" type="date" required>
-                  </label>
-
                   <label class="field booking-form-field booking-form-field--full">
-                    <span>Observations</span>
-                    <textarea id="card-purchase-observations" rows="4"></textarea>
+                    <span>Card Payment Account <em>*</em></span>
+                    <select id="card-purchase-payment-account" required></select>
+                    <small id="card-purchase-account-status" class="booking-form-help"></small>
                   </label>
+
+                  <section class="field booking-form-field booking-form-field--full">
+                    <span>Supporting Documents</span>
+                    <div class="card-transaction-documents">
+                      <div><input id="card-purchase-supporting-documents" class="card-transaction-file-input" type="file" multiple><button id="card-purchase-supporting-documents-dropzone" class="card-transaction-dropzone" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg><span>Drop files here or click to upload</span></button><small>Up to 5 files.</small></div>
+                      <div id="card-purchase-supporting-documents-list" class="card-transaction-file-list" aria-live="polite"></div>
+                    </div>
+                  </section>
+
+                  <div id="card-purchase-refund-fields" class="card-transaction-fields booking-form-field booking-form-field--full" hidden>
+                    <label class="field card-transaction-fields-full"><span>Original Card Purchase <em>*</em></span><select id="card-purchase-original-purchase"></select></label>
+                  </div>
+
+                  <div id="card-purchase-purchase-fields" class="card-transaction-fields booking-form-field booking-form-field--full">
+                    <label class="field"><span>Amount <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input id="card-purchase-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
+                    <label class="field"><span>Transaction Date <em>*</em></span><input id="card-purchase-service-date" type="date" required></label>
+                    <label class="field card-transaction-fields-full"><span>Transaction Notes</span><textarea id="card-purchase-observations" rows="4"></textarea></label>
+                  </div>
                 </div>
 
                 <div class="booking-action-dialog-footer booking-action-dialog-footer--split">
@@ -444,7 +461,10 @@
           <div class="card-header services-card-header">
             <div class="services-toolbar">
               <div class="services-toolbar-top">
-                <h2 class="panel-mini-title">Services</h2>
+                <div class="services-title-group">
+                  <h2 class="panel-mini-title">Services</h2>
+                  <span id="services-title-count" class="badge subtle">0 shown · 0 total</span>
+                </div>
                 <div class="services-toolbar-actions">
                   <div class="view-switcher">
                     <button id="view-flat" class="view-button active" type="button">Simple</button>
@@ -575,9 +595,12 @@
               <section class="mail-browser">
                 <section class="mail-browser-list-pane">
                   <div class="section-header-inline">
-                    <h3 id="mail-list-heading">Drafts</h3>
+                    <h3 id="mail-list-heading">Emails (0)</h3>
                     <div class="mail-list-header-actions">
-                      <span id="active-mail-list-count" class="badge subtle">0 drafts</span>
+                      <div class="mail-status-switch" role="tablist">
+                        <button id="mail-filter-draft" type="button" class="active">Draft</button>
+                        <button id="mail-filter-sent" type="button">Sent</button>
+                      </div>
                       <button
                         id="refresh-booking-mails"
                         class="button tertiary icon-button refresh-mails-button"
@@ -604,9 +627,8 @@
                           <div class="mail-viewer-header-top-left">
                             <span id="mail-viewer-kind" class="status-pill">Draft</span>
                             <div id="mail-viewer-actions" class="mail-viewer-actions" hidden>
-                              <button id="mail-open-outlook" class="button outlook compact" type="button">Open in Outlook</button>
-                              <button id="mail-copy-formatted-body" class="button outlook-outline compact" type="button">Copy formatted body</button>
-                              <button id="mail-edit-draft" class="button violet compact" type="button">Edit draft</button>
+                              <button id="mail-edit-draft" class="button tertiary compact" type="button">Edit</button>
+                              <button id="mail-send-draft" class="button success compact" type="button">Send</button>
                               <button id="mail-delete-draft" class="button danger compact" type="button">Delete draft</button>
                             </div>
                           </div>
@@ -616,65 +638,81 @@
                         <p id="mail-viewer-preview" class="mail-viewer-preview" hidden></p>
                       </div>
 
-                      <div id="mail-viewer-meta" class="mail-viewer-meta">
+                      <section id="mail-viewer-meta" class="mail-viewer-meta" aria-labelledby="mail-recipients-heading">
+                        <h4 id="mail-recipients-heading" class="mail-section-title">Recipients</h4>
+                        <div class="mail-meta-item">
+                          <span class="label">From</span>
+                          <strong id="mail-viewer-from">-</strong>
+                          <div id="mail-inline-from" class="mail-inline-editor" hidden><button id="mail-inline-from-cancel" class="icon-button is-danger" type="button" title="Cancel">×</button><button id="mail-inline-from-save" class="icon-button is-success" type="button" title="Save">✓</button><select id="mail-inline-from-select"></select></div>
+                          <button id="mail-edit-from-button" class="icon-button" type="button" title="Edit From">✎</button>
+                        </div>
                         <div class="mail-meta-item">
                           <span class="label">To</span>
                           <strong id="mail-viewer-to">-</strong>
+                          <div id="mail-inline-to" class="mail-inline-editor mail-chip-editor" hidden><button id="mail-inline-to-cancel" class="icon-button is-danger" type="button" title="Cancel">×</button><button id="mail-inline-to-save" class="icon-button is-success" type="button" title="Save">✓</button><div class="mail-chip-input-shell"><div id="mail-inline-to-chips" class="mail-email-chips"></div><input id="mail-inline-to-input" type="email" placeholder="Add email"></div></div>
+                          <button id="mail-edit-to-button" class="icon-button" type="button" title="Edit To">✎</button>
                         </div>
                         <div class="mail-meta-item">
                           <span class="label">CC</span>
                           <strong id="mail-viewer-cc">-</strong>
+                          <div id="mail-inline-cc" class="mail-inline-editor mail-chip-editor" hidden><button id="mail-inline-cc-cancel" class="icon-button is-danger" type="button" title="Cancel">×</button><button id="mail-inline-cc-save" class="icon-button is-success" type="button" title="Save">✓</button><div class="mail-chip-input-shell"><div id="mail-inline-cc-chips" class="mail-email-chips"></div><input id="mail-inline-cc-input" type="email" placeholder="Add email"></div></div>
+                          <button id="mail-edit-cc-button" class="icon-button" type="button" title="Edit CC">✎</button>
                         </div>
-                      </div>
+                      </section>
 
                     </div>
 
+                    <section id="mail-services-included" class="mail-services-included" hidden></section>
                     <form id="mail-draft-editor" class="mail-draft-editor" hidden>
                       <div class="mail-draft-editor-topbar">
-                        <div class="mail-editor-mode-switch" role="tablist" aria-label="Draft editor mode">
+                        <div id="mail-editor-mode-switch" class="mail-editor-mode-switch" role="tablist" aria-label="Draft editor mode">
                           <button id="mail-editor-mode-visual" class="mail-editor-mode-button active" type="button">Visual</button>
                           <button id="mail-editor-mode-html" class="mail-editor-mode-button" type="button">HTML</button>
                         </div>
                         <div class="mail-draft-editor-actions">
-                          <button id="mail-save-draft" class="button success compact" type="submit">Save draft</button>
-                          <button id="mail-cancel-draft-edit" class="button danger compact" type="button">Cancel</button>
+                          <button id="mail-cancel-draft-edit" class="button tertiary compact" type="button">Cancel</button>
+                          <button id="mail-save-draft" class="button success compact" type="submit">Save changes</button>
                         </div>
                       </div>
 
                       <div class="mail-draft-editor-grid">
-                        <label class="field">
+                        <label id="mail-edit-from-field" class="field">
+                          <span>From</span>
+                          <input id="mail-edit-from" class="mail-address-input" type="text" placeholder="sender@example.com">
+                        </label>
+                        <label id="mail-edit-to-field" class="field">
                           <span>To</span>
-                          <input id="mail-edit-to" type="text" placeholder="one@example.com, two@example.com">
+                          <input id="mail-edit-to" class="mail-address-input" type="text" placeholder="one@example.com, two@example.com">
                         </label>
-                        <label class="field">
+                        <label id="mail-edit-cc-field" class="field">
                           <span>CC</span>
-                          <input id="mail-edit-cc" type="text" placeholder="copy@example.com">
-                        </label>
-                        <label class="field mail-draft-editor-subject">
-                          <span>Subject</span>
-                          <input id="mail-edit-subject" type="text" placeholder="Draft subject">
+                          <input id="mail-edit-cc" class="mail-address-input" type="text" placeholder="copy@example.com">
                         </label>
                       </div>
 
-                      <label class="field">
+                      <section id="mail-edit-services" class="mail-edit-services">
+                        <div class="mail-section-heading"><h4>Services included</h4></div>
+                        <div id="mail-edit-services-list" class="mail-edit-services-list"></div>
+                        <label class="field"><span>Add service</span><input id="mail-edit-service-search" list="mail-edit-service-options" type="search" placeholder="Search service, supplier or date"><datalist id="mail-edit-service-options"></datalist></label>
+                      </section>
+
+                      <label class="field mail-draft-editor-subject"><span>Subject</span><input id="mail-edit-subject" type="text" placeholder="Email subject"></label>
+
+                      <label id="mail-edit-content-field" class="field">
                         <span id="mail-edit-content-label">Content</span>
                         <div id="mail-edit-visual" class="mail-edit-visual" contenteditable="true"></div>
                         <textarea id="mail-edit-content" rows="16" placeholder="<div>Your draft HTML</div>" hidden></textarea>
                       </label>
                     </form>
 
+                  <div id="mail-content-toolbar" class="mail-content-toolbar"><span>Email content</span><button id="mail-edit-content-button" class="icon-button" type="button" title="Edit content">✎</button></div>
                   <div id="mail-viewer-body" class="mail-viewer-body"></div>
                   <div id="mail-draft-debug-id" class="mail-draft-debug-id" hidden></div>
-                  <div id="mail-outlook-confirm" class="mail-outlook-confirm" hidden>
-                    <div class="mail-outlook-confirm-backdrop"></div>
-                    <div class="mail-outlook-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="mail-outlook-confirm-title">
-                      <h4 id="mail-outlook-confirm-title">Mark this email as sent?</h4>
-                      <p>In a few seconds, the draft will open in Outlook.</p>
-                      <p id="mail-outlook-confirm-message">If you choose Yes, this draft will be removed from this view.</p>
-                      <div class="mail-outlook-confirm-actions">
-                        <button id="mail-outlook-confirm-yes" class="button success compact" type="button">Yes</button>
-                        <button id="mail-outlook-confirm-no" class="button tertiary compact" type="button">No</button>
-                      </div>
+                  <div id="mail-send-modal" class="mail-send-modal" hidden>
+                    <div class="mail-send-modal-card">
+                      <div id="mail-send-spinner" class="mail-send-spinner"></div>
+                      <p id="mail-send-modal-message">Sending email…</p>
+                      <button id="mail-send-modal-close" class="button tertiary compact" type="button" hidden>Close</button>
                     </div>
                   </div>
                   </div>
@@ -686,14 +724,37 @@
       </section>
 
       <section id="manage-payments-panel" class="tab-panel creator-reports-panel" hidden>
-        <section class="creator-reports-card card">
-          <div class="card-header"><div><h2 class="panel-mini-title">Payments</h2><p class="creator-reports-intro">Review the related Administration Manager records in Creator.</p></div></div>
-          <div class="table-wrap"><table class="services-table creator-reports-table"><thead><tr><th>Payment area</th><th>Creator reports</th><th></th></tr></thead><tbody>
-            <tr><td><strong>Prepayments &amp; proformas</strong><span>Requests and their associated proforma records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Prepayments</a><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Proformas" target="_blank" rel="noopener noreferrer">Proformas</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
-            <tr><td><strong>Traveler payments</strong><span>Payment requests and completed traveler payments.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payment_Requests" target="_blank" rel="noopener noreferrer">Payment requests</a><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Traveler payments</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
-            <tr><td><strong>Card purchases</strong><span>Card purchase records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Card_Purchases" target="_blank" rel="noopener noreferrer">Card purchases</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Card_Purchases" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
-            <tr><td><strong>RENFE payments</strong><span>RENFE payment records.</span></td><td><a href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Renfe_Payments" target="_blank" rel="noopener noreferrer">RENFE payments</a></td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Renfe_Payments" target="_blank" rel="noopener noreferrer">Open</a></td></tr>
-          </tbody></table></div>
+        <section class="payments-workspace card">
+          <div class="card-header payments-workspace-header"><div><h2 class="panel-mini-title">Payments</h2></div></div>
+          <nav class="payments-tabs" aria-label="Payment records">
+            <span class="payments-tab-group-label">Clients</span>
+            <button id="payment-tab-travelers" class="payments-tab active payments-tab--client" type="button" role="tab" aria-selected="true">Travelers Payments</button>
+            <span class="payments-tab-divider" aria-hidden="true"></span>
+            <span class="payments-tab-group-label">Suppliers</span>
+            <button id="payment-tab-prepayments" class="payments-tab" type="button" role="tab" aria-selected="false">Prepayments</button>
+            <button id="payment-tab-card-purchases" class="payments-tab" type="button" role="tab" aria-selected="false">Card Purchases</button>
+            <button id="payment-tab-renfe" class="payments-tab" type="button" role="tab" aria-selected="false">Renfe Payments</button>
+          </nav>
+
+          <section id="payment-travelers-panel" class="payments-subpanel" role="tabpanel">
+            <div class="payments-subpanel-copy"><h3>Travelers Payments</h3><p>Payment requests and completed payments for travelers.</p></div>
+            <a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Open Travelers Payments in Creator</a>
+          </section>
+
+          <section id="payment-prepayments-panel" class="payments-subpanel" role="tabpanel" hidden>
+            <div class="payments-subpanel-copy"><h3>Prepayments</h3><p>Supplier prepayment requests and related proformas.</p></div>
+            <div class="payments-subpanel-actions"><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Open Prepayments in Creator</a><a class="payments-proformas-link" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Proformas" target="_blank" rel="noopener noreferrer">View proformas</a></div>
+          </section>
+
+          <section id="payment-card-purchases-panel" class="payments-subpanel payments-subpanel--table" role="tabpanel" hidden>
+              <div class="payments-card-purchases-heading"><div class="payments-subpanel-copy"><h3>Card Transactions</h3></div><button id="refresh-card-purchases" class="button tertiary compact icon-button refresh-card-purchases-button" type="button" title="Refresh card transactions" aria-label="Refresh card transactions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3v5.5h5.5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 21v-5.5h-5.5"/></svg></button></div>
+              <div class="table-wrap payments-card-purchases-table-wrap"><table class="services-table payments-card-purchases-table"><thead><tr><th>Card transaction</th><th>Transaction type</th><th>Accounting status</th><th>Amount</th><th>Transaction date</th><th>Card payment account</th><th>Supplier</th><th>Booking service</th><th>Original card purchase</th><th>Transaction notes</th><th>Supporting documents</th></tr></thead><tbody id="card-purchases-body"><tr><td colspan="11" class="table-empty">Open this tab to load card transactions for the selected booking.</td></tr></tbody></table></div>
+          </section>
+
+          <section id="payment-renfe-panel" class="payments-subpanel" role="tabpanel" hidden>
+            <div class="payments-subpanel-copy"><h3>Renfe Payments</h3><p>Supplier payment records for RENFE services.</p></div>
+            <a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Renfe_Payments" target="_blank" rel="noopener noreferrer">Open Renfe Payments in Creator</a>
+          </section>
         </section>
       </section>
 
@@ -719,6 +780,36 @@
         </section>
       </div>
     </main>
+
+    <div id="create-draft-modal" class="mail-send-modal" hidden>
+      <div class="mail-send-modal-card" role="dialog" aria-modal="true" aria-labelledby="create-draft-modal-message">
+        <div id="create-draft-spinner" class="mail-send-spinner"></div>
+        <p id="create-draft-modal-message">Creating draft...</p>
+        <button id="create-draft-modal-close" class="button tertiary compact" type="button" hidden>Close</button>
+      </div>
+    </div>
+
+    <div id="mail-content-edit-modal" class="mail-send-modal" hidden>
+      <div class="mail-content-edit-modal-card" role="dialog" aria-modal="true" aria-labelledby="mail-content-edit-modal-title">
+        <div class="mail-content-edit-modal-header"><h3 id="mail-content-edit-modal-title">Edit email content</h3><button id="mail-content-edit-cancel-top" class="icon-button" type="button" aria-label="Close">×</button></div>
+        <div id="mail-content-edit-visual" class="mail-content-edit-visual" contenteditable="true"></div>
+        <div class="mail-content-edit-modal-actions"><button id="mail-content-edit-cancel" class="button tertiary compact" type="button">Cancel</button><button id="mail-content-edit-save" class="button success compact" type="button">Save changes</button></div>
+      </div>
+    </div>
+
+    <div id="draft-delete-confirm-modal" class="mail-send-modal draft-delete-confirm-modal" hidden>
+      <div class="draft-delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="draft-delete-confirm-title" aria-describedby="draft-delete-confirm-description">
+        <div class="draft-delete-confirm-warning" aria-hidden="true">!</div>
+        <div>
+          <h3 id="draft-delete-confirm-title">Delete this draft?</h3>
+          <p id="draft-delete-confirm-description">This permanently deletes the communication draft and its associated services. This action cannot be undone.</p>
+        </div>
+        <div class="draft-delete-confirm-actions">
+          <button id="draft-delete-confirm-cancel" class="button tertiary compact" type="button">Cancel</button>
+          <button id="draft-delete-confirm-submit" class="button danger compact" type="button">Delete draft</button>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="./widget.js"></script>
   </body>

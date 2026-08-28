@@ -4,6 +4,7 @@ export const MODULES = {
   bookingSteps: "Booking_Steps",
   userRelationships: "User_Relationships",
   paymentAccounts: "Payment_Accounts",
+  cardPurchases: "Card_Purchases",
   pax: "PAX",
   paxBookingServices: "PAX_Booking_Services"
 };

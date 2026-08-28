@@ -1,4 +1,4 @@
-import { crmExecuteFunction, crmGetAllRecords } from "./api.js";
+import { crmCreateRecord, crmExecuteFunction, crmGetAllRecords, crmGetRecord, crmSearchRecord, crmUpdateRecord } from "./api.js";
 import { MODULES } from "./constants.js";
 import { elements } from "./dom.js";
 import { clearLoading, setError, setNotice } from "./render.js";
@@ -393,6 +393,32 @@ export function onCloseCardPurchaseDialog() {
   elements.cardPurchaseDialog.hidden = true;
 }
 
+export function onCardPurchaseTransactionTypeChange(transactionType) {
+  state.cardPurchaseTransactionType = transactionType === "Refund" ? "Refund" : "Purchase";
+  renderCardPurchaseTransactionType();
+}
+
+export function onCardPurchaseOriginalPurchaseChange() {
+  var selectedOption = elements.cardPurchaseOriginalPurchase && elements.cardPurchaseOriginalPurchase.selectedOptions[0];
+  if (!selectedOption || !selectedOption.value) {
+    return;
+  }
+
+  var originalAmount = selectedOption.getAttribute("data-amount");
+  if (originalAmount !== null && originalAmount !== "") {
+    elements.cardPurchaseAmount.value = originalAmount;
+  }
+}
+
+export function onCardPurchaseSupportingDocumentsChange(files) {
+  addCardPurchaseSupportingDocuments(files);
+  if (elements.cardPurchaseSupportingDocuments) elements.cardPurchaseSupportingDocuments.value = "";
+}
+
+export function onCardPurchaseSupportingDocumentsDrop(files) {
+  addCardPurchaseSupportingDocuments(files);
+}
+
 export async function onSubmitCardPurchaseForm(event) {
   event.preventDefault();
   var service = state.selectedService;
@@ -408,30 +434,50 @@ export async function onSubmitCardPurchaseForm(event) {
   submitButton.disabled = true;
   submitButton.textContent = "Submitting…";
   try {
+    var transactionType = state.cardPurchaseTransactionType || "Purchase";
+    var isRefund = transactionType === "Refund";
+    var amount = elements.cardPurchaseAmount.value;
+    var transactionDate = elements.cardPurchaseServiceDate.value;
+    var originalPurchaseId = elements.cardPurchaseOriginalPurchase.value;
+    if (!elements.cardPurchasePaymentAccount.value) throw new Error("Select a card payment account.");
+    if (isRefund && !originalPurchaseId) throw new Error("Select the original card purchase.");
     var payload = {
-      mfsp_reference: elements.cardPurchaseMfspReference.textContent,
-      booking_name: elements.cardPurchaseBookingName.textContent,
-      service_id: service.id || "",
-      supplier_code: elements.cardPurchaseSupplierCode.textContent === "-" ? "" : elements.cardPurchaseSupplierCode.textContent,
-      supplier_name: elements.cardPurchaseSupplierName.textContent === "-" ? "" : elements.cardPurchaseSupplierName.textContent,
-      service_name: elements.cardPurchaseServiceName.textContent === "-" ? "" : elements.cardPurchaseServiceName.textContent,
-      service_date: elements.cardPurchaseServiceDate.value,
-      amount: elements.cardPurchaseAmount.value,
-      status: "Pending Accounting Review",
-      observations: elements.cardPurchaseObservations.value,
-      requested_by: elements.cardPurchaseRequestedBy.value
+      Name: transactionType + " - " + (booking.MFSP_Reference || booking.Deal_Name || booking.id),
+      Booking: { id: booking.id },
+      Boking_Service: { id: service.id },
+      Card_Payment_Account: { id: elements.cardPurchasePaymentAccount.value },
+      Transaction_Type: transactionType,
+      Accounting_Status: isRefund ? "Pending credit note" : "Pending invoice",
+      Amount: Number(amount),
+      Transaction_Date: toCrmDateTime(transactionDate),
+      Transaction_Notes: elements.cardPurchaseObservations.value
     };
-    var response = await crmExecuteFunction("customapi_createcardpurchase", {
-      requestBody: JSON.stringify(payload)
-    });
-    var result = extractPrepaymentResult(response);
-    if (result && (result.success === false || result.status === "error" || result.error === true)) {
-      throw new Error(result.message || "Creator could not record the card purchase.");
+    var supplierId = service.Supplier && (service.Supplier.id || service.Supplier.value) || service.Supplier_Id || "";
+    if (supplierId) {
+      payload.Supplier = { id: supplierId };
     }
+    var settlementId = getLookupId(service.Supplier_Settlement);
+    if (settlementId) {
+      payload.Settlement = { id: settlementId };
+    }
+    if (isRefund) {
+      payload.Original_Card_Purchase = { id: originalPurchaseId };
+    }
+    var supportingDocuments = state.cardPurchaseSupportingDocuments.length
+      ? await uploadCardPurchaseSupportingDocuments(state.cardPurchaseSupportingDocuments)
+      : [];
+    var cardPurchase = await crmCreateRecord(MODULES.cardPurchases, payload);
+    if (supportingDocuments.length) {
+      var cardPurchaseId = cardPurchase.id || cardPurchase.details && cardPurchase.details.id;
+      if (!cardPurchaseId) {
+        throw new Error("The card transaction was created without a record ID, so Supporting Documents could not be saved.");
+      }
+      await saveCardPurchaseSupportingDocuments(cardPurchaseId, supportingDocuments);
+    }
+    state.cardPurchasesLoaded = false;
+    state.cardPurchasesLoadedBookingId = "";
     onCloseCardPurchaseDialog();
-    setNotice(elements, result && result.email_sent === false
-      ? "Card purchase recorded successfully, but the notification email could not be sent."
-      : "Card purchase recorded successfully. A notification email has been sent.");
+    setNotice(elements, transactionType + " recorded successfully in CRM.");
   } catch (error) {
     setError(elements, error && error.message ? error.message : "Could not record the card purchase.");
   } finally {
@@ -454,13 +500,158 @@ function initializeCardPurchaseForm() {
   }
   elements.cardPurchaseMfspReference.textContent = booking.MFSP_Reference || service.Booking_Reference || "-";
   elements.cardPurchaseBookingName.textContent = booking.Deal_Name || booking.Name || booking.Booking && booking.Booking.name || "-";
-  elements.cardPurchaseServiceId.textContent = "Service ID: " + (service.id || "-");
   elements.cardPurchaseSupplierName.textContent = service.Supplier_Name || service.Supplier && service.Supplier.name || "-";
   elements.cardPurchaseSupplierCode.textContent = supplierCode || "-";
   elements.cardPurchaseServiceName.textContent = service.Product_Description || service.Name || "-";
-  elements.cardPurchaseRequestedBy.value = state.currentUserEmail || booking.Owner && booking.Owner.email || "";
+  elements.cardPurchaseServiceContextDate.textContent = String(service.Service_Date || "").slice(0, 10) || "-";
   elements.cardPurchaseAmount.value = "";
-  elements.cardPurchaseServiceDate.value = String(service.Service_Date || "").slice(0, 10);
+  var today = new Date().toISOString().slice(0, 10);
+  elements.cardPurchaseServiceDate.value = today;
+  state.cardPurchaseSupportingDocuments = [];
+  renderCardPurchaseSupportingDocuments();
+  state.cardPurchaseTransactionType = "Purchase";
+  renderCardPurchaseTransactionType();
+  hydrateCardPurchaseAccounts();
+  hydrateOriginalCardPurchaseOptions();
+}
+
+function addCardPurchaseSupportingDocuments(files) {
+  var incoming = Array.prototype.slice.call(files || []);
+  if (!incoming.length) return;
+  var filesToAdd = incoming.filter(function (file) {
+    return !state.cardPurchaseSupportingDocuments.some(function (existing) {
+      return existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified;
+    });
+  });
+  if (state.cardPurchaseSupportingDocuments.length + filesToAdd.length > 5) {
+    setError(elements, "Supporting Documents allows a maximum of 5 files.");
+    filesToAdd = filesToAdd.slice(0, Math.max(0, 5 - state.cardPurchaseSupportingDocuments.length));
+  }
+  state.cardPurchaseSupportingDocuments = state.cardPurchaseSupportingDocuments.concat(filesToAdd);
+  renderCardPurchaseSupportingDocuments();
+}
+
+function renderCardPurchaseSupportingDocuments() {
+  if (!elements.cardPurchaseSupportingDocumentsList) return;
+  elements.cardPurchaseSupportingDocumentsList.innerHTML = state.cardPurchaseSupportingDocuments.map(function (file, index) {
+    return '<span class="card-transaction-file"><span>' + escapeHtml(file.name) + '</span><button type="button" data-card-purchase-file-remove="' + index + '" aria-label="Remove ' + escapeHtml(file.name) + '">×</button></span>';
+  }).join("");
+  Array.prototype.forEach.call(elements.cardPurchaseSupportingDocumentsList.querySelectorAll("[data-card-purchase-file-remove]"), function (button) {
+    button.addEventListener("click", function () {
+      state.cardPurchaseSupportingDocuments.splice(Number(button.dataset.cardPurchaseFileRemove), 1);
+      renderCardPurchaseSupportingDocuments();
+    });
+  });
+}
+
+async function uploadCardPurchaseSupportingDocuments(files) {
+  var uploaded = [];
+  for (var index = 0; index < files.length; index += 1) {
+    var file = files[index];
+    var response = await window.ZOHO.CRM.API.uploadFile({
+      CONTENT_TYPE: "multipart",
+      PARTS: [{
+        headers: {
+          "Content-Disposition": "file;"
+        },
+        content: "__FILE__"
+      }],
+      FILE: {
+        fileParam: "content",
+        file: file
+      }
+    });
+    var entries = response && Array.isArray(response.data) ? response.data : Array.isArray(response) ? response : [];
+    var result = entries[0] || {};
+    var fileId = result.details && result.details.id;
+    if (!fileId || String(result.status || result.code || "").toLowerCase() === "error") {
+      throw new Error(result.message || "Could not upload " + file.name + ".");
+    }
+    uploaded.push({ File_Id__s: fileId });
+  }
+  return uploaded;
+}
+
+async function saveCardPurchaseSupportingDocuments(cardPurchaseId, supportingDocuments) {
+  var fileIds = supportingDocuments.map(function (document) {
+    return document && document.File_Id__s;
+  }).filter(Boolean);
+  var payloadVariants = [
+    fileIds.map(function (fileId) { return { $file_id: fileId }; }),
+    fileIds.map(function (fileId) { return { file_id: fileId }; }),
+    fileIds,
+    { $file_id: fileIds }
+  ];
+  var lastResult = null;
+
+  for (var index = 0; index < payloadVariants.length; index += 1) {
+    lastResult = await crmUpdateRecord(MODULES.cardPurchases, {
+      id: cardPurchaseId,
+      Supporting_Documents: payloadVariants[index]
+    });
+    if (String(lastResult.status || "").toLowerCase() === "error" || String(lastResult.code || "").toUpperCase() !== "SUCCESS") {
+      continue;
+    }
+    var refreshedCardPurchase = await crmGetRecord(MODULES.cardPurchases, cardPurchaseId);
+    if (refreshedCardPurchase && refreshedCardPurchase.Supporting_Documents) {
+      return;
+    }
+  }
+
+  throw new Error(
+    lastResult && (lastResult.message || lastResult.code) ||
+    "The card transaction was created, but Supporting Documents could not be saved."
+  );
+}
+
+function renderCardPurchaseTransactionType() {
+  var isRefund = state.cardPurchaseTransactionType === "Refund";
+  elements.cardPurchaseTransactionPurchase.classList.toggle("is-selected", !isRefund);
+  elements.cardPurchaseTransactionRefund.classList.toggle("is-selected", isRefund);
+  elements.cardPurchaseTransactionPurchase.classList.toggle("tertiary", isRefund);
+  elements.cardPurchaseTransactionRefund.classList.toggle("tertiary", !isRefund);
+  elements.cardPurchaseTransactionPurchase.setAttribute("aria-pressed", isRefund ? "false" : "true");
+  elements.cardPurchaseTransactionRefund.setAttribute("aria-pressed", isRefund ? "true" : "false");
+  elements.cardPurchaseRefundFields.hidden = !isRefund;
+  elements.cardPurchasePurchaseFields.hidden = false;
+  elements.cardPurchaseAmount.required = true;
+  elements.cardPurchaseServiceDate.required = true;
+  elements.cardPurchaseOriginalPurchase.required = isRefund;
+  elements.cardPurchaseSubmit.textContent = isRefund ? "Record cancellation" : "Record purchase";
+}
+
+async function hydrateOriginalCardPurchaseOptions() {
+  var bookingId = state.selectedBooking && state.selectedBooking.id;
+  var serviceId = state.selectedService && state.selectedService.id;
+  if (!bookingId || !serviceId || !elements.cardPurchaseOriginalPurchase) return;
+  elements.cardPurchaseOriginalPurchase.innerHTML = '<option value="">Loading purchases...</option>';
+  elements.cardPurchaseOriginalPurchase.disabled = true;
+  try {
+    var criteria = "(Booking:equals:" + bookingId + ")and(Boking_Service:equals:" + serviceId + ")";
+    var records = await crmSearchRecord(MODULES.cardPurchases, criteria, 1, 200);
+    var purchases = records.filter(function (record) {
+      return record.Transaction_Type === "Purchase" && getLookupId(record.Boking_Service) === String(serviceId);
+    });
+    elements.cardPurchaseOriginalPurchase.innerHTML = '<option value="">Select a purchase</option>' + purchases.map(function (record) {
+      var transactionDate = String(record.Transaction_Date || "").slice(0, 10);
+      var label = (record.Name || "Purchase") + " — " + String(record.Amount || "0") + (transactionDate ? " · " + transactionDate : "");
+      return '<option value="' + escapeHtml(record.id) + '" data-amount="' + escapeHtml(String(record.Amount || "")) + '">' + escapeHtml(label) + "</option>";
+    }).join("");
+    elements.cardPurchaseOriginalPurchase.disabled = false;
+  } catch (error) {
+    elements.cardPurchaseOriginalPurchase.innerHTML = '<option value="">Could not load purchases</option>';
+  }
+}
+
+function getLookupId(value) {
+  if (value && typeof value === "object") {
+    return String(value.id || value.value || "");
+  }
+  return String(value || "");
+}
+
+function toCrmDateTime(value) {
+  return String(value || "") + "T12:00:00+02:00";
 }
 
 async function hydrateCardPurchaseAccounts() {
@@ -507,7 +698,7 @@ async function hydrateCardPurchaseAccounts() {
 async function loadAllPaymentAccountRecords() {
   const aggregated = [];
   const perPage = 100;
-  const fields = ["Name", "Owner", "Owner_Type", "Record_Status__s"].join(",");
+  const fields = ["Name", "Card_Holder", "Owner_Type", "Record_Status__s"].join(",");
 
   for (var page = 1; page <= 10; page += 1) {
     var pageRecords = await withTimeout(
@@ -539,13 +730,13 @@ function buildPaymentAccountOptions(records) {
 
     return ownerType === "own" && recordStatus !== "trash";
   }).map(function (record) {
-    const ownerLookup = record && record.Owner && typeof record.Owner === "object" ? record.Owner : {};
+    const cardHolder = record && record.Card_Holder && typeof record.Card_Holder === "object" ? record.Card_Holder : {};
     return {
       value: String(record.id || "").trim(),
       label: String(record.Name || "").trim() || "Unnamed payment account",
-      ownerId: String(ownerLookup.id || ownerLookup.user_id || ownerLookup.zuid || "").trim(),
-      ownerName: String(ownerLookup.name || "").trim(),
-      ownerEmail: String(ownerLookup.email || "").trim()
+      cardHolderId: String(cardHolder.id || cardHolder.user_id || cardHolder.zuid || "").trim(),
+      cardHolderName: String(cardHolder.name || "").trim(),
+      cardHolderEmail: String(cardHolder.email || "").trim()
     };
   }).filter(function (option) {
     return Boolean(option.value);
@@ -555,7 +746,7 @@ function buildPaymentAccountOptions(records) {
 }
 
 function resolveDefaultPaymentAccountValue(options) {
-  const currentUserId = String(state.currentUserId || "").trim();
+  const currentUserId = String(state.currentUserRelationshipUserId || state.currentUserId || "").trim();
   const currentUserName = normalizeComparableText(state.currentUserName || "");
   const currentUserEmail = normalizeComparableText(state.currentUserEmail || "");
 
@@ -566,20 +757,20 @@ function resolveDefaultPaymentAccountValue(options) {
       continue;
     }
 
-    if (currentUserId && option.ownerId === currentUserId) {
+    if (currentUserId && option.cardHolderId === currentUserId) {
       return option.value;
     }
 
-    if (currentUserEmail && normalizeComparableText(option.ownerEmail) === currentUserEmail) {
+    if (currentUserEmail && normalizeComparableText(option.cardHolderEmail) === currentUserEmail) {
       return option.value;
     }
 
-    if (currentUserName && normalizeComparableText(option.ownerName) === currentUserName) {
+    if (currentUserName && normalizeComparableText(option.cardHolderName) === currentUserName) {
       return option.value;
     }
   }
 
-  return options && options.length ? options[0].value : "";
+  return "";
 }
 
 function renderPaymentAccountSelect(config) {
@@ -617,7 +808,7 @@ function renderPaymentAccountSelect(config) {
   }
 
   const defaultValue = resolveDefaultPaymentAccountValue(options);
-  elements.cardPurchasePaymentAccount.innerHTML = options.map(function (option) {
+  elements.cardPurchasePaymentAccount.innerHTML = '<option value="">Select a card payment account...</option>' + options.map(function (option) {
     return '<option value="' + escapeHtml(option.value) + '"' + (option.value === defaultValue ? " selected" : "") + ">" +
       escapeHtml(option.label) +
       "</option>";

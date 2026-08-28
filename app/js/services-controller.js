@@ -482,34 +482,59 @@ export async function onCreateDraftForSelection(purpose, draftLabel) {
     return;
   }
 
-  showLoading(elements, state, "Creating " + draftLabel + " draft...");
+  const loadingMessage = "Creating " + draftLabel + " draft...";
+  // The modal supplies progress feedback for this action. Clear any previous
+  // floating notice/error instead of leaving it over the selection bar.
+  showLoading(elements, state, "");
+  closeBulkActionMenus();
+  showCreateDraftModal(loadingMessage, false);
 
   try {
-    const response = await crmExecuteFunction("drafts_new_createdraftsforselection_1", {
+    const response = await crmExecuteFunction("comm_createcommunicationsforselection", {
       serviceIds: formatSelectedServiceIds(selectedIds),
-      purpose: purpose
+      communicationPurpose: purpose,
+      actingUserJson: JSON.stringify({
+        name: state.currentUserName || "",
+        email: state.currentUserEmail || ""
+      })
     });
 
-    let message = "Draft request created for " + selectedIds.length + (selectedIds.length === 1 ? " service." : " services.");
-
-    if (response && response.details && typeof response.details.output === "string" && response.details.output) {
-      message = response.details.output;
-    } else if (response && response.message) {
-      message = response.message;
+    const result = extractCrmFunctionResult(response);
+    const resultErrors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : [];
+    if (result.success !== true || resultErrors.length) {
+      throw new Error(result.message || resultErrors.join(" ") || "CRM could not create all drafts for the selected services.");
     }
 
+    state.selectedServiceIds = {};
+    closeBulkActionMenus();
     if (reloadBookingWorkspaceHandler) {
       await reloadBookingWorkspaceHandler(state.selectedBookingId, {
         preserveNotice: true,
-        preserveSelection: true
+        preserveSelection: false
       });
+    } else {
+      renderServicesWorkspace();
     }
-    setNotice(elements, message);
+    closeCreateDraftModal();
   } catch (error) {
-    setError(elements, error.message || "Could not create drafts for the selected services.");
+    const errorMessage = error.message || "Could not create drafts for the selected services.";
+    setError(elements, errorMessage);
+    showCreateDraftModal(errorMessage, true);
   } finally {
     clearLoading(elements, state);
   }
+}
+
+function showCreateDraftModal(message, isError) {
+  elements.createDraftModal.hidden = false;
+  elements.createDraftSpinner.hidden = Boolean(isError);
+  elements.createDraftModalMessage.textContent = message;
+  elements.createDraftModalMessage.classList.toggle("is-error", Boolean(isError));
+  elements.createDraftModalClose.hidden = !isError;
+}
+
+function closeCreateDraftModal() {
+  elements.createDraftModal.hidden = true;
 }
 
 export async function onSaveService(event) {
@@ -915,4 +940,20 @@ function getSelectedServiceIdsForAction() {
 
 function formatSelectedServiceIds(serviceIds) {
   return serviceIds.join("|||");
+}
+
+function extractCrmFunctionResult(response) {
+  const candidate = response && response.details && (response.details.output || response.details.response)
+    ? response.details.output || response.details.response
+    : response;
+
+  if (typeof candidate === "string") {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      return { success: !/error|fail|exception/i.test(candidate), message: candidate };
+    }
+  }
+
+  return candidate || {};
 }

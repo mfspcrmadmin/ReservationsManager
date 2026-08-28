@@ -244,7 +244,7 @@ export function renderBookingBrowser(options) {
       "  <td>" + escapeHtml(booking.MFSP_Reference || "-") + "</td>",
       "  <td>" + escapeHtml(formatDate(booking.Arrival_Date)) + "</td>",
       isWide ? "  <td>" + escapeHtml(formatDate(booking.Departure_Date)) + "</td>" : "",
-      "  <td>" + escapeHtml(booking.Stage || "-") + "</td>",
+      "  <td>" + renderBookingBrowserStage(booking.Stage) + "</td>",
       isWide ? "  <td>" + escapeHtml(booking.Travelers_Number || "-") + "</td>" : "",
       isWide ? "  <td>" + escapeHtml(getLookupName(booking.Account_Name) || "-") + "</td>" : "",
       isWide ? "  <td>" + escapeHtml(getLookupName(booking.Primary_Contact) || "-") + "</td>" : "",
@@ -283,6 +283,74 @@ function buildBookingBrowserHeaders(isWide) {
   return headers.map(function (label) {
     return "<th>" + escapeHtml(label) + "</th>";
   }).join("");
+}
+
+function renderBookingBrowserStage(stage) {
+  const label = String(stage || "-");
+  const color = getBookingBrowserStageColor(label);
+
+  if (!color) {
+    return '<span class="booking-browser-stage">' + escapeHtml(label) + "</span>";
+  }
+
+  return '<span class="booking-browser-stage" style="background-color:' + color + "; color:" + getReadableTextColor(color) + '">' +
+    escapeHtml(label) +
+    "</span>";
+}
+
+function getBookingBrowserStageColor(stage) {
+  const normalizedStage = normalizeComparableText(stage);
+  const colors = {
+    "quotation": "#add9ff",
+    "quotation1": "#add9ff",
+    "copy quote": "#f5c72f",
+    "in progress": "#25b52a",
+    "in review": "#25b52a",
+    "closed won": "#25b52a",
+    "confirmed": "#25b52a",
+    "closed": "#25b52a",
+    "cancelled w/charges": "#eb4d4d",
+    "cancelled w/charges1": "#177ba0",
+    "closed lost": "#eb4d4d",
+    "dead": "#eb4d4d",
+    "dead1": "#f00707",
+    "pending assignation": "#5d4ffb",
+    "reservation in progress": "#ffda62",
+    "changes requested": "#f27e22",
+    "all services confirmed": "#98d681",
+    "cancelled": "#9a2e47",
+    "fid in review": "#e972fd",
+    "fid sent": "#25b52a",
+    "on tour": "#578c42",
+    "trip accounting closure": "#168aef",
+    "booking closed": "#25b52a",
+    "pending review": "#f6c1ff",
+    "review done": "#34a617",
+    "request qualified": "#8a37be",
+    "proposal sent": "#98d681",
+    "mi - migrated": "#f27e22",
+    "testing": "#4137be"
+  };
+
+  if (colors[normalizedStage]) {
+    return colors[normalizedStage];
+  }
+
+  const displayStageAliases = {
+    "qu - quotation": "quotation",
+    "cc - copy quote": "copy quote",
+    "ip - in progress": "in progress",
+    "ir - in review": "in review",
+    "ac - accepted": "closed won",
+    "cf - confirmed": "confirmed",
+    "cl - closed": "closed",
+    "cg - cancelled w/charges": "cancelled w/charges",
+    "cx - cancelled": "closed lost",
+    "de - dead": "dead",
+    "ir - migrated": "mi - migrated"
+  };
+
+  return colors[displayStageAliases[normalizedStage]] || "";
 }
 
 function applyBookingBrowserLayoutState(elements, state) {
@@ -571,6 +639,7 @@ function renderBookingActionArea(elements, booking, state) {
       elements.actionHasAxus.textContent = "Not set";
       elements.actionHasAxus.className = "";
     }
+    renderItineraryLinkControl(elements, "");
     elements.actionEzusSyncWarning.hidden = true;
     elements.actionEzusSyncWarning.textContent = "";
     elements.actionEzusSyncWarning.className = "booking-status-note";
@@ -615,10 +684,43 @@ function renderBookingActionArea(elements, booking, state) {
     elements.actionHasAxus.textContent = hasAxusState.label;
     elements.actionHasAxus.className = "action-status-badge " + hasAxusState.className;
   }
+  renderItineraryLinkControl(elements, getItineraryLinkValue(booking));
   renderBookingDeskStatus(elements, booking, state);
   elements.actionEzusSyncWarning.hidden = !syncMessage;
   elements.actionEzusSyncWarning.textContent = syncMessage ? syncMessage.text : "";
   elements.actionEzusSyncWarning.className = "booking-status-note " + (syncMessage ? syncMessage.className : "");
+}
+
+function renderItineraryLinkControl(elements, itineraryLink) {
+  if (!elements.actionItineraryOpen || !elements.actionItineraryEdit || !elements.actionItineraryForm) {
+    return;
+  }
+
+  const hasItineraryLink = Boolean(itineraryLink);
+  elements.actionItineraryLink.classList.toggle("is-missing", !hasItineraryLink);
+  elements.actionItineraryOpen.hidden = false;
+  elements.actionItineraryOpen.textContent = hasItineraryLink ? "Open itinerary ↗" : "Itinerary link required";
+  elements.actionItineraryOpen.setAttribute("aria-label", hasItineraryLink ? "Open itinerary" : "Add required itinerary link");
+  elements.actionItineraryEdit.hidden = !hasItineraryLink;
+  elements.actionItineraryEdit.textContent = "Edit";
+  elements.actionItineraryForm.hidden = true;
+  elements.actionItineraryLink.classList.remove("is-editing");
+}
+
+function getItineraryLinkValue(booking) {
+  var fieldNames = ["Axus_Link", "AXUS_Link", "AXUS Link", "Axus Link"];
+
+  for (var index = 0; index < fieldNames.length; index += 1) {
+    var rawValue = booking && booking[fieldNames[index]];
+    var itineraryLink = rawValue === null || rawValue === undefined ? "" : String(rawValue).trim();
+    var normalizedLink = itineraryLink.toLowerCase();
+
+    if (itineraryLink && normalizedLink !== "null" && normalizedLink !== "undefined" && itineraryLink !== "-") {
+      return itineraryLink;
+    }
+  }
+
+  return "";
 }
 
 function renderBookingDeskStatus(elements, booking, state) {

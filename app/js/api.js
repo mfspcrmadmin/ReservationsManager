@@ -137,6 +137,21 @@ export async function crmUpdateRecord(entity, payload) {
   return extractRecords(response)[0] || {};
 }
 
+export async function crmCreateRecord(entity, payload) {
+  const response = await ZOHO.CRM.API.insertRecord({
+    Entity: entity,
+    APIData: payload,
+    Trigger: ["workflow"]
+  });
+
+  const result = extractRecords(response)[0] || {};
+  if (String(result.status || "").toLowerCase() === "error" || String(result.code || "").toUpperCase() !== "SUCCESS") {
+    const details = result.details && result.details.api_name ? " (" + result.details.api_name + ")" : "";
+    throw new Error((result.message || result.code || "CRM could not create the card transaction.") + details);
+  }
+  return result;
+}
+
 export async function crmExecuteFunction(functionName, args) {
   return ZOHO.CRM.FUNCTIONS.execute(functionName, {
     arguments: JSON.stringify(args || {})
