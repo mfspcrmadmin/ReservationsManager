@@ -1,7 +1,9 @@
 import { crmExecuteFunction, crmUpdateRecord } from "./api.js";
-import { onOpenPrepaymentRequestDialog } from "./dialogs-controller.js";
+import { startDraftLoading, stopDraftLoading } from "./draft-loading.js";
 import { MODULES, SERVICE_TABLE_COLUMNS, SERVICE_TABLE_COLUMNS_STORAGE_KEY } from "./constants.js";
 import { buildGroupedRows } from "./data.js";
+import { isBookingSyncRequired } from "./booking-shell.js";
+import { resetServiceColumnWidths } from "./service-column-resizing.js";
 import { elements } from "./dom.js";
 import {
   applyStatusSelectAppearance,
@@ -17,11 +19,13 @@ import { state } from "./state.js";
 import { escapeHtml, normalizeComparableText } from "./utils.js";
 
 let reloadBookingWorkspaceHandler = null;
+let syncBookingHandler = null;
 let serviceStatusPreviewFeedbackTimeout = 0;
 let draggedServiceColumnKey = "";
 
 export function configureServicesController(config) {
   const settings = config || {};
+  syncBookingHandler = typeof settings.syncBooking === "function" ? settings.syncBooking : null;
   reloadBookingWorkspaceHandler = typeof settings.reloadBookingWorkspace === "function"
     ? settings.reloadBookingWorkspace
     : null;
@@ -66,12 +70,6 @@ export function setServiceDetailTab(tabName) {
 
 export function syncBulkPanels() {
   syncBulkStatusActionState();
-}
-
-export function clearServiceSelection() {
-  state.selectedServiceIds = {};
-  closeBulkActionMenus();
-  renderServicesWorkspace();
 }
 
 export function toggleBulkStatusPopover() {
@@ -121,7 +119,15 @@ export function onSelectedServiceStatusChange() {
 }
 
 export function onRequestServicePrepayment() {
-  onOpenPrepaymentRequestDialog();
+  if (!state.selectedService || !state.selectedService.id) {
+    return;
+  }
+
+  window.open(
+    "https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager#Form:Proforma_Form?Service_ID=" + encodeURIComponent(state.selectedService.id),
+    "_blank",
+    "noopener,noreferrer"
+  );
 }
 
 export function onRecordRenfePrepayment() {
@@ -139,7 +145,15 @@ export function onServiceFilterToggleClick(filterKey, event) {
   renderServicesWorkspace();
 }
 
-export function onServiceMultiFilterChange(filterKey, menuElement) {
+export function onServiceMultiFilterChange(filterKey, menuElement, event) {
+  const changedInput = event && event.target;
+
+  if (changedInput && changedInput.matches("input[data-service-filter-toggle-all]")) {
+    Array.prototype.forEach.call(menuElement.querySelectorAll("input[data-service-filter-option]"), function (input) {
+      input.checked = changedInput.checked;
+    });
+  }
+
   state.serviceFilters[filterKey] = Array.prototype.map.call(
     menuElement.querySelectorAll("input[data-service-filter-option]:checked"),
     function (input) {
@@ -171,6 +185,7 @@ export function onToggleServiceColumnsPanel() {
 }
 
 export function onResetServiceColumns() {
+  resetServiceColumnWidths();
   state.serviceTableColumns = getDefaultServiceTableColumns();
   saveServiceTableColumns();
   renderServicesWorkspace();
@@ -476,15 +491,21 @@ export async function onApplyBulkStatus() {
 }
 
 export async function onCreateDraftForSelection(purpose, draftLabel) {
+  if (state.syncingEzus) return;
   const selectedIds = getSelectedServiceIdsForAction();
 
   if (!selectedIds.length) {
     return;
   }
 
+  if ((purpose === "Check Availability" || purpose === "Reservation") && isBookingSyncRequired(state.selectedBooking)) {
+    closeBulkActionMenus();
+    showDraftSyncRequiredDialog();
+    return;
+  }
+
   const loadingMessage = "Creating " + draftLabel + " draft...";
-  // The modal supplies progress feedback for this action. Clear any previous
-  // floating notice/error instead of leaving it over the selection bar.
+  // Draft creation has its own progress and result dialog.
   showLoading(elements, state, "");
   closeBulkActionMenus();
   showCreateDraftModal(loadingMessage, false);
@@ -515,25 +536,64 @@ export async function onCreateDraftForSelection(purpose, draftLabel) {
     } else {
       renderServicesWorkspace();
     }
-    closeCreateDraftModal();
+    showCreateDraftModal("All drafts were created successfully.", false, true);
   } catch (error) {
     const errorMessage = error.message || "Could not create drafts for the selected services.";
-    setError(elements, errorMessage);
     showCreateDraftModal(errorMessage, true);
   } finally {
     clearLoading(elements, state);
   }
 }
 
-function showCreateDraftModal(message, isError) {
+function showDraftSyncRequiredDialog() {
+  if (document.getElementById("draft-sync-required-dialog")) return;
+  const bookingId = state.selectedBookingId;
+  const dialog = document.createElement("dialog");
+  dialog.id = "draft-sync-required-dialog";
+  dialog.className = "draft-sync-required-dialog";
+  dialog.setAttribute("aria-labelledby", "draft-sync-required-title");
+  dialog.setAttribute("aria-describedby", "draft-sync-required-description");
+  dialog.innerHTML = '<h3 id="draft-sync-required-title">You must sync</h3>' +
+    '<p id="draft-sync-required-description">Sync this booking with EZUS before creating an availability or reservation draft. After syncing, select the services and create the draft again.</p>' +
+    '<div class="draft-sync-required-actions"><button class="button success" type="button" data-draft-sync>Sync</button>' +
+    '<button class="button tertiary" type="button" data-draft-sync-close>Close</button></div>';
+  const syncButton = dialog.querySelector("[data-draft-sync]");
+  syncButton.disabled = !syncBookingHandler;
+  syncButton.addEventListener("click", function () {
+    dialog.close();
+    dialog.remove();
+    if (state.selectedBookingId === bookingId && !state.syncingEzus && syncBookingHandler) {
+      syncBookingHandler({ fromCreateDraft: true });
+    }
+  });
+  dialog.querySelector("[data-draft-sync-close]").addEventListener("click", function () { dialog.close(); });
+  dialog.addEventListener("close", function () { dialog.remove(); });
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
+function showCreateDraftModal(message, isError, isSuccess = false) {
+  stopDraftLoading(elements.createDraftModal);
+  const completed = Boolean(isError || isSuccess);
   elements.createDraftModal.hidden = false;
-  elements.createDraftSpinner.hidden = Boolean(isError);
+  elements.createDraftSpinner.hidden = completed;
+  elements.createDraftModalTitle.hidden = !completed;
+  elements.createDraftModalTitle.textContent = isError ? "Error occurred" : "Drafts created";
+  elements.createDraftModalTitle.classList.toggle("is-success", isSuccess && !isError);
+  const dialog = elements.createDraftModal.querySelector('[role="dialog"]');
+  dialog.setAttribute("aria-labelledby", completed ? "create-draft-modal-title" : "create-draft-modal-message");
+  if (completed) dialog.setAttribute("aria-describedby", "create-draft-modal-message");
+  else dialog.removeAttribute("aria-describedby");
   elements.createDraftModalMessage.textContent = message;
   elements.createDraftModalMessage.classList.toggle("is-error", Boolean(isError));
-  elements.createDraftModalClose.hidden = !isError;
+  elements.createDraftModalClose.hidden = !completed;
+  elements.createDraftModalEmails.hidden = !isSuccess || Boolean(isError);
+  if (completed) elements.createDraftModalClose.focus();
+  else startDraftLoading(elements.createDraftModal, elements.createDraftSpinner);
 }
 
 function closeCreateDraftModal() {
+  stopDraftLoading(elements.createDraftModal);
   elements.createDraftModal.hidden = true;
 }
 
@@ -566,7 +626,7 @@ export async function onSaveService(event) {
 
     renderServicesWorkspace();
     playServiceStatusSavedFeedback();
-    setNotice(elements, "Booking service updated successfully.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error.message || "Could not save the booking service.");
   } finally {
@@ -594,7 +654,7 @@ export async function onUpdateServiceNotes() {
 
     state.selectedService.Service_Notes = elements.fieldServiceNotes.value;
     renderServicesWorkspace();
-    setNotice(elements, "Service notes updated successfully.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error.message || "Could not update service notes.");
   } finally {

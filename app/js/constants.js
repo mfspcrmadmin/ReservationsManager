@@ -14,7 +14,7 @@ export const SERVICE_TABLE_COLUMNS_STORAGE_KEY = "reservationsManager.serviceTab
 export const SERVICE_TABLE_COLUMNS = [
   {
     key: "name",
-    label: "Sequence"
+    label: "Seq"
   },
   {
     key: "date",

@@ -1,4 +1,10 @@
-import { crmExecuteFunction, crmGetAllRecords, crmGetAllUsers, crmGetFields, crmGetRecord, crmSearchRecord, crmUpdateRecord } from "./api.js";
+import { crmExecuteFunction, crmGetAllRecords, crmGetFields, crmGetRecord, crmSearchRecord, crmUpdateRecord } from "./api.js";
+import { startDraftLoading, stopDraftLoading } from "./draft-loading.js";
+import { validateCreateInEzusAgency } from "./blueprint-contact-agency.js";
+import { initializeBookingTags } from "./booking-tags.js";
+import { createDeskTicketLoader } from "./booking-queue-desk.js";
+import { openCommunicationAttachments } from "./communication-attachments.js";
+import { initServiceTextSize, loadServiceTextSizeForUser } from "./service-text-size.js";
 import { MODULES, SERVICE_TABLE_COLUMNS, SERVICE_TABLE_COLUMNS_STORAGE_KEY } from "./constants.js";
 import {
   buildGroupedRows,
@@ -18,8 +24,6 @@ import {
   onChooseBookingReport,
   onCloseBookingReportDialog,
   onCloseCardPurchaseDialog,
-  onClosePrepaymentRequestDialog,
-  onAddPrepaymentRow,
   onCreatePaymentRequestClick,
   onOpenBookingReportDialog,
   onRecordCardPurchase,
@@ -27,8 +31,6 @@ import {
   onCardPurchaseOriginalPurchaseChange,
   onCardPurchaseSupportingDocumentsChange,
   onCardPurchaseSupportingDocumentsDrop,
-  onPrepaymentTransactionTypeChange,
-  onSubmitPrepaymentRequest,
   onSubmitCardPurchaseForm
 } from "./dialogs-controller.js";
 import {
@@ -45,7 +47,6 @@ import {
 import {
   applyServiceFilter,
   closeBulkActionMenus,
-  clearServiceSelection,
   closeServiceDetails,
   configureServicesController,
   createSelectionSnapshot,
@@ -86,6 +87,7 @@ import {
   populateStatusOptions,
   renderActiveTab,
   renderEmailsPanel,
+  renderSelectedMailContent,
   renderSearchResults,
   renderSelectionPanel,
   setButtonsDisabled,
@@ -127,6 +129,8 @@ const MANUAL_BOOKING_STAGE_OPTIONS = [
   "Booking Completed"
 ];
 const ZOHO_SDK_TIMEOUT_MS = 4000;
+const AXUS_ITINERARY_SYNC_ATTEMPTS = 20;
+const AXUS_ITINERARY_SYNC_INTERVAL_MS = 1500;
 
 function bindEvents() {
   elements.loadBooking.addEventListener("click", onLoadBookingClick);
@@ -139,6 +143,9 @@ function bindEvents() {
   });
   elements.clearBooking.addEventListener("click", onClearBookingClick);
   elements.createAxus.addEventListener("click", onCreateAxusClick);
+  elements.axusItineraryDialogBackdrop.addEventListener("click", onCloseAxusItineraryDialog);
+  elements.axusItineraryDialogClose.addEventListener("click", onCloseAxusItineraryDialog);
+  elements.axusItineraryDialogOpen.addEventListener("click", onOpenCreatedAxusItinerary);
   elements.actionItineraryOpen.addEventListener("click", onOpenItineraryLink);
   elements.actionItineraryEdit.addEventListener("click", onEditItineraryLink);
   elements.actionItineraryForm.addEventListener("submit", onSaveItineraryLink);
@@ -174,11 +181,6 @@ function bindEvents() {
   elements.cardPurchaseSupportingDocumentsDropzone.addEventListener("dragover", function (event) { event.preventDefault(); elements.cardPurchaseSupportingDocumentsDropzone.classList.add("is-dragging"); });
   elements.cardPurchaseSupportingDocumentsDropzone.addEventListener("dragleave", function () { elements.cardPurchaseSupportingDocumentsDropzone.classList.remove("is-dragging"); });
   elements.cardPurchaseSupportingDocumentsDropzone.addEventListener("drop", function (event) { event.preventDefault(); elements.cardPurchaseSupportingDocumentsDropzone.classList.remove("is-dragging"); onCardPurchaseSupportingDocumentsDrop(event.dataTransfer.files); });
-  elements.prepaymentRequestDialogBackdrop.addEventListener("click", onClosePrepaymentRequestDialog);
-  elements.prepaymentRequestDialogClose.addEventListener("click", onClosePrepaymentRequestDialog);
-  elements.prepaymentRequestForm.addEventListener("submit", onSubmitPrepaymentRequest);
-  elements.prepaymentAddPayment.addEventListener("click", onAddPrepaymentRow);
-  elements.prepaymentTransactionType.addEventListener("change", onPrepaymentTransactionTypeChange);
   if (elements.tabBooking) {
     elements.tabBooking.addEventListener("click", function () {
       setSummaryView("basic");
@@ -188,6 +190,7 @@ function bindEvents() {
   elements.tabServices.addEventListener("click", function () {
     switchTab("services");
   });
+  elements.toggleWorkspaceFocus.addEventListener("click", toggleWorkspaceFocusMode);
   elements.tabEmails.addEventListener("click", function () {
     switchTab("emails");
   });
@@ -240,29 +243,17 @@ function bindEvents() {
       switchTab("travelers");
     });
   }
-  elements.noticeClose.addEventListener("click", function () {
-    setNotice(elements, "");
-  });
-  elements.errorClose.addEventListener("click", function () {
-    setError(elements, "");
-  });
   elements.summaryViewBasic.addEventListener("click", function () {
     setSummaryView("basic");
   });
   elements.summaryViewFinancial.addEventListener("click", function () {
     setSummaryView("financial");
   });
-  elements.summaryViewContact.addEventListener("click", function () {
-    setSummaryView("contact");
-  });
   if (elements.summaryViewDesk) {
     elements.summaryViewDesk.addEventListener("click", function () {
       switchTab("desk");
     });
   }
-  elements.summaryViewAnalytics.addEventListener("click", function () {
-    setSummaryView("analytics");
-  });
   if (elements.summaryViewTravelers) {
     elements.summaryViewTravelers.addEventListener("click", function () {
       setSummaryView("travelers");
@@ -273,6 +264,7 @@ function bindEvents() {
   });
   elements.summaryBlueprintPanel.addEventListener("click", onWorkspaceActionClick);
   elements.summaryDashboard.addEventListener("click", onWorkspaceActionClick);
+  elements.bookingBrowserSearchBy.addEventListener("change", onBookingBrowserSearchByChange);
   elements.bookingBrowserOwner.addEventListener("change", onBookingBrowserOwnerChange);
   elements.bookingBrowserStagesToggle.addEventListener("click", onBookingBrowserStagesToggleClick);
   elements.bookingBrowserStagesMenu.addEventListener("change", onBookingBrowserStagesChange);
@@ -282,6 +274,9 @@ function bindEvents() {
   if (elements.bookingBrowserSizeToggle) {
     elements.bookingBrowserSizeToggle.addEventListener("click", onBookingBrowserSizeToggleClick);
   }
+  elements.bookingBrowserPanel.addEventListener("booking-queue-close", function () {
+    if (state.bookingBrowserWide) onBookingBrowserSizeToggleClick();
+  });
   if (elements.bookingBrowserCollapseToggle) {
     elements.bookingBrowserCollapseToggle.addEventListener("click", onBookingBrowserCollapseToggleClick);
   }
@@ -298,20 +293,43 @@ function bindEvents() {
   elements.refreshBookingMails.addEventListener("click", onRefreshBookingMailsClick);
   elements.activeMailList.addEventListener("click", onActiveMailListClick);
   elements.mailSendDraft.addEventListener("click", onSendDraftClick);
+  elements.mailResend.addEventListener("click", onResendClick);
+  elements.mailResendEdit.addEventListener("click", onResendEditClick);
+  elements.mailForward.addEventListener("click", openForwardDialog);
+  elements.mailForwardForm.addEventListener("submit", onForwardSubmit);
+  elements.mailForwardCancel.addEventListener("click", closeForwardDialog);
+  elements.mailForwardCancelTop.addEventListener("click", closeForwardDialog);
   elements.mailEditDraft.addEventListener("click", onEditCommunicationClick);
   elements.mailEditFromButton.addEventListener("click", function () { openInlineCommunicationEditor("from"); });
   elements.mailEditToButton.addEventListener("click", function () { openInlineCommunicationEditor("to"); });
   elements.mailEditCcButton.addEventListener("click", function () { openInlineCommunicationEditor("cc"); });
+  elements.mailEditSubjectButton.addEventListener("click", function () { openInlineCommunicationEditor("subject"); });
   elements.mailEditContentButton.addEventListener("click", openCommunicationContentEditor);
+  elements.mailAttachmentsButton.addEventListener("click", function () {
+    if (state.draftSending || state.draftEditorSaving || state.outlookConfirmOpen) return;
+    openCommunicationAttachments(getSelectedCommunicationRecord(), elements.mailAttachmentsButton);
+  });
+  elements.mailServicesIncluded.addEventListener("click", onMailServicesIncludedClick);
+  elements.mailContentEditContextToggle.addEventListener("click", toggleCommunicationContentContext);
+  elements.mailContentEditContext.addEventListener("click", onCommunicationContextCopy);
+  elements.mailContentEditContext.addEventListener("change", onCommunicationContextChange);
   elements.mailContentEditCancel.addEventListener("click", closeCommunicationContentEditor);
   elements.mailContentEditCancelTop.addEventListener("click", closeCommunicationContentEditor);
   elements.mailContentEditSave.addEventListener("click", saveCommunicationContentEditor);
   elements.mailInlineFromCancel.addEventListener("click", closeInlineCommunicationEditor);
   elements.mailInlineToCancel.addEventListener("click", closeInlineCommunicationEditor);
   elements.mailInlineCcCancel.addEventListener("click", closeInlineCommunicationEditor);
+  elements.mailInlineSubjectCancel.addEventListener("click", closeInlineCommunicationEditor);
   elements.mailInlineFromSave.addEventListener("click", saveInlineCommunicationEditor);
   elements.mailInlineToSave.addEventListener("click", saveInlineCommunicationEditor);
   elements.mailInlineCcSave.addEventListener("click", saveInlineCommunicationEditor);
+  elements.mailInlineSubjectSave.addEventListener("click", saveInlineCommunicationEditor);
+  elements.mailInlineSubjectInput.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveInlineCommunicationEditor();
+    }
+  });
   [elements.mailInlineToInput, elements.mailInlineCcInput].forEach(function (input) {
     input.addEventListener("keydown", onInlineEmailKeydown);
     input.addEventListener("blur", onInlineEmailBlur);
@@ -328,8 +346,14 @@ function bindEvents() {
   elements.mailEditServicesList.addEventListener("click", onCommunicationServiceRemove);
   elements.mailSendModalClose.addEventListener("click", closeSendModal);
   elements.createDraftModalClose.addEventListener("click", closeCreateDraftModal);
+  elements.createDraftModalEmails.addEventListener("click", function () {
+    closeCreateDraftModal();
+    state.activeMailTab = "drafts";
+    switchTab("emails");
+  });
   elements.mailFilterDraft.addEventListener("click", function () { state.emailStatusFilter = "Draft"; clearSelectedMailPreview(); renderEmailsPanel(elements, state); });
   elements.mailFilterSent.addEventListener("click", function () { state.emailStatusFilter = "Sent"; clearSelectedMailPreview(); renderEmailsPanel(elements, state); });
+  elements.mailRegenerateDraft.addEventListener("click", onRegenerateDraftClick);
   elements.mailDeleteDraft.addEventListener("click", onDeleteDraftClick);
   elements.draftDeleteConfirmCancel.addEventListener("click", closeDraftDeleteConfirmation);
   elements.draftDeleteConfirmSubmit.addEventListener("click", onConfirmDraftDelete);
@@ -337,31 +361,30 @@ function bindEvents() {
   elements.serviceFilterStatusToggle.addEventListener("click", function (event) {
     onServiceFilterToggleClick("status", event);
   });
-  elements.serviceFilterStatusMenu.addEventListener("change", function () {
-    onServiceMultiFilterChange("status", elements.serviceFilterStatusMenu);
+  elements.serviceFilterStatusMenu.addEventListener("change", function (event) {
+    onServiceMultiFilterChange("status", elements.serviceFilterStatusMenu, event);
   });
   elements.serviceFilterSupplier.addEventListener("change", onServiceSupplierFilterChange);
   elements.hideNonOperationalServices.addEventListener("change", onHideNonOperationalServicesChange);
   elements.serviceFilterCategoryToggle.addEventListener("click", function (event) {
     onServiceFilterToggleClick("category", event);
   });
-  elements.serviceFilterCategoryMenu.addEventListener("change", function () {
-    onServiceMultiFilterChange("category", elements.serviceFilterCategoryMenu);
+  elements.serviceFilterCategoryMenu.addEventListener("change", function (event) {
+    onServiceMultiFilterChange("category", elements.serviceFilterCategoryMenu, event);
   });
   elements.serviceFilterSubcategoryToggle.addEventListener("click", function (event) {
     onServiceFilterToggleClick("subcategory", event);
   });
-  elements.serviceFilterSubcategoryMenu.addEventListener("change", function () {
-    onServiceMultiFilterChange("subcategory", elements.serviceFilterSubcategoryMenu);
+  elements.serviceFilterSubcategoryMenu.addEventListener("change", function (event) {
+    onServiceMultiFilterChange("subcategory", elements.serviceFilterSubcategoryMenu, event);
   });
   elements.serviceFilterSubdestinationToggle.addEventListener("click", function (event) {
     onServiceFilterToggleClick("subdestination", event);
   });
-  elements.serviceFilterSubdestinationMenu.addEventListener("change", function () {
-    onServiceMultiFilterChange("subdestination", elements.serviceFilterSubdestinationMenu);
+  elements.serviceFilterSubdestinationMenu.addEventListener("change", function (event) {
+    onServiceMultiFilterChange("subdestination", elements.serviceFilterSubdestinationMenu, event);
   });
   elements.applyBulkStatus.addEventListener("click", onApplyBulkStatus);
-  elements.clearServiceSelection.addEventListener("click", clearServiceSelection);
   elements.bulkStatusToggle.addEventListener("click", function (event) {
     event.stopPropagation();
     toggleBulkStatusPopover();
@@ -408,8 +431,11 @@ function bindEvents() {
   elements.viewGrouped.addEventListener("click", function () {
     setServiceView("grouped");
   });
-  elements.toggleServiceColumns.addEventListener("click", onToggleServiceColumnsPanel);
-  elements.closeServiceColumns.addEventListener("click", onToggleServiceColumnsPanel);
+  elements.servicesHeadRow.addEventListener("click", function (event) {
+    if (event.target.closest("[data-toggle-service-columns]")) {
+      onToggleServiceColumnsPanel();
+    }
+  });
   elements.serviceColumnsBackdrop.addEventListener("click", onToggleServiceColumnsPanel);
   elements.resetServiceColumns.addEventListener("click", onResetServiceColumns);
   elements.serviceColumnsList.addEventListener("change", onServiceColumnsListChange);
@@ -451,6 +477,120 @@ function getItineraryLinkValue(booking) {
   }
 
   return "";
+}
+
+function getAxusItineraryId(booking, payload) {
+  const fieldNames = [
+    "Axus Itinerary ID",
+    "Axus_Itinerary_ID",
+    "AXUS_Itinerary_ID",
+    "Axus_Itinerary_Id",
+    "AXUS Itinerary ID"
+  ];
+  const sources = [booking, payload];
+
+  for (let sourceIndex = 0; sourceIndex < sources.length; sourceIndex += 1) {
+    const source = sources[sourceIndex] || {};
+    for (let fieldIndex = 0; fieldIndex < fieldNames.length; fieldIndex += 1) {
+      const value = source[fieldNames[fieldIndex]];
+      if (value !== null && value !== undefined && String(value).trim()) {
+        return String(value).trim();
+      }
+    }
+
+    const matchingFieldName = Object.keys(source).find(function (fieldName) {
+      return String(fieldName).replace(/[^a-z0-9]/gi, "").toLowerCase() === "axusitineraryid";
+    });
+    if (matchingFieldName && source[matchingFieldName] !== null && source[matchingFieldName] !== undefined && String(source[matchingFieldName]).trim()) {
+      return String(source[matchingFieldName]).trim();
+    }
+  }
+
+  return "";
+}
+
+function getCreatedAxusItineraryUrl() {
+  const itineraryId = getAxusItineraryId(state.selectedBooking, state.axusCreationPayload);
+  return itineraryId ? "https://axustravelapp.com/admin/itinerary/" + encodeURIComponent(itineraryId) : getItineraryLinkValue(state.selectedBooking);
+}
+
+function wait(milliseconds) {
+  return new Promise(function (resolve) {
+    window.setTimeout(resolve, milliseconds);
+  });
+}
+
+async function waitForAxusItineraryLink(bookingId) {
+  if (getCreatedAxusItineraryUrl()) {
+    return true;
+  }
+
+  elements.axusItineraryDialogTitle.textContent = "Preparing itinerary";
+  elements.axusItineraryDialogMessage.textContent = "AXUS is generating the itinerary link…";
+
+  for (let attempt = 0; attempt < AXUS_ITINERARY_SYNC_ATTEMPTS; attempt += 1) {
+    await wait(AXUS_ITINERARY_SYNC_INTERVAL_MS);
+
+    try {
+      const refreshedBooking = await crmGetRecord(MODULES.bookings, bookingId);
+      if (refreshedBooking) {
+        state.selectedBooking = refreshedBooking;
+        if (getCreatedAxusItineraryUrl()) {
+          return true;
+        }
+      }
+    } catch (error) {
+      // Keep waiting: the AXUS workflow may still be updating the booking record.
+    }
+  }
+
+  return false;
+}
+
+function showAxusItineraryDialog() {
+  elements.axusItineraryDialog.hidden = false;
+  elements.axusItinerarySpinner.hidden = false;
+  elements.axusItineraryDialogEyebrow.textContent = "AXUS itinerary";
+  elements.axusItineraryDialogTitle.textContent = "Creating itinerary";
+  elements.axusItineraryDialogMessage.textContent = "Creating the AXUS itinerary…";
+  elements.axusItineraryDialogActions.hidden = true;
+}
+
+function showAxusItinerarySuccess() {
+  const itineraryUrl = getCreatedAxusItineraryUrl();
+  elements.axusItinerarySpinner.hidden = true;
+  elements.axusItineraryDialogEyebrow.textContent = "Ready";
+  elements.axusItineraryDialogTitle.textContent = "Itinerary created successfully";
+  elements.axusItineraryDialogMessage.textContent = "The AXUS itinerary is ready.";
+  elements.axusItineraryDialogOpen.hidden = false;
+  elements.axusItineraryDialogOpen.disabled = !itineraryUrl;
+  elements.axusItineraryDialogActions.hidden = false;
+}
+
+function showAxusItineraryError(message) {
+  elements.axusItineraryDialog.hidden = false;
+  elements.axusItinerarySpinner.hidden = true;
+  elements.axusItineraryDialogEyebrow.textContent = "AXUS itinerary";
+  elements.axusItineraryDialogTitle.textContent = "Could not create the itinerary";
+  elements.axusItineraryDialogMessage.textContent = message;
+  elements.axusItineraryDialogOpen.hidden = true;
+  elements.axusItineraryDialogActions.hidden = false;
+}
+
+function onCloseAxusItineraryDialog() {
+  if (state.creatingAxusItinerary) {
+    return;
+  }
+  elements.axusItineraryDialog.hidden = true;
+}
+
+function onOpenCreatedAxusItinerary() {
+  const itineraryUrl = getCreatedAxusItineraryUrl();
+  if (!itineraryUrl) {
+    showAxusItineraryError("The AXUS itinerary link is not available yet.");
+    return;
+  }
+  openExternalWindow(itineraryUrl, "The AXUS itinerary could not be opened. Please allow pop-ups for this page.");
 }
 
 function onOpenItineraryLink() {
@@ -519,7 +659,7 @@ async function onSaveItineraryLink(event) {
     elements.actionItineraryLink.classList.remove("is-editing");
     elements.actionItineraryEdit.textContent = "Edit";
     renderBookingWorkspace(elements, state);
-    setNotice(elements, "Itinerary link saved.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error && error.message ? error.message : "The itinerary link could not be saved.");
   } finally {
@@ -615,7 +755,6 @@ function openWorkspaceExternalLink(linkKey) {
 function clearActiveBookingWorkspace() {
   onCloseBookingReportDialog();
   onCloseCardPurchaseDialog();
-  onClosePrepaymentRequestDialog();
   resetTravelersState();
   state.cardPurchases = [];
   state.cardPurchasesLoading = false;
@@ -677,6 +816,12 @@ function onBookingBrowserOwnerChange() {
   renderBookingBrowserPanel();
 }
 
+function onBookingBrowserSearchByChange() {
+  state.bookingBrowserSearchField = elements.bookingBrowserSearchBy.value || "booking_owner";
+  state.bookingBrowserFiltersApplied = false;
+  renderBookingBrowserPanel();
+}
+
 function onBookingBrowserSizeToggleClick() {
   state.bookingBrowserWide = !state.bookingBrowserWide;
   renderBookingWorkspace(elements, state);
@@ -684,6 +829,10 @@ function onBookingBrowserSizeToggleClick() {
 }
 
 function onBookingBrowserCollapseToggleClick() {
+  if (state.bookingBrowserWide && !state.bookingBrowserCollapsed) {
+    onBookingBrowserSizeToggleClick();
+    return;
+  }
   state.bookingBrowserCollapsed = !state.bookingBrowserCollapsed;
   if (state.bookingBrowserCollapsed) {
     state.bookingBrowserStagesMenuOpen = false;
@@ -730,6 +879,7 @@ function onBookingRailToggleClick() {
 }
 
 async function onBookingBrowserLoadClick() {
+  state.bookingBrowserError = "";
   state.bookingBrowserOwnerId = String(state.bookingBrowserPendingOwnerId || "").trim();
   state.bookingBrowserStages = mergeUniqueTextValues(state.bookingBrowserPendingStages || []);
   state.bookingBrowserFiltersApplied = Boolean(state.bookingBrowserOwnerId && state.bookingBrowserStages.length);
@@ -747,7 +897,8 @@ async function onBookingBrowserLoadClick() {
   try {
     const records = await loadBookingsForBrowserFilters(
       state.bookingBrowserOwnerId,
-      state.bookingBrowserStages
+      state.bookingBrowserStages,
+      state.bookingBrowserSearchField
     );
     const hydratedRecords = await hydrateBookingRecordsIfNeeded(records);
     const normalizedRecords = hydratedRecords.map(normalizeBookingCandidate);
@@ -758,19 +909,17 @@ async function onBookingBrowserLoadClick() {
     state.bookings = normalizedRecords;
     indexBookings(state, normalizedRecords);
     syncBookingBrowserOwnerFilter(normalizedRecords);
+    state.bookingBrowserCollapsed = false;
+    state.bookingBrowserWide = true;
     renderBookingBrowserPanel();
 
-    setNotice(
-      elements,
-      normalizedRecords.length
-        ? normalizedRecords.length + (normalizedRecords.length === 1 ? " booking loaded for the selected filters." : " bookings loaded for the selected filters.")
-        : "No bookings found for the selected owner and stages."
-    );
     state.initialized = true;
     renderBookingWorkspace(elements, state);
   } catch (error) {
-    setError(elements, "Could not load bookings for the selected owner and stages.");
+    state.bookingBrowserError = [error.code, error.message || "Could not load bookings for the selected owner and stages."].filter(Boolean).join(": ");
+    setError(elements, state.bookingBrowserError);
   } finally {
+    state.initialized = true;
     state.bookingBrowserLoading = false;
     renderBookingBrowserPanel();
     renderBookingWorkspace(elements, state);
@@ -805,10 +954,56 @@ function onDocumentClick(event) {
 function onDocumentKeydown(event) {
   if (event.key === "Escape" && state.serviceColumnsPanelOpen) {
     onToggleServiceColumnsPanel();
+    return;
+  }
+
+  if (event.key === "Escape" && state.workspaceFocusMode) {
+    toggleWorkspaceFocusMode();
   }
 }
 
+function toggleWorkspaceFocusMode() {
+  if (!state.selectedBooking) {
+    return;
+  }
+
+  state.workspaceFocusMode = !state.workspaceFocusMode;
+  elements.bookingMainShell.classList.toggle("is-workspace-focus", state.workspaceFocusMode);
+  elements.toggleWorkspaceFocus.setAttribute("aria-pressed", String(state.workspaceFocusMode));
+  elements.toggleWorkspaceFocus.setAttribute("title", state.workspaceFocusMode ? "Exit focus workspace" : "Focus workspace");
+  elements.toggleWorkspaceFocus.setAttribute("aria-label", state.workspaceFocusMode ? "Exit focus workspace" : "Focus workspace");
+}
+
+function onMailServicesIncludedClick(event) {
+  const summary = event.target && event.target.closest ? event.target.closest(".mail-services-summary") : null;
+  const panel = elements.mailServicesIncluded;
+
+  if (!summary || !panel) {
+    return;
+  }
+
+  event.preventDefault();
+  if (panel._closeTimer) {
+    window.clearTimeout(panel._closeTimer);
+    panel._closeTimer = null;
+  }
+
+  if (!panel.open) {
+    panel.classList.remove("is-closing");
+    panel.open = true;
+    return;
+  }
+
+  panel.classList.add("is-closing");
+  panel._closeTimer = window.setTimeout(function () {
+    panel.open = false;
+    panel.classList.remove("is-closing");
+    panel._closeTimer = null;
+  }, 180);
+}
+
 async function onActiveMailListClick(event) {
+  if (state.draftEditorSaving || state.communicationContentEditorOpen) return;
   const row = event.target && event.target.closest ? event.target.closest("[data-mail-record-id]") : null;
 
   if (!row) {
@@ -850,6 +1045,62 @@ async function onDeleteDraftClick() {
   renderEmailsPanel(elements, state);
 }
 
+async function onRegenerateDraftClick() {
+  if (state.activeMailTab !== "drafts" || !state.selectedBookingId || !state.selectedDraftRecordId || state.draftEditorSaving) {
+    return;
+  }
+
+  const selectedRecord = getSelectedCommunicationRecord();
+  const communicationId = String(selectedRecord && selectedRecord.communication_id || "").trim();
+  if (!communicationId) {
+    setError(elements, "The selected draft is not linked to a Communication.");
+    return;
+  }
+
+  const previousDraftId = state.selectedDraftRecordId;
+  state.draftEditorSaving = true;
+  setError(elements, "");
+  setNotice(elements, "");
+  showSendModal("Regenerating draft...", false, true);
+  renderSelectedMailContent(elements, state);
+
+  try {
+    const response = await crmExecuteFunction("comm_regeneratedraftforcommunication", {
+      communicationId: communicationId
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+    if (errorDetails) {
+      throw buildFunctionPayloadError(errorDetails);
+    }
+
+    delete state.mailContentByKey[getMailCacheKey("drafts", previousDraftId)];
+    state.draftEditorOpen = false;
+    state.draftEditorFields = null;
+    state.draftEditorMode = "visual";
+    await ensureBookingEmailsLoaded(true, { contentOnly: true });
+
+    const regeneratedRecord = state.emailDrafts.find(function (record) {
+      return String(record && record.communication_id || "") === communicationId;
+    });
+    if (regeneratedRecord) {
+      const regeneratedDraftId = String(regeneratedRecord.draft_id || regeneratedRecord.id || "").trim();
+      if (regeneratedDraftId) {
+        state.selectedDraftRecordId = regeneratedDraftId;
+        state.mailContentByKey[getMailCacheKey("drafts", regeneratedDraftId)] = Object.assign({}, regeneratedRecord);
+      }
+    }
+
+    showSendModal(getFunctionSuccessMessage(payload) || "Draft regenerated successfully.", false);
+    setTimeout(closeSendModal, 900);
+  } catch (error) {
+    showSendModal(error.message || "Could not regenerate the selected draft.", true);
+  } finally {
+    state.draftEditorSaving = false;
+    renderSelectedMailContent(elements, state);
+  }
+}
+
 function closeDraftDeleteConfirmation() {
   state.draftDeleteConfirmOpen = false;
   if (elements.draftDeleteConfirmModal) {
@@ -885,6 +1136,7 @@ async function onRefreshBookingMailsClick() {
 
 
 async function bootstrapBookings() {
+  state.bookingBrowserError = "";
   state.bookingBrowserLoading = true;
   renderBookingBrowserPanel();
   setButtonsDisabled(elements, state, true);
@@ -925,19 +1177,19 @@ async function bootstrapBookings() {
     state.bookings = normalizedRecords;
     indexBookings(state, normalizedRecords);
     syncBookingBrowserOwnerFilter(normalizedRecords);
+    state.bookingBrowserCollapsed = false;
+    state.bookingBrowserWide = true;
     renderBookingBrowserPanel();
 
-    if (!state.initialized) {
-      setNotice(elements, "Bookings loaded. Choose one from the search box to open the reservation workspace.");
-    } else {
-      setNotice(elements, "Booking list refreshed.");
-    }
+    setNotice(elements, "");
 
     state.initialized = true;
     renderBookingWorkspace(elements, state);
   } catch (error) {
-    setError(elements, "Could not load bookings from Zoho CRM.");
+    state.bookingBrowserError = [error.code, error.message || "Could not load bookings from Zoho CRM."].filter(Boolean).join(": ");
+    setError(elements, state.bookingBrowserError);
   } finally {
+    state.initialized = true;
     state.bookingBrowserLoading = false;
     renderBookingBrowserPanel();
     renderBookingWorkspace(elements, state);
@@ -962,7 +1214,7 @@ async function bootstrapBookingBrowserQueue() {
   await bootstrapBookings();
 }
 
-async function loadBookingsForBrowserFilters(ownerId, stages) {
+async function loadBookingsForBrowserFilters(ownerId, stages, searchField) {
   const normalizedOwnerId = String(ownerId || "").trim();
   const normalizedStages = mergeUniqueTextValues(stages || []);
 
@@ -970,13 +1222,17 @@ async function loadBookingsForBrowserFilters(ownerId, stages) {
     return [];
   }
 
-  const ownerFieldApiName = resolveBookingOwnerCriteriaField(state.bookingModuleFieldApiNames);
+  const ownerFieldApiName = resolveBookingSearchCriteriaField(
+    searchField,
+    state.bookingModuleFieldApiNames
+  );
   const stageFieldApiName = resolveBookingStageCriteriaField(
     state.bookingModuleFieldApiNames,
     state.bookingStageFieldApiName
   );
   const escapedOwnerId = escapeCriteriaValue(normalizedOwnerId);
   const combinedResults = [];
+  state.bookingBrowserQueryDebug = { ownerField: ownerFieldApiName, ownerId: normalizedOwnerId, stageField: stageFieldApiName, stages: normalizedStages.slice(), received: 0 };
 
   for (var stageIndex = 0; stageIndex < normalizedStages.length; stageIndex += 1) {
     var escapedStageValue = escapeCriteriaValue(normalizedStages[stageIndex]);
@@ -999,6 +1255,7 @@ async function loadBookingsForBrowserFilters(ownerId, stages) {
       }
 
       combinedResults.push.apply(combinedResults, pageRecords);
+      state.bookingBrowserQueryDebug.received = combinedResults.length;
 
       if (pageRecords.length < 200) {
         break;
@@ -1076,7 +1333,12 @@ async function hydrateBookingRecordsIfNeeded(records) {
   const hasStageValues = normalizedPreview.some(function (booking) {
     return Boolean(String(booking.Stage || "").trim());
   });
-  if (hasOwnerValues && hasStageValues) {
+  const hasSyncFields = records.every(function (booking) {
+    return Object.prototype.hasOwnProperty.call(booking, "Ezus_Project_ID") ||
+      Object.prototype.hasOwnProperty.call(booking, "Last_Ezus_Sync_At") ||
+      Object.prototype.hasOwnProperty.call(booking, "Last_EZUS_Sync_At");
+  });
+  if (hasOwnerValues && hasStageValues && hasSyncFields) {
     return records;
   }
 
@@ -1128,9 +1390,9 @@ function syncBookingBrowserOwnerFilter(bookings) {
 }
 
 function resolveCurrentUserOwnerValueFromOptions(ownerOptions) {
+  const currentUserEmail = normalizeComparableText(state.currentUserEmail || "");
   const currentUserId = String(state.currentUserId || "");
   const currentUserName = normalizeComparableText(state.currentUserName || "");
-  const currentUserEmail = normalizeComparableText(state.currentUserEmail || "");
 
   if (!currentUserId && !currentUserName && !currentUserEmail) {
     return "";
@@ -1143,15 +1405,16 @@ function resolveCurrentUserOwnerValueFromOptions(ownerOptions) {
       continue;
     }
 
+    // User_Relationships.Email is the canonical match for the logged-in user.
+    if (currentUserEmail && normalizeComparableText(ownerOption.email || "") === currentUserEmail) {
+      return ownerOption.value;
+    }
+
     if (currentUserId && String(ownerOption.value) === currentUserId) {
       return ownerOption.value;
     }
 
     if (currentUserName && normalizeComparableText(ownerOption.label || "") === currentUserName) {
-      return ownerOption.value;
-    }
-
-    if (currentUserEmail && normalizeComparableText(ownerOption.email || "") === currentUserEmail) {
       return ownerOption.value;
     }
   }
@@ -1286,6 +1549,7 @@ async function hydrateBookingBrowserOwners() {
     const relationshipRecords = await loadAllUserRelationshipRecords(
       [
         "Record_Status__s",
+        "Status",
         "User_Alias",
         "User_ID",
         "Email",
@@ -1298,24 +1562,28 @@ async function hydrateBookingBrowserOwners() {
         "Hour_Rep"
       ].join(",")
     );
-    let activeUsers = [];
-
-    try {
-      activeUsers = await loadAllActiveZohoUsers();
-    } catch (activeUsersError) {}
-
-    const ownerOptions = buildOwnerOptionsFromUserRelationships(relationshipRecords, activeUsers);
+    const ownerOptions = buildOwnerOptionsFromUserRelationships(relationshipRecords);
 
     if (typeof console !== "undefined" && typeof console.info === "function") {
       console.info("[Reservations Manager] owner load", {
         relationshipRecords: relationshipRecords.length,
-        activeZohoUsers: activeUsers.length,
         ownerOptions: ownerOptions.length
       });
     }
 
     state.bookingBrowserOwnerOptions = ownerOptions;
+    const currentUserRelationship = findCurrentUserRelationshipRecord(relationshipRecords);
+    const tagOwners = relationshipRecords.filter(function (record) {
+      const relationshipUser = extractUserRelationshipUser(record);
+      const userId = String(relationshipUser && relationshipUser.value || record.User_ID || "");
+      return (state.currentUserEmail && normalizeComparableText(record.Email || "") === normalizeComparableText(state.currentUserEmail)) ||
+        (state.currentUserId && userId === String(state.currentUserId));
+    });
+    state.currentUserRelationshipRecordId = tagOwners.length === 1 ? String(tagOwners[0].id) : "";
     state.currentUserRelationshipUserId = resolveCurrentUserRelationshipUserId(relationshipRecords);
+    if (!state.currentUserEmail && currentUserRelationship) {
+      state.currentUserEmail = getUserRelationshipText(currentUserRelationship.Email);
+    }
     state.currentUserIsAdministrator = isCurrentUserAdministrator(relationshipRecords);
     if (!state.bookingBrowserPendingOwnerId) {
       state.bookingBrowserPendingOwnerId = resolveCurrentUserOwnerValueFromOptions(ownerOptions);
@@ -1332,6 +1600,7 @@ async function hydrateBookingBrowserOwners() {
           User_ID: record.User_ID || "",
           Email: record.Email || "",
           Profile: getUserRelationshipProfile(record),
+          Status: record.Status || "",
           Role: record.Role || "",
           Sales_Rep: summarizeRawDebugValue(record.Sales_Rep),
           Reservations_Rep: summarizeRawDebugValue(record.Reservations_Rep),
@@ -1388,7 +1657,7 @@ async function onSendDraftClick() {
   state.draftSending = true;
   showSendModal("Sending email…", false);
   setError(elements, "");
-  setNotice(elements, "Sending email...", { loading: true });
+  setNotice(elements, "");
   renderEmailsPanel(elements, state);
 
   try {
@@ -1423,7 +1692,6 @@ async function onSendDraftClick() {
     setTimeout(closeSendModal, 900);
   } catch (error) {
     setNotice(elements, "");
-    setError(elements, error.message || "Could not send the selected draft.");
     showSendModal(error.message || "Could not send the selected draft.", true);
   } finally {
     state.draftSending = false;
@@ -1432,19 +1700,140 @@ async function onSendDraftClick() {
   }
 }
 
-function showSendModal(message, isError) {
+function showSendModal(message, isError, draftLoading = false) {
+  stopDraftLoading(elements.mailSendModal);
   elements.mailSendModal.hidden = false;
   elements.mailSendSpinner.hidden = Boolean(isError);
   elements.mailSendModalMessage.textContent = message;
   elements.mailSendModalMessage.classList.toggle("is-error", Boolean(isError));
   elements.mailSendModalClose.hidden = !isError;
+  if (draftLoading && !isError) startDraftLoading(elements.mailSendModal, elements.mailSendSpinner);
 }
 
 function closeSendModal() {
+  stopDraftLoading(elements.mailSendModal);
   elements.mailSendModal.hidden = true;
 }
 
+async function onResendClick() {
+  await createFollowUpDraft("Resend", "", "", "", true);
+}
+
+async function onResendEditClick() {
+  await createFollowUpDraft("Resend", "", "", "", false);
+}
+
+function openForwardDialog() {
+  const record = getSelectedCommunicationRecord();
+  if (!record || String(record.communication_status || "").toLowerCase() !== "sent" || state.draftEditorSaving) return;
+  elements.mailForwardTo.value = "";
+  elements.mailForwardCc.value = "";
+  elements.mailForwardNote.value = "";
+  elements.mailForwardModal.hidden = false;
+  elements.mailForwardTo.focus();
+}
+
+function closeForwardDialog() {
+  if (!state.draftEditorSaving) elements.mailForwardModal.hidden = true;
+}
+
+async function onForwardSubmit(event) {
+  event.preventDefault();
+  await createFollowUpDraft(
+    "Forward",
+    String(elements.mailForwardTo.value || "").trim(),
+    String(elements.mailForwardCc.value || "").trim(),
+    String(elements.mailForwardNote.value || "").trim(),
+    true
+  );
+}
+
+async function createFollowUpDraft(action, recipientTo, recipientCc, forwardNote, sendImmediately) {
+  const record = getSelectedCommunicationRecord();
+  const communicationId = String(record && record.communication_id || "").trim();
+  if (!communicationId || String(record && record.communication_status || "").toLowerCase() !== "sent" || state.draftEditorSaving) return;
+
+  state.draftEditorSaving = true;
+  elements.mailForwardModal.hidden = true;
+  showSendModal(
+    action === "Forward"
+      ? "Forwarding email..."
+      : sendImmediately
+        ? "Resending email..."
+        : "Creating resend draft...",
+    false,
+    !sendImmediately
+  );
+  setError(elements, "");
+  renderEmailsPanel(elements, state);
+  let followUpCreated = false;
+
+  try {
+    const response = await crmExecuteFunction("comm_createfollowupdraft", {
+      sourceCommunicationId: communicationId,
+      deliveryAction: action,
+      recipientTo: recipientTo,
+      recipientCc: recipientCc,
+      forwardNote: forwardNote
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+    if (errorDetails) throw buildFunctionPayloadError(errorDetails);
+
+    const newDraftId = String(payload && payload.draft_id || "").trim();
+    const newCommunicationId = String(payload && payload.communication_id || "").trim();
+    if (!newDraftId) throw new Error("CRM created the follow-up Communication without a draft.");
+    followUpCreated = true;
+    state.emailStatusFilter = "Draft";
+    state.selectedDraftRecordId = newDraftId;
+    state.draftEditorOpen = false;
+    state.draftEditorFields = null;
+    state.communicationInlineEdit = "";
+
+    if (sendImmediately) {
+      const fromEmail = String(record && (record.from || record.Sender_Email) || "").trim();
+      if (!newCommunicationId || !fromEmail) {
+        throw new Error("The resend draft was created, but it has no Communication or sender to send from.");
+      }
+      const sendResponse = await crmExecuteFunction("comm_sendcommunicationdraft", {
+        communicationId: newCommunicationId,
+        draftId: newDraftId,
+        fromEmail: fromEmail,
+        actingUserEmail: fromEmail
+      });
+      const sendPayload = extractFunctionPayload(sendResponse);
+      const sendErrorDetails = getFunctionPayloadErrorDetails(sendPayload);
+      if (sendErrorDetails) throw buildFunctionPayloadError(sendErrorDetails);
+      state.emailStatusFilter = "Sent";
+    }
+
+    await ensureBookingEmailsLoaded(true);
+    showSendModal(
+      sendImmediately
+        ? action === "Forward"
+          ? "Email forwarded successfully."
+          : "Email resent successfully."
+        : "Resend draft created.",
+      false
+    );
+    setTimeout(closeSendModal, 900);
+  } catch (error) {
+    if (followUpCreated) {
+      state.emailStatusFilter = "Draft";
+      try {
+        await ensureBookingEmailsLoaded(true);
+      } catch (reloadError) {
+      }
+    }
+    showSendModal(error.message || "Could not create the follow-up draft.", true);
+  } finally {
+    state.draftEditorSaving = false;
+    renderEmailsPanel(elements, state);
+  }
+}
+
 function closeCreateDraftModal() {
+  stopDraftLoading(elements.createDraftModal);
   elements.createDraftModal.hidden = true;
 }
 
@@ -1518,6 +1907,7 @@ async function saveInlineCommunicationEditor() {
   if (!record || !record.communication_id || !field) return;
   const fields = getCommunicationEditorFields(record);
   if (field === "from") fields.email_from = elements.mailInlineFromSelect.value;
+  else if (field === "subject") fields.email_subject = String(elements.mailInlineSubjectInput.value || "").trim();
   else fields["email_" + field] = state.communicationInlineEmails[field].join(", ");
   state.draftEditorSaving = true;
   try {
@@ -1529,32 +1919,41 @@ async function saveInlineCommunicationEditor() {
     const payload = extractFunctionPayload(response);
     const error = getFunctionPayloadErrorDetails(payload);
     if (error) throw buildFunctionPayloadError(error);
-    const value = field === "from" ? fields.email_from : fields["email_" + field];
+    const value = field === "from" ? fields.email_from : field === "subject" ? fields.email_subject : fields["email_" + field];
     record[field] = value;
     const listRecord = findMailRecordById(state.emailDrafts, "drafts", state.selectedDraftRecordId);
     if (listRecord) listRecord[field] = value;
     const cacheKey = getMailCacheKey("drafts", state.selectedDraftRecordId);
     if (state.mailContentByKey[cacheKey]) state.mailContentByKey[cacheKey][field] = value;
     state.communicationInlineEdit = "";
-    const valueElement = field === "from" ? elements.mailViewerFrom : field === "to" ? elements.mailViewerTo : elements.mailViewerCc;
-    const editorElement = field === "from" ? elements.mailInlineFrom : field === "to" ? elements.mailInlineTo : elements.mailInlineCc;
-    const buttonElement = field === "from" ? elements.mailEditFromButton : field === "to" ? elements.mailEditToButton : elements.mailEditCcButton;
+    const valueElement = field === "from" ? elements.mailViewerFrom : field === "to" ? elements.mailViewerTo : field === "cc" ? elements.mailViewerCc : elements.mailViewerSubject;
+    const editorElement = field === "from" ? elements.mailInlineFrom : field === "to" ? elements.mailInlineTo : field === "cc" ? elements.mailInlineCc : elements.mailInlineSubject;
+    const buttonElement = field === "from" ? elements.mailEditFromButton : field === "to" ? elements.mailEditToButton : field === "cc" ? elements.mailEditCcButton : elements.mailEditSubjectButton;
     valueElement.textContent = value || "-";
     valueElement.hidden = false;
+    if (field === "subject") elements.mailViewerSubjectBlock.hidden = false;
     editorElement.hidden = true;
     buttonElement.hidden = false;
-    setNotice(elements, "Communication updated successfully.");
+    setNotice(elements, "");
   } catch (error) { setError(elements, error.message || "Could not update the communication."); }
-  finally { state.draftEditorSaving = false; }
+  finally {
+    state.draftEditorSaving = false;
+    renderEmailsPanel(elements, state);
+  }
 }
 
 function openCommunicationContentEditor() {
   const record = getSelectedCommunicationRecord();
   if (!record || state.draftEditorSaving) return;
+  elements.mailContentEditError.hidden = true;
   elements.mailContentEditVisual.innerHTML = getCommunicationEditorFields(record).email_content || "<p></p>";
+  state.communicationContentContextOpen = true;
+  state.communicationContentContext = { view: "booking", loading: true, error: "", data: null };
+  renderCommunicationContentContext(record);
   state.communicationContentEditorOpen = true;
   elements.mailContentEditModal.hidden = false;
   elements.mailContentEditVisual.focus();
+  loadCommunicationContentContext(record);
 }
 
 function closeCommunicationContentEditor() {
@@ -1563,13 +1962,208 @@ function closeCommunicationContentEditor() {
   elements.mailContentEditModal.hidden = true;
 }
 
+function toggleCommunicationContentContext() {
+  if (!state.communicationContentEditorOpen) return;
+  state.communicationContentContextOpen = !state.communicationContentContextOpen;
+  if (state.communicationContentContextOpen && !state.communicationContentContext) {
+    state.communicationContentContext = { view: "booking", loading: true, error: "", data: null };
+    loadCommunicationContentContext(getSelectedCommunicationRecord());
+  }
+  renderCommunicationContentContext(getSelectedCommunicationRecord());
+}
+
+function onCommunicationContextCopy(event) {
+  const button = event.target.closest("[data-copy-service-context]");
+  if (!button) return;
+  const label = button.dataset.copyLabel || "";
+  const value = button.dataset.copyValue || "";
+  copyCommunicationContextField(label, value, button).catch(function (error) {
+    console.error("Unable to copy service context field:", error);
+    setError(elements, "Could not copy the service field.");
+  });
+}
+
+function onCommunicationContextChange(event) {
+  if (event.target.id !== "mail-content-edit-context-view" || !state.communicationContentContext) return;
+  state.communicationContentContext.view = event.target.value || "booking";
+  renderCommunicationContentContext(getSelectedCommunicationRecord());
+}
+
+function renderCommunicationContentContext(record) {
+  const panel = elements.mailContentEditContext;
+  const toggle = elements.mailContentEditContextToggle;
+  if (!panel || !toggle) return;
+
+  const isOpen = Boolean(state.communicationContentContextOpen);
+  panel.hidden = !isOpen;
+  toggle.textContent = isOpen ? "Hide Context" : "Open Context";
+  toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  if (!isOpen) return;
+
+  const context = state.communicationContentContext || {};
+  const view = context.view || "booking";
+  const select = '<label class="mail-context-view"><span>Context</span><select id="mail-content-edit-context-view"><option value="booking"' + (view === "booking" ? " selected" : "") + '>Booking</option><option value="services"' + (view === "services" ? " selected" : "") + '>Services</option><option value="travelers"' + (view === "travelers" ? " selected" : "") + '>Travelers</option><option value="supplier"' + (view === "supplier" ? " selected" : "") + '>Supplier</option></select></label>';
+  if (context.loading) {
+    panel.innerHTML = '<div class="mail-context-header"><span>Email template</span><strong>Context</strong>' + select + '</div><p class="mail-context-empty">Loading CRM information…</p>';
+    return;
+  }
+  if (context.error) {
+    panel.innerHTML = '<div class="mail-context-header"><span>Email template</span><strong>Context</strong>' + select + '</div><p class="mail-context-empty">' + escapeHtml(context.error) + '</p>';
+    return;
+  }
+
+  const data = context.data || {};
+  let content = "";
+  if (view === "services") content = renderCommunicationContextServices(data.services || []);
+  else if (view === "travelers") content = renderCommunicationContextTravelers(data.travelers || []);
+  else if (view === "supplier") content = renderCommunicationContextSupplier(data.supplier || {});
+  else content = renderCommunicationContextBooking(data.booking || {});
+  panel.innerHTML = '<div class="mail-context-header"><span>Email template</span><strong>Context</strong><p>Copy any field and paste it into the email.</p>' + select + '</div>' + content;
+}
+
+async function loadCommunicationContentContext(record) {
+  try {
+    try { await ensureBookingTravelersLoaded(); } catch (error) { console.warn("Unable to load email-context travelers:", error); }
+    const services = getCommunicationContextServices(record);
+    const supplierId = getCommunicationContextSupplierId(services);
+    let supplier = {};
+    if (supplierId) {
+      try { supplier = await crmGetRecord("Vendors", supplierId); } catch (error) { console.warn("Unable to load email-context supplier:", error); }
+    }
+    if (!state.communicationContentEditorOpen) return;
+    state.communicationContentContext = Object.assign({}, state.communicationContentContext, {
+      loading: false,
+      data: { booking: state.selectedBooking || {}, services: services, travelers: state.travelers || [], supplier: supplier || {} }
+    });
+  } catch (error) {
+    if (!state.communicationContentEditorOpen) return;
+    state.communicationContentContext = Object.assign({}, state.communicationContentContext, { loading: false, error: error && error.message ? error.message : "Could not load the email context." });
+  }
+  renderCommunicationContentContext(getSelectedCommunicationRecord());
+}
+
+function renderCommunicationContextBooking(booking) {
+  return renderCommunicationContextCard(getCommunicationContextValue(booking, ["Deal_Name", "Name", "Booking_Name"]) || "Booking", [
+    communicationContextField("MFSP reference", getCommunicationContextValue(booking, ["MFSP_Reference", "Booking_Reference"])),
+    communicationContextField("Arrival", getCommunicationContextValue(booking, ["Arrival_Date", "Check_In", "Arrival"])),
+    communicationContextField("Departure", getCommunicationContextValue(booking, ["Departure_Date", "Check_Out", "Departure"])),
+    communicationContextField("Status", getCommunicationContextValue(booking, ["Status", "Booking_Status"])),
+    communicationContextField("PAX Info", getCommunicationContextValue(booking, ["PAX_INFO_celebrations_special_requests_or_intere"]))
+  ]);
+}
+
+function renderCommunicationContextServices(services) {
+  if (!services.length) return '<p class="mail-context-empty">This email has no associated services.</p>';
+  return services.map(function (service, index) {
+    const step = getCommunicationContextStep(service);
+    const stepValue = function (keys) { return getCommunicationContextValue(step, keys); };
+    const content = [
+      communicationContextSection("General", [communicationContextField("Information", [stepValue(["Name", "Step_Name"]), stepValue(["Step_Type"]), stepValue(["Step_Category"])].filter(Boolean).join(" · ")), communicationContextField("Short Description", stepValue(["Short_Description"])), communicationContextField("Long Description", stepValue(["Long_Description"])), communicationContextField("Travelers Number", stepValue(["Travellers_Number"])), communicationContextField("Start Date/Time", stepValue(["Start_Date_Time", "Start_Date"])), communicationContextField("End Date/Time", stepValue(["End_Date_Time", "End_Date"])), communicationContextField("Duration", stepValue(["Duration"])), communicationContextField("Confirmation Reference", stepValue(["Confirmation_Reference"])), communicationContextField("Sample Step", stepValue(["Sample_Step"]))]),
+      communicationContextSection("Transport", ["Arrival_Departure", "Flight_Number", "Flight_Departure_Time", "Flight_Arrival_Time", "Departure_Airport", "Arrival_Airport", "Train_Number", "Train_Departure_Time", "Train_Arrival_Time", "Departure_Station", "Arrival_Station", "Ship_Name", "Ship_Departure_Time", "Ship_Arrival_Time", "Departure_Port", "Arrival_Port", "Vehicle_Type", "Departure_City_Vehicle_Type", "Arrival_City_Vehicle_Type", "FARE", "Record_Locator"].map(function (key) { return communicationContextField(formatCommunicationContextLabel(key), stepValue([key])); })),
+      communicationContextSection("Pick-up / Drop-off", ["Car_PickUp_Time", "PickUp_Point", "DropOff_Point", "Departure_City_PickUp_Point", "Arrival_City_PickUp_Point", "Departure_City_DropOff_Point", "Arrival_City_DropOff_Point", "Departure_City_Car_PickUp_Time", "Arrival_City_Car_PickUp_Time"].map(function (key) { return communicationContextField(formatCommunicationContextLabel(key), stepValue([key])); })),
+      communicationContextSection("Service details", ["Included", "Passengers", "Cancellation_Policy", "Clothing", "Amenities", "Menu", "Meeting_Details", "Table_Reservation_Time"].map(function (key) { return communicationContextField(formatCommunicationContextLabel(key), stepValue([key])); })),
+      communicationContextSection("Notes", [communicationContextField("Special Notes", stepValue(["Special_Notes"])), communicationContextField("Important Notes", stepValue(["Important_Notes"]))])
+    ].join("");
+    const basic = [communicationContextField("Date", getCommunicationContextValue(service, ["Service_Date", "service_date", "Date"])), communicationContextField("Travelers Number", getCommunicationContextValue(service, ["PAX_Number", "Pax_Number", "Travellers_Number"])), communicationContextField("Booking", getCommunicationContextValue(service, ["Booking"]))].join("");
+    return '<details class="mail-context-service"' + (index === 0 ? " open" : "") + '><summary>' + escapeHtml(getCommunicationContextValue(service, ["Product_Description", "Name"]) || "Service " + (index + 1)) + '</summary><div class="mail-context-fields">' + basic + content + '</div></details>';
+  }).join("");
+}
+
+function renderCommunicationContextTravelers(travelers) {
+  if (!travelers.length) return '<p class="mail-context-empty">No travelers are associated with this booking.</p>';
+  return travelers.map(function (traveler, index) {
+    const name = [getCommunicationContextValue(traveler, ["Forename", "First_Name"]), getCommunicationContextValue(traveler, ["Name", "Last_Name"])].filter(Boolean).join(" ") || getCommunicationContextValue(traveler, ["Full_Name"]) || "Traveler " + (index + 1);
+    return renderCommunicationContextCard(name, [communicationContextField("Email", getCommunicationContextValue(traveler, ["Email", "Pax_Email"])), communicationContextField("Phone", getCommunicationContextValue(traveler, ["Pax_Phone", "Phone", "Mobile"])), communicationContextField("Age", getCommunicationContextValue(traveler, ["New_Age"])), communicationContextField("Nationality", getCommunicationContextValue(traveler, ["Nationality"])), communicationContextField("Passport Number", getCommunicationContextValue(traveler, ["Passport_Number"])), communicationContextField("Allergies and Dietary Restrictions", getCommunicationContextValue(traveler, ["Allergies_Dietary_Restrictions"])), communicationContextField("Mobility Needs", getCommunicationContextValue(traveler, ["Mobility_Needs"])), communicationContextField("Size and Weight", getCommunicationContextValue(traveler, ["Size_Weight"])), communicationContextField("Special Requests", getCommunicationContextValue(traveler, ["Special_Requests"])), communicationContextField("Traveller Motivation", getCommunicationContextValue(traveler, ["Traveller_Motivation"]))]);
+  }).join("");
+}
+
+function renderCommunicationContextSupplier(supplier) {
+  return renderCommunicationContextCard(getCommunicationContextValue(supplier, ["Name", "Vendor_Name"]) || "Supplier", [communicationContextField("Email", getCommunicationContextValue(supplier, ["Email", "Email_Address"])), communicationContextField("Phone", getCommunicationContextValue(supplier, ["Phone", "Mobile"])), communicationContextField("Supplier Notes", getCommunicationContextValue(supplier, ["Supplier_Notes", "Notes"])), communicationContextField("Groups Info", getCommunicationContextValue(supplier, ["Groups_Info", "Group_Info"])), communicationContextField("Restrictions", getCommunicationContextValue(supplier, ["Restrictions"])), communicationContextField("Reduce Mobility Info", getCommunicationContextValue(supplier, ["Reduced_Mobility_Info", "Reduce_Mobility_Info", "Reduce_Mobility"])), communicationContextField("Amenities", getCommunicationContextValue(supplier, ["Amenities"])), communicationContextField("Other Amenities", getCommunicationContextValue(supplier, ["Other_Amenities"])), communicationContextField("Room Category", getCommunicationContextValue(supplier, ["Room_Category"])), communicationContextField("Commission Amount", getCommunicationContextValue(supplier, ["Commission_Amount"])), communicationContextField("Commission Notes", getCommunicationContextValue(supplier, ["Commission_Notes"])), communicationContextField("Commission Payment Terms", getCommunicationContextValue(supplier, ["Commission_Payment_Terms"])), communicationContextField("Commission Status", getCommunicationContextValue(supplier, ["Commission_Status"])), communicationContextField("Cancellation Policy", getCommunicationContextValue(supplier, ["Cancellation_Policy"]))]);
+}
+
+function renderCommunicationContextCard(title, fields) { const content = fields.filter(Boolean).join(""); return '<section class="mail-context-card"><h4>' + escapeHtml(title) + '</h4><div class="mail-context-fields">' + (content || '<p class="mail-context-empty">No information available.</p>') + '</div></section>'; }
+function communicationContextSection(title, fields) { const content = fields.filter(Boolean).join(""); return content ? '<section class="mail-context-section"><h5>' + escapeHtml(title) + '</h5><div class="mail-context-fields">' + content + '</div></section>' : ""; }
+function communicationContextField(label, value) { return value ? renderCommunicationContextField({ label: label, value: value }) : ""; }
+function getCommunicationContextStep(service) { const stepLookup = service && service.Step; const stepId = String(stepLookup && (stepLookup.id || stepLookup.ID) || ""); return (state.steps || []).find(function (step) { return String(step.id || step.ID || "") === stepId; }) || stepLookup || {}; }
+function getCommunicationContextSupplierId(services) { const service = services[0] || {}; const supplier = service.Supplier || service.Vendor || {}; return String(supplier && (supplier.id || supplier.ID) || ""); }
+
+function getCommunicationContextServices(record) {
+  const linkedServices = recordServices(record);
+  if (!linkedServices.length) {
+    const linkedIds = Array.isArray(record && record.service_ids) ? record.service_ids.map(String) : [];
+    return (state.services || []).filter(function (service) {
+      return linkedIds.indexOf(String(service && (service.id || service.ID) || "")) !== -1;
+    });
+  }
+  return linkedServices.map(function (linkedService) {
+    const linkedId = String(linkedService && (linkedService.id || linkedService.ID) || "");
+    const fullService = (state.services || []).find(function (service) { return String(service.id || service.ID || "") === linkedId; });
+    return Object.assign({}, linkedService || {}, fullService || {});
+  }).filter(function (service) { return Object.keys(service).length; });
+}
+
+function getCommunicationContextValue(service, keys) {
+  for (let index = 0; index < keys.length; index += 1) {
+    const value = service && service[keys[index]];
+    if (value === null || value === undefined || value === "") continue;
+    if (typeof value === "object") return String(value.name || value.display_value || value.full_name || value.email || "").trim();
+    return String(value).trim();
+  }
+  return "";
+}
+
+function getCommunicationContextFields(service) {
+  const excluded = { id: true, ID: true, Created_Time: true, Modified_Time: true, Owner: true, Created_By: true, Modified_By: true, $currency_symbol: true, $process_flow: true, $approval: true, $editable: true, $permissions: true };
+  return Object.keys(service || {}).filter(function (key) {
+    if (excluded[key] || key.charAt(0) === "$") return false;
+    const value = getCommunicationContextValue(service, [key]);
+    return Boolean(value) && value !== "[object Object]";
+  }).map(function (key) {
+    return { label: formatCommunicationContextLabel(key), value: getCommunicationContextValue(service, [key]) };
+  });
+}
+
+function formatCommunicationContextLabel(key) {
+  return String(key || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function renderCommunicationContextField(field) {
+  const label = escapeHtml(field.label);
+  const value = escapeHtml(field.value);
+  return '<div class="mail-context-field"><span>' + label + '</span><strong>' + value + '</strong><button class="mail-context-copy" type="button" data-copy-service-context data-copy-label="' + label + '" data-copy-value="' + value + '" title="Copy ' + label + '" aria-label="Copy ' + label + '"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"></path></svg></button></div>';
+}
+
+async function copyCommunicationContextField(label, value, button) {
+  const plainText = label + ": " + value;
+  const html = "<strong>" + escapeHtml(label) + ":</strong> " + escapeHtml(value);
+  if (navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem !== "undefined") {
+    await navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([plainText], { type: "text/plain" }), "text/html": new Blob([html], { type: "text/html" }) })]);
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(plainText);
+  } else {
+    throw new Error("Clipboard access is not available.");
+  }
+  button.classList.add("is-copied");
+  button.title = "Copied";
+  window.setTimeout(function () { button.classList.remove("is-copied"); button.title = "Copy " + label; }, 1800);
+}
+
 async function saveCommunicationContentEditor() {
   const record = getSelectedCommunicationRecord();
   if (!record || !record.communication_id || state.draftEditorSaving) return;
   const fields = getCommunicationEditorFields(record);
+  const bookingId = state.selectedBookingId;
+  const draftId = String(record.draft_id || record.id);
+  const cacheKey = getMailCacheKey("drafts", draftId);
   fields.email_content = elements.mailContentEditVisual.innerHTML;
   state.draftEditorSaving = true;
   elements.mailContentEditSave.disabled = true;
+  elements.mailContentEditSave.textContent = "Saving…";
+  elements.mailContentEditSave.ariaBusy = "true";
+  elements.mailContentEditError.hidden = true;
+  elements.mailContentEditVisual.contentEditable = "false";
+  setError(elements, "");
+  setNotice(elements, "");
   try {
     const response = await crmExecuteFunction("comm_updatecommunicationdraft", {
       communicationId: record.communication_id, draftId: record.draft_id || record.id,
@@ -1579,21 +2173,47 @@ async function saveCommunicationContentEditor() {
     const payload = extractFunctionPayload(response);
     const error = getFunctionPayloadErrorDetails(payload);
     if (error) throw buildFunctionPayloadError(error);
-    record.content = fields.email_content;
-    const listRecord = findMailRecordById(state.emailDrafts, "drafts", state.selectedDraftRecordId);
-    if (listRecord) listRecord.content = fields.email_content;
-    const cacheKey = getMailCacheKey("drafts", state.selectedDraftRecordId);
-    if (state.mailContentByKey[cacheKey]) state.mailContentByKey[cacheKey].content = fields.email_content;
+    if (!payload || payload.success !== true) {
+      throw new Error("CRM did not confirm the draft update. Your changes remain in the editor.");
+    }
+    // Read persisted content independently: a function success flag is not proof
+    // that CRM accepted the native draft update.
+    const savedRecords = await loadBookingMailRecordsFromFunction(bookingId, "drafts");
+    const savedRecord = savedRecords.find(function (candidate) {
+      return String(candidate.communication_id) === String(record.communication_id)
+        && String(candidate.draft_id || candidate.id) === draftId;
+    });
+    if (!savedRecord || normalizeSavedEmailContent(savedRecord.content) !== normalizeSavedEmailContent(fields.email_content)) {
+      throw new Error("CRM did not return the updated email content. Your changes remain in the editor; saving could not be verified.");
+    }
+    if (state.selectedBookingId !== bookingId) return;
+    const listRecord = findMailRecordById(state.emailDrafts, "drafts", draftId);
+    if (listRecord) Object.assign(listRecord, savedRecord);
+    state.mailContentByKey[cacheKey] = Object.assign({}, savedRecord);
     state.communicationContentEditorOpen = false;
     elements.mailContentEditModal.hidden = true;
-    elements.mailViewerBody.innerHTML = fields.email_content;
-    setNotice(elements, "Email content updated successfully.");
+    renderEmailsPanel(elements, state);
+    setNotice(elements, "");
   } catch (error) {
-    setError(elements, error.message || "Could not update the email content.");
+    const message = error.message || "Could not update the email content.";
+    elements.mailContentEditError.textContent = message;
+    elements.mailContentEditError.hidden = false;
   } finally {
     state.draftEditorSaving = false;
     elements.mailContentEditSave.disabled = false;
+    elements.mailContentEditSave.textContent = "Save changes";
+    elements.mailContentEditSave.ariaBusy = "false";
+    elements.mailContentEditVisual.contentEditable = "true";
+    renderEmailsPanel(elements, state);
   }
+}
+
+function normalizeSavedEmailContent(value) {
+  // Parse HTML consistently to tolerate entity/attribute serialization changes,
+  // without discarding text or meaningful whitespace.
+  const template = document.createElement("template");
+  template.innerHTML = String(value == null ? "" : value).replace(/\r\n?/g, "\n");
+  return template.innerHTML;
 }
 
 function onEditCommunicationClick() {
@@ -1683,7 +2303,7 @@ async function onSaveCommunicationEdit(event) {
     state.draftEditorFields = null;
     state.draftEditorServiceIds = [];
     await ensureBookingEmailsLoaded(true);
-    setNotice(elements, "Communication updated successfully.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error.message || "Could not update the communication.");
   } finally {
@@ -1693,10 +2313,16 @@ async function onSaveCommunicationEdit(event) {
 }
 
 function resolveCurrentUserRelationshipUserId(records) {
+  const match = findCurrentUserRelationshipRecord(records);
+  const matchedUser = extractUserRelationshipUser(match);
+  return String(matchedUser && matchedUser.value || match && match.User_ID || state.currentUserId || "").trim();
+}
+
+function findCurrentUserRelationshipRecord(records) {
   const currentUserId = String(state.currentUserId || "").trim();
   const currentUserEmail = normalizeComparableText(state.currentUserEmail || "");
   const currentUserName = normalizeComparableText(state.currentUserName || "");
-  const match = (records || []).find(function (record) {
+  return (records || []).find(function (record) {
     const relationshipUser = extractUserRelationshipUser(record);
     const relationshipUserId = String(relationshipUser && relationshipUser.value || record && record.User_ID || "").trim();
     const relationshipEmail = normalizeComparableText(record && record.Email || "");
@@ -1708,9 +2334,6 @@ function resolveCurrentUserRelationshipUserId(records) {
       (currentUserName && relationshipAlias === currentUserName)
     );
   });
-
-  const matchedUser = extractUserRelationshipUser(match);
-  return String(matchedUser && matchedUser.value || match && match.User_ID || currentUserId || "").trim();
 }
 
 function isCurrentUserAdministrator(records) {
@@ -1772,39 +2395,13 @@ async function loadAllUserRelationshipRecords(fields) {
   return aggregated;
 }
 
-async function loadAllActiveZohoUsers() {
-  const aggregated = [];
-  const perPage = 100;
-
-  for (var page = 1; page <= 10; page += 1) {
-    var pageUsers = await withTimeout(
-      crmGetAllUsers("ActiveUsers", page, perPage),
-      ZOHO_SDK_TIMEOUT_MS,
-      "Active users load timed out"
-    );
-
-    if (!pageUsers.length) {
-      break;
-    }
-
-    aggregated.push.apply(aggregated, pageUsers);
-
-    if (pageUsers.length < perPage) {
-      break;
-    }
-  }
-
-  return aggregated;
-}
-
-function buildOwnerOptionsFromUserRelationships(records, activeUsers) {
+function buildOwnerOptionsFromUserRelationships(records) {
   const usersById = {};
-  const activeUserIndex = buildActiveUserIndex(activeUsers);
 
   (records || []).forEach(function (record) {
     const userData = extractUserRelationshipUser(record);
 
-    if (!userData || !isIncludedUserRelationshipOwner(record, userData, activeUserIndex) || usersById[userData.value]) {
+    if (!userData || !isIncludedUserRelationshipOwner(record) || usersById[userData.value]) {
       return;
     }
 
@@ -1823,7 +2420,7 @@ function extractUserRelationshipUser(record) {
     return null;
   }
 
-  const role = String(record.Role || "").trim();
+  const role = getUserRelationshipText(record.Role);
   const candidatesByRole = {
     "Sales Rep": record.Sales_Rep,
     "Reservations Rep": record.Reservations_Rep,
@@ -1848,22 +2445,11 @@ function extractUserRelationshipUser(record) {
     }
   }
 
-  const userId = String(
-    record.User_ID ||
-    getUserLookupValue(userLookup, ["id", "user_id", "zuid"]) ||
-    ""
+  const userId = getUserRelationshipId(record.User_ID);
+  const userEmail = getUserRelationshipText(record.Email) || String(
+    getUserLookupValue(userLookup, ["email", "user_email"]) || ""
   ).trim();
-  const userEmail = String(
-    record.Email ||
-    getUserLookupValue(userLookup, ["email", "user_email"]) ||
-    ""
-  ).trim();
-  const userLabel = String(
-    record.User_Alias ||
-    getUserLookupValue(userLookup, ["name", "full_name", "display_value", "actual_value", "label"]) ||
-    userEmail ||
-    userId
-  ).trim();
+  const userLabel = getUserRelationshipText(record.User_Alias);
 
   if (!userId || !userLabel) {
     return null;
@@ -1873,63 +2459,40 @@ function extractUserRelationshipUser(record) {
     value: userId,
     label: userLabel,
     email: userEmail,
-    alias: String(record.User_Alias || "").trim(),
+    alias: userLabel,
     role: role
   };
 }
 
-function buildActiveUserIndex(activeUsers) {
-  const index = {
-    ids: {},
-    emails: {}
-  };
-
-  (activeUsers || []).forEach(function (user) {
-    var userId = String(user && (user.id || user.zuid || user.user_id) || "").trim();
-    var userEmail = normalizeComparableText(user && (user.email || user.user_email || ""));
-
-    if (userId) {
-      index.ids[userId] = true;
-    }
-
-    if (userEmail) {
-      index.emails[userEmail] = true;
-    }
-  });
-
-  return index;
-}
-
-function isIncludedUserRelationshipOwner(record, userData, activeUserIndex) {
-  const normalizedStatus = normalizeComparableText(
-    record && (record.Record_Status__s || record.Record_Status || record.Status)
-  );
-  const normalizedRole = normalizeComparableText(record && record.Role);
-  const hasActiveUserIndex = Boolean(
-    activeUserIndex &&
-    (Object.keys(activeUserIndex.ids).length || Object.keys(activeUserIndex.emails).length)
-  );
-  const matchesActiveZohoUser = Boolean(
-    userData && (
-      activeUserIndex.ids[userData.value] ||
-      (userData.email && activeUserIndex.emails[normalizeComparableText(userData.email)])
-    )
-  );
+function isIncludedUserRelationshipOwner(record) {
+  const normalizedStatus = normalizeComparableText(getUserRelationshipText(record && record.Status));
+  const normalizedRole = normalizeComparableText(getUserRelationshipText(record && record.Role));
   const hasAllowedRole = Boolean(
     normalizedRole &&
     normalizedRole !== "n/a" &&
     normalizedRole !== "-none-"
   );
 
-  if (!hasAllowedRole) {
-    return false;
+  return normalizedStatus === "active" && hasAllowedRole;
+}
+
+function getUserRelationshipId(value) {
+  if (value && typeof value === "object") {
+    return String(value.id || value.user_id || value.zuid || value.value || "").trim();
   }
 
-  if (hasActiveUserIndex) {
-    return matchesActiveZohoUser;
+  return String(value || "").trim();
+}
+
+function getUserRelationshipText(value) {
+  if (value && typeof value === "object") {
+    return String(
+      value.name || value.full_name || value.display_value || value.actual_value ||
+      value.label || value.email || value.user_email || value.value || ""
+    ).trim();
   }
 
-  return normalizedStatus === "available" || normalizedStatus === "active";
+  return String(value || "").trim();
 }
 
 function getManualEzusStageOptions() {
@@ -2475,6 +3038,10 @@ function summarizeRawDebugValue(value) {
 
 function buildBookingListFieldNames(availableFieldApiNames, stageFieldApiName) {
   const preferredFieldNames = [
+    "Booking_Tags_JSON",
+    "Desk_Ticket_ID",
+    "Desk_Ticket_Id",
+    "DeskTicketID",
     "MFSP_Reference",
     "Reference",
     "Booking_Reference",
@@ -2554,13 +3121,73 @@ function renderBookingBrowserPanel() {
   renderBookingBrowser({
     elements: elements,
     state: state,
+    onSyncBooking: onBookingBrowserSync,
+    onLoadDeskTicket: loadDeskTicket,
     onBookingSelected: async function (booking) {
+      if (state.bookingBrowserWide) onBookingBrowserSizeToggleClick();
       cacheBookingLookup(state, booking);
       elements.bookingSearch.value = buildBookingLabel(booking);
       hideSearchResults(elements);
       await loadBookingWorkspace(booking.id);
     }
   });
+}
+
+async function onBookingBrowserSync(booking) {
+  const bookingId = String(booking && booking.id || "").trim();
+  const ezusProjectRef = String(booking && booking.Ezus_Project_ID || "").trim();
+  const syncingBookingIds = state.syncingEzusBookingIds || (state.syncingEzusBookingIds = {});
+  if (!bookingId || !ezusProjectRef || syncingBookingIds[bookingId]) {
+    if (!ezusProjectRef) setError(elements, "This booking does not have Ezus_Project_ID, so the sync cannot start.");
+    return;
+  }
+
+  syncingBookingIds[bookingId] = true;
+  setError(elements, "");
+  renderBookingBrowserPanel();
+
+  try {
+    const response = await crmExecuteFunction("syncprojectfromezus", {
+      bookingId: bookingId,
+      args: JSON.stringify({ sync: { syncActionUserEmail: state.currentUserEmail || "" } })
+    });
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(payload);
+    if (errorDetails) throw buildFunctionPayloadError(errorDetails);
+
+    const refreshedBooking = await crmGetRecord(MODULES.bookings, bookingId);
+    if (refreshedBooking) {
+      const index = state.bookings.findIndex(function (entry) { return String(entry.id) === bookingId; });
+      if (index !== -1) state.bookings[index] = refreshedBooking;
+      cacheBookingLookup(state, refreshedBooking);
+    }
+    if (String(state.selectedBookingId || "") === bookingId) {
+      await loadBookingWorkspace(bookingId, { preserveNotice: true });
+    }
+    setNotice(elements, payload && payload.message || "Ezus sync launched.");
+  } catch (error) {
+    setError(elements, error && error.message ? error.message : "Could not run the Ezus sync function from this widget.");
+  } finally {
+    delete syncingBookingIds[bookingId];
+    renderBookingBrowserPanel();
+  }
+}
+
+function resolveBookingSearchCriteriaField(searchField, availableFieldApiNames) {
+  const fieldsBySearchType = {
+    booking_owner: ["Owner", "Booking_Owner", "BookingOwner", "Record_Owner", "Assigned_To", "Owner_Id", "SMOWNERID"],
+    sales_rep: ["Sales_Rep", "Sales_Representative", "Salesperson"],
+    reservations_rep: ["Reservations_Rep", "Reservation_Rep", "Reservations_Representative"],
+    accounting_rep: ["Accounting_Rep", "Accounting_Representative"],
+    guest_relations_rep: ["Guest_Relations_Rep", "Guest_Relations_Representative"],
+    hour_rep: ["Hour_Rep", "Rep_24h", "24h_Rep", "TwentyFourHour_Rep", "TwentyFour_Hour_Rep"]
+  };
+
+  if (searchField === "booking_owner" || !fieldsBySearchType[searchField]) {
+    return resolveBookingOwnerCriteriaField(availableFieldApiNames);
+  }
+
+  return resolveBookingCriteriaField(fieldsBySearchType[searchField], availableFieldApiNames);
 }
 
 async function switchTab(tabName) {
@@ -2592,20 +3219,22 @@ async function switchTab(tabName) {
   renderBookingWorkspace(elements, state);
 }
 
-async function ensureBookingEmailsLoaded(forceReload) {
+async function ensureBookingEmailsLoaded(forceReload, options) {
+  const settings = options || {};
+  const contentOnly = Boolean(settings.contentOnly);
   if (!state.selectedBookingId) {
-    renderEmailsPanel(elements, state);
+    if (!contentOnly) renderEmailsPanel(elements, state);
     return;
   }
 
   if (state.draftEmailsLoaded && !forceReload) {
-    renderEmailsPanel(elements, state);
+    if (!contentOnly) renderEmailsPanel(elements, state);
     return;
   }
 
   state.emailsLoading = true;
   state.draftEmailsError = "";
-  renderEmailsPanel(elements, state);
+  if (!contentOnly) renderEmailsPanel(elements, state);
 
   try {
     state.emailDrafts = await loadBookingMailRecordsFromFunction(state.selectedBookingId, "drafts");
@@ -2616,7 +3245,7 @@ async function ensureBookingEmailsLoaded(forceReload) {
     state.draftEmailsLoaded = false;
   } finally {
     state.emailsLoading = false;
-    renderEmailsPanel(elements, state);
+    if (!contentOnly) renderEmailsPanel(elements, state);
   }
 }
 
@@ -2635,6 +3264,14 @@ async function loadBookingBlueprintForBooking(bookingId) {
   return normalizeBookingBlueprintPayload(payload);
 }
 
+const loadDeskTicket = createDeskTicketLoader(async function (ticketId) {
+  const response = await withTimeout(crmExecuteFunction("desk_getticketlatestinteraction", { ticketId }), ZOHO_SDK_TIMEOUT_MS, "Desk interaction request timed out");
+  const payload = extractFunctionPayload(response);
+  const errorDetails = getFunctionPayloadErrorDetails(payload);
+  if (errorDetails) throw buildFunctionPayloadError(errorDetails);
+  return normalizeDeskTicketPayload(payload);
+});
+
 async function ensureDeskTicketLoaded() {
   var booking = state.selectedBooking;
   var ticketId = getBookingLinkFieldValue(booking || {}, ["Desk Ticket ID", "Desk_Ticket_ID", "Desk_Ticket_Id", "DeskTicketID"]);
@@ -2650,21 +3287,13 @@ async function ensureDeskTicketLoaded() {
   renderBookingSummary(elements, state);
 
   try {
-    var response = await crmExecuteFunction("desk_getticketlatestinteraction", {
-      ticketId: ticketId
-    });
-    var payload = extractFunctionPayload(response);
-    var errorDetails = getFunctionPayloadErrorDetails(payload);
-
-    if (errorDetails) {
-      throw buildFunctionPayloadError(errorDetails);
-    }
+    var ticket = await loadDeskTicket(ticketId);
 
     if (bookingId !== state.selectedBookingId) {
       return;
     }
 
-    state.deskTicket = normalizeDeskTicketPayload(payload);
+    state.deskTicket = ticket;
     state.deskTicketLoadedBookingId = bookingId;
   } catch (error) {
     if (bookingId === state.selectedBookingId) {
@@ -2812,6 +3441,17 @@ function getFunctionPayloadErrorDetails(payload) {
   const ok = payload.ok;
   const errorFlag = payload.error;
   const details = getApiErrorDetails(payload);
+  // Draft API errors are returned per item, even when the function itself ran
+  // successfully. Inspect these envelopes before accepting the outer status.
+  const draftResponses = [payload, payload.api_response, payload.data];
+  for (const draftResponse of draftResponses) {
+    if (draftResponse && Array.isArray(draftResponse.__email_drafts)) {
+      for (const draftResult of draftResponse.__email_drafts) {
+        const draftError = getFunctionPayloadErrorDetails(draftResult);
+        if (draftError) return draftError;
+      }
+    }
+  }
   const nestedApiCandidates = [
     payload.api_response,
     payload.api_response && Array.isArray(payload.api_response.data) ? payload.api_response.data[0] : null,
@@ -3232,9 +3872,8 @@ async function deleteSelectedDraft(successMessage) {
 
   state.draftEditorSaving = true;
   setError(elements, "");
-  setNotice(elements, "Deleting draft...", {
-    loading: true
-  });
+  setNotice(elements, "");
+  showSendModal("Deleting draft...", false);
   renderEmailsPanel(elements, state);
 
   try {
@@ -3260,10 +3899,10 @@ async function deleteSelectedDraft(successMessage) {
     state.draftEditorFields = null;
     state.draftEditorMode = "visual";
     state.outlookConfirmOpen = false;
-    setNotice(elements, getFunctionSuccessMessage(payload) || successMessage || "Draft deleted successfully.");
+    showSendModal(getFunctionSuccessMessage(payload) || successMessage || "Draft deleted successfully.", false);
+    setTimeout(closeSendModal, 900);
   } catch (error) {
-    setNotice(elements, "");
-    setError(elements, error.message || "Could not delete the selected draft.");
+    showSendModal(error.message || "Could not delete the selected draft.", true);
   } finally {
     state.draftEditorSaving = false;
     renderEmailsPanel(elements, state);
@@ -3557,7 +4196,7 @@ async function loadBookingWorkspace(bookingId, options) {
 
     elements.bookingSearch.value = buildBookingLabel(bookingRecord);
     if (!settings.preserveNotice) {
-      setNotice(elements, "Booking loaded. Select a service row to edit its operational fields.");
+      setNotice(elements, "");
     }
 
     if (state.activeTab === "emails") {
@@ -3722,9 +4361,14 @@ function collectBlueprintTransitionData(fields, form) {
 }
 
 async function executeBlueprintTransition(transition, data) {
+  const bookingId = String(state.selectedBookingId);
+  await validateCreateInEzusAgency(transition, bookingId);
+  if (String(state.selectedBookingId) !== bookingId) {
+    throw new Error("The selected booking changed. Please try the action again on the booking you want to update.");
+  }
   const response = await crmExecuteFunction("blueprint_executetransition", {
     moduleApiName: MODULES.bookings,
-    recordId: String(state.selectedBookingId),
+    recordId: bookingId,
     expectedCurrentState: String(state.bookingBlueprint && state.bookingBlueprint.processInfo && state.bookingBlueprint.processInfo.field_value || ""),
     transitionId: String(transition.id),
     transitionDataJson: JSON.stringify(data || {})
@@ -3736,11 +4380,12 @@ async function executeBlueprintTransition(transition, data) {
   }
   state.bookingBlueprintClosingMenuOpen = false;
   setError(elements, "");
-  setNotice(elements, payload.message || "Workflow action executed successfully.");
   await loadBookingWorkspace(state.selectedBookingId, { preserveSelection: true });
+  setNotice(elements, payload.message || "Workflow action executed successfully.");
 }
 
-async function onSyncEzusClick() {
+async function onSyncEzusClick(options) {
+  const fromCreateDraft = Boolean(options && options.fromCreateDraft);
   if (!state.selectedBooking) {
     setError(elements, "Load a booking before syncing with Ezus.");
     return;
@@ -3772,20 +4417,20 @@ async function onSyncEzusClick() {
       })
     });
 
-    let message = "Ezus sync launched.";
-
-    if (response && response.details && typeof response.details.output === "string" && response.details.output) {
-      message = response.details.output;
-    } else if (response && response.message) {
-      message = response.message;
-    }
+    const payload = extractFunctionPayload(response);
+    const errorDetails = getFunctionPayloadErrorDetails(response) || getFunctionPayloadErrorDetails(payload);
+    if (errorDetails) throw buildFunctionPayloadError(errorDetails);
 
     await loadBookingWorkspace(bookingId, {
-      preserveNotice: true
+      preserveNotice: true,
+      preserveSelection: false
     });
-    setNotice(elements, message);
+    // This flow finishes by closing the loading dialog in finally, with no
+    // success message. The workspace reload has already cleared selection.
+    if (fromCreateDraft) return;
+    setNotice(elements, "Booking synchronized successfully. You can now create your drafts.");
   } catch (error) {
-    setError(elements, "Could not run the Ezus sync function from this widget.");
+    setError(elements, "We couldn't synchronize this booking. Please try again. If the problem continues, contact your administrator.");
   } finally {
     state.syncingEzus = false;
     clearLoading(elements, state);
@@ -3877,18 +4522,23 @@ async function onSyncContactToEzus() {
 
 async function onCreateAxusClick() {
   if (!state.selectedBooking) {
-    setError(elements, "Load a booking before creating it in Axus.");
+    showAxusItineraryError("Load a booking before creating it in Axus.");
     return;
   }
 
   const bookingId = String(state.selectedBooking.id || state.selectedBookingId || "");
 
   if (!bookingId) {
-    setError(elements, "The selected booking does not have a valid ID.");
+    showAxusItineraryError("The selected booking does not have a valid ID.");
     return;
   }
 
-  showLoading(elements, state, "Creating AXUS itinerary...");
+  state.axusCreationPayload = null;
+  state.creatingAxusItinerary = true;
+  showAxusItineraryDialog();
+  setError(elements, "");
+  setNotice(elements, "");
+  setButtonsDisabled(elements, state, true);
 
   try {
     const response = await crmExecuteFunction("sendfullbookingtoaxus", {
@@ -3901,22 +4551,28 @@ async function onCreateAxusClick() {
       throw buildFunctionPayloadError(errorDetails);
     }
 
+    state.axusCreationPayload = payload;
+    await waitForAxusItineraryLink(bookingId);
     await loadBookingWorkspace(bookingId, { preserveNotice: true, preserveSelection: true });
-    setNotice(elements, payload && payload.message || "AXUS itinerary was created successfully.");
+    showAxusItinerarySuccess();
   } catch (error) {
-    setError(elements, error && error.message ? error.message : "Could not create the AXUS itinerary.");
+    const message = error && error.message ? error.message : "Could not create the AXUS itinerary.";
+    showAxusItineraryError(message);
   } finally {
+    state.creatingAxusItinerary = false;
     clearLoading(elements, state);
   }
 }
 
 export async function init() {
+  initServiceTextSize();
   state.zohoInitDebug = {
     status: "starting",
     sdkDetected: Boolean(window.ZOHO && ZOHO.embeddedApp)
   };
   configureServicesController({
-    reloadBookingWorkspace: loadBookingWorkspace
+    reloadBookingWorkspace: loadBookingWorkspace,
+    syncBooking: function () { return onSyncEzusClick({ fromCreateDraft: true }); }
   });
   initializeServiceTableColumns();
   bindEvents();
@@ -3973,6 +4629,11 @@ export async function init() {
 
     await hydrateCurrentUser();
     await hydrateBookingBrowserOwners();
+    loadServiceTextSizeForUser(state);
+    // Tags are optional: a slow or unavailable catalog must never block Queue.
+    initializeBookingTags().catch(function (error) {
+      console.warn("[Reservations Manager] Booking tags unavailable:", error && error.message || error);
+    });
     await hydrateBookingStageOptions();
     await bootstrapBookingBrowserQueue();
     state.zohoInitDebug = Object.assign({}, state.zohoInitDebug, {

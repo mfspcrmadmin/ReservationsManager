@@ -49,6 +49,8 @@ function showTooltip(trigger) {
 
   activeTrigger = trigger;
   const element = getTooltip();
+  const host = trigger.closest("dialog[open]") || document.body;
+  if (element.parentElement !== host) host.appendChild(element);
   element.textContent = message;
   element.hidden = false;
   trigger.setAttribute("aria-describedby", element.id);

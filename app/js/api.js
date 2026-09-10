@@ -31,6 +31,7 @@ export async function crmGetAllRecords(entity, page, perPage, options) {
 
   const response = await ZOHO.CRM.API.getAllRecords(request);
 
+  throwIfApiError(response);
   return extractRecords(response);
 }
 
@@ -114,6 +115,7 @@ export async function crmSearchRecord(entity, criteria, page, perPage) {
     Query: criteria
   }, page || 1, perPage || 200);
 
+  throwIfApiError(response);
   return extractRecords(response);
 }
 

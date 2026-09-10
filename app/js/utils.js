@@ -371,6 +371,7 @@ export function normalizeBookingCandidate(record) {
 
   return {
     id: record.id,
+    Booking_Tags_JSON: record.Booking_Tags_JSON,
     MFSP_Reference: firstNonEmptyText(record.MFSP_Reference, record.Reference, record.Booking_Reference),
     Deal_Name: firstNonEmptyText(record.Deal_Name, record.Name, record.Booking_Name),
     Account_Name: record.Account_Name || null,
@@ -387,7 +388,10 @@ export function normalizeBookingCandidate(record) {
     Travelers_Number: firstNonEmptyText(record.Travelers_Number, record.Travellers_Number, record.Number_of_Travelers),
     Account_Name: record.Account_Name || record.Agency || null,
     Primary_Contact: record.Primary_Contact || record.Contact_Name || null,
-    Sales_Price: firstNonEmptyText(record.Sales_Price_inc_Taxes, record.Sales_Price, record.Sales_Amount, record.Total_Sales, record.Total_Sales_Amount, record.Amount)
+    Sales_Price: firstNonEmptyText(record.Sales_Price_inc_Taxes, record.Sales_Price, record.Sales_Amount, record.Total_Sales, record.Total_Sales_Amount, record.Amount),
+    Ezus_Project_ID: firstNonEmptyText(record.Ezus_Project_ID, record.Ezus_Project_API, record.Ezus_Project_Api),
+    Last_Ezus_Sync_At: firstNonEmptyText(record.Last_Ezus_Sync_At, record.Last_EZUS_Sync_At, record["Last EZUS Sync At"]),
+    Last_Ezus_Sync_By: firstNonEmptyText(record.Last_Ezus_Sync_By, record.Last_EZUS_Sync_By, record["Last EZUS Sync By"])
   };
 }
 
