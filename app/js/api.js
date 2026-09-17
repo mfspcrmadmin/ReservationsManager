@@ -112,7 +112,9 @@ export async function crmSearchRecord(entity, criteria, page, perPage) {
   const response = await ZOHO.CRM.API.searchRecord({
     Entity: entity,
     Type: "criteria",
-    Query: criteria
+    Query: criteria,
+    page: page || 1,
+    per_page: perPage || 200
   }, page || 1, perPage || 200);
 
   throwIfApiError(response);
@@ -139,17 +141,36 @@ export async function crmUpdateRecord(entity, payload) {
   return extractRecords(response)[0] || {};
 }
 
-export async function crmCreateRecord(entity, payload) {
-  const response = await ZOHO.CRM.API.insertRecord({
-    Entity: entity,
-    APIData: payload,
-    Trigger: ["workflow"]
-  });
+export function formatCrmCreateError(error, entity) {
+  let source = error;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (typeof source === "string") {
+      try { source = JSON.parse(source); } catch (_) { break; }
+    }
+    if (!source || typeof source !== "object") break;
+    const nested = source.responseJSON || source.responseText || source.response || source.body || source.data;
+    if (Array.isArray(source)) { source = source[0]; continue; }
+    if (nested) { source = nested; continue; }
+    break;
+  }
+  const message = source?.message || (typeof source === "string" ? source : "") || error?.message || "CRM could not create the record.";
+  const code = source?.code ? " [" + source.code + "]" : "";
+  const details = source?.details;
+  const field = details?.api_name || details?.field?.api_name;
+  const expected = details?.expected_data_type;
+  return entity + ": " + message + code + (field ? " Field: " + field + "." : "") + (expected ? " Expected type: " + expected + "." : "");
+}
 
-  const result = extractRecords(response)[0] || {};
+export async function crmCreateRecord(entity, payload) {
+  let response;
+  try {
+    response = await ZOHO.CRM.API.insertRecord({ Entity: entity, APIData: payload, Trigger: ["workflow"] });
+  } catch (error) {
+    throw new Error(formatCrmCreateError(error, entity));
+  }
+  const result = extractRecords(response)[0] || response || {};
   if (String(result.status || "").toLowerCase() === "error" || String(result.code || "").toUpperCase() !== "SUCCESS") {
-    const details = result.details && result.details.api_name ? " (" + result.details.api_name + ")" : "";
-    throw new Error((result.message || result.code || "CRM could not create the card transaction.") + details);
+    throw new Error(formatCrmCreateError(result, entity));
   }
   return result;
 }

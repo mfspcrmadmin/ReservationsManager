@@ -140,8 +140,8 @@ function configureServiceColumnWidths(head) {
 return { configure: configureServiceColumnWidths, reset: resetServiceColumnWidths };
 }
 
-const serviceResizer = createColumnResizer("reservationsManager.serviceColumnWidths", {
-  name: 100, date: 152, serviceDateTime: 216, status: 210, serviceName: 320, supplier: 200, paxNumber: 112, step: 260, serviceNotes: 260
+const serviceResizer = createColumnResizer("bookingsManager.serviceColumnWidths", {
+  name: 100, date: 152, serviceDateTime: 216, status: 210, paymentStatus: 190, serviceName: 320, supplier: 200, paxNumber: 112, step: 260, serviceNotes: 260
 });
 export const configureServiceColumnWidths = serviceResizer.configure;
 export const resetServiceColumnWidths = serviceResizer.reset;

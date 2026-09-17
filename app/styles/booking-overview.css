@@ -1,0 +1,64 @@
+.booking-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 32px;
+  padding: 16px 4px 8px;
+  color: #344054;
+  font-family: var(--font-body);
+  container-type: inline-size;
+}
+.overview-column { display: grid; align-content: start; gap: 28px; min-width: 0; }
+.overview-section { min-width: 0; }
+.overview-section h2 { margin: 0 0 16px; font: 700 14px/1.3 var(--font-heading); color: #243e33; }
+.overview-label, .overview-profile dt { display: block; margin: 0 0 6px; color: #667085; font-size: 11px; font-weight: 500; line-height: 1.4; }
+.overview-missing { color: #85908b; font-size: 12px; font-weight: 400; }
+.overview-trip-facts { display: grid; gap: 20px; padding: 20px; border-radius: 12px; background: #f4f8f5; }
+.overview-date-range { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.overview-date-range strong { font-size: 16px; font-weight: 650; color: #254e3d; line-height: 1.4; }
+.overview-date-arrow { color: #839b8c; font-size: 21px; }
+.overview-trip-numbers { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-top: 16px; border-top: 1px solid #dfe9e2; }
+.overview-trip-numbers strong { display: block; font-size: 23px; line-height: 1.2; font-weight: 650; color: #254e3d; }
+.overview-profile { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 16px; margin: 0; }
+.overview-profile > div:first-child { grid-column: 1 / -1; }
+.overview-profile dd { margin: 0; }
+.overview-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.overview-chip { display: inline-flex; padding: 4px 9px; border-radius: 6px; background: #f2f4f7; color: #536171; font-size: 11px; line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
+.overview-chip--country { background: #edf5ef; color: #38654b; }
+.overview-chip--client { background: #edf3fa; color: #466488; }
+.overview-client-identity { display: grid; justify-items: start; gap: 8px; }
+.overview-client-identity > .overview-label { margin: 0; }
+.overview-client-name { font-size: 18px; line-height: 1.35; color: #243e33; overflow-wrap: anywhere; }
+.overview-contact { margin-top: 18px; font-size: 13px; }
+.overview-email { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 12px; }
+.overview-email a { color: #365d78; text-decoration: none; overflow-wrap: anywhere; }
+.overview-email a:hover { text-decoration: underline; }
+.overview-copy-email { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: #667085; cursor: pointer; }
+.overview-copy-email svg { width: 16px; height: 16px; }
+.overview-copy-email:hover { background: #edf3fa; color: #365d78; }
+.overview-copy-email:active { background: #dce8f2; }
+.overview-copy-email:focus-visible { outline: 2px solid #365d78; outline-offset: 2px; }
+.overview-copy-status { font-size: 11px; color: #38654b; }
+.overview-team { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; list-style: none; padding: 0; margin: 0; }
+.overview-person { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.overview-person > div { display: grid; gap: 3px; min-width: 0; }
+.overview-person strong { font-size: 12px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.overview-person-role { color: #667085; font-size: 10px; line-height: 1.4; }
+.overview-avatar { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #eef1f5; color: #536171; font-size: 11px; font-weight: 600; }
+.overview-avatar--empty { background: #f6f7f8; color: #9ba39f; }
+.overview-person--owner { grid-column: 1 / -1; padding-bottom: 14px; border-bottom: 1px solid #edf0ee; }
+.overview-person--owner .overview-avatar { width: 38px; height: 38px; background: #e5efe7; color: #38654b; }
+.overview-person--owner strong { font-size: 13px; }
+
+/* Respond to the space left by the queue and action panels, as well as the viewport. */
+.booking-details-card--embedded { container-type: inline-size; }
+@container (max-width: 700px) {
+  .booking-overview { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
+@container (max-width: 380px) {
+  .overview-team, .overview-profile { grid-template-columns: minmax(0, 1fr); }
+  .overview-trip-facts { padding: 14px; }
+  .overview-date-range { gap: 10px; }
+}
+@media (max-width: 700px) {
+  .booking-overview { grid-template-columns: minmax(0, 1fr); }
+}

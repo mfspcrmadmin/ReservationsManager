@@ -106,7 +106,7 @@ export function renderActiveTab(elements, state) {
   const isEmailsTab = activeTab === "emails";
   const isPaymentsTab = activeTab === "payments";
   const isReportsTab = activeTab === "reports";
-  const isDeskTab = activeTab === "desk";
+  const isCommunicationTab = activeTab === "communication";
   const isTravelersTab = activeTab === "travelers";
 
   if (elements.tabBooking) {
@@ -121,16 +121,16 @@ export function renderActiveTab(elements, state) {
   if (elements.tabReports) {
     elements.tabReports.classList.toggle("active", isReportsTab);
   }
-  if (elements.summaryViewDesk) {
-    elements.summaryViewDesk.classList.toggle("active", isDeskTab);
+  if (elements.summaryViewCommunication) {
+    elements.summaryViewCommunication.classList.toggle("active", isCommunicationTab);
   }
   if (elements.tabTravelers) {
     elements.tabTravelers.classList.toggle("active", isTravelersTab);
   }
 
   if (elements.manageBookingPanel) {
-    elements.manageBookingPanel.hidden = !isBookingTab && !isDeskTab;
-    elements.manageBookingPanel.classList.toggle("is-desk-view", isDeskTab);
+    elements.manageBookingPanel.hidden = !isBookingTab && !isCommunicationTab;
+    elements.manageBookingPanel.classList.toggle("is-communication-view", isCommunicationTab);
   }
 
   elements.manageServicesPanel.hidden = !isServicesTab;
@@ -148,6 +148,7 @@ export function renderActiveTab(elements, state) {
 
 export function setButtonsDisabled(elements, state, disabled) {
   const hasSelectedServices = Object.keys(state.selectedServiceIds).length > 0;
+  if (elements.bulkRequestPrepayment) elements.bulkRequestPrepayment.disabled = disabled || !hasSelectedServices;
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
   elements.loadBooking.disabled = disabled;
   elements.bookingSearch.disabled = disabled;
@@ -266,8 +267,7 @@ export function renderBookingSummary(elements, state) {
   const summaryView = state.summaryView || "basic";
   const switchButtons = {
     basic: elements.summaryViewBasic,
-    financial: elements.summaryViewFinancial,
-    team: elements.summaryViewTeam
+    financial: elements.summaryViewFinancial
   };
 
   Object.keys(switchButtons).forEach(function (viewKey) {
@@ -1424,6 +1424,7 @@ export function renderServicesTable(options) {
   elements.applyBulkStatus.textContent = "Apply to " + selectedCount + (selectedCount === 1 ? " service" : " services");
   elements.bulkStatusToggle.disabled = selectedCount === 0;
   elements.bulkDraftsToggle.disabled = selectedCount === 0;
+  if (elements.bulkRequestPrepayment) elements.bulkRequestPrepayment.disabled = selectedCount === 0;
   elements.bulkStatusCancel.disabled = selectedCount === 0;
   elements.applyBulkStatus.disabled = selectedCount === 0 || !hasBulkStatusSelection;
   elements.bulkStatusEzus.disabled = selectedCount === 0;
@@ -1450,6 +1451,25 @@ export function renderEmailsPanel(elements, state, options) {
     return String(record && record.communication_status || "Draft").toLowerCase() === selectedStatus.toLowerCase();
   }).sort(compareMailRecordsByMostRecent);
   const activeCount = activeRecords.length;
+  if (state.draftSelectionBookingId !== String(state.selectedBookingId || "")) {
+    state.draftSelectionBookingId = String(state.selectedBookingId || "");
+    state.selectedDraftIds = {};
+  }
+  state.selectedDraftIds ||= {};
+  const selectableIds = state.emailDrafts.filter(record => String(record.communication_status || "Draft").toLowerCase() === "draft").map((record, index) => getMailRecordId(record, index, "drafts"));
+  for (const id of Object.keys(state.selectedDraftIds)) if (!selectableIds.includes(id)) delete state.selectedDraftIds[id];
+  const selectedDraftCount = Object.keys(state.selectedDraftIds).length;
+  const selectionBusy = state.draftEditorSaving || state.draftBatchSending || state.draftEditorOpen || state.communicationContentEditorOpen || state.emailsLoading || state.draftDeleteConfirmOpen;
+  if (elements.mailBulkDraftActions) {
+    elements.mailBulkDraftActions.hidden = selectedStatus !== "Draft" || !state.selectedBooking || !activeCount;
+    elements.mailSendSelected.disabled = !selectedDraftCount || Boolean(selectionBusy);
+    elements.mailSendSelected.textContent = "Send (" + selectedDraftCount + ")";
+    elements.mailDeleteSelected.disabled = !selectedDraftCount || Boolean(selectionBusy);
+    elements.mailDeleteSelected.textContent = "Delete (" + selectedDraftCount + ")";
+    elements.mailSelectAllDrafts.disabled = Boolean(selectionBusy);
+    elements.mailSelectAllDrafts.checked = selectableIds.length > 0 && selectedDraftCount === selectableIds.length;
+    elements.mailSelectAllDrafts.indeterminate = selectedDraftCount > 0 && selectedDraftCount < selectableIds.length;
+  }
 
   if (!contentOnly) {
     state.activeMailTab = "drafts";
@@ -1512,7 +1532,9 @@ export function renderEmailsPanel(elements, state, options) {
       activeRecords,
       "drafts",
       selectedRecordId,
-      emptyMessage
+      emptyMessage,
+      state.selectedDraftIds,
+      selectionBusy
     );
   }
 
@@ -1769,7 +1791,7 @@ function renderCommunicationServices(element, record, state) {
   ].join("");
 }
 
-function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
+function renderMailList(records, tabName, selectedRecordId, emptyMessage, selectedDraftIds = {}, selectionBusy = false) {
   if (!records.length) {
     return '<div class="table-empty">' + escapeHtml(emptyMessage) + "</div>";
   }
@@ -1780,9 +1802,11 @@ function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
     const toValue = formatMailValue(getMailField(record, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"]));
     const timeValue = getMailRecordTimeValue(record);
     const selectedClass = recordId === selectedRecordId ? " active" : "";
+    const selectable = String(record.communication_status || "Draft").toLowerCase() === "draft";
 
     return [
-      '<article class="mail-list-item' + selectedClass + '" data-mail-tab="' + escapeHtml(tabName) + '" data-mail-record-id="' + escapeHtml(recordId) + '">',
+      '<article class="mail-list-item' + selectedClass + (selectable ? ' has-draft-selection' : '') + '" data-mail-tab="' + escapeHtml(tabName) + '" data-mail-record-id="' + escapeHtml(recordId) + '">',
+      selectable ? '<input type="checkbox" class="draft-select-checkbox" data-draft-select="' + escapeHtml(recordId) + '" aria-label="Select draft: ' + escapeHtml(subject) + '"' + (selectedDraftIds[recordId] ? ' checked' : '') + (selectionBusy ? ' disabled' : '') + '>' : '',
       '  <div class="mail-list-item-time">' + escapeHtml(timeValue ? formatDateTime(timeValue) : "-") + "</div>",
       '  <strong class="mail-list-item-subject">' + escapeHtml(subject) + "</strong>",
       renderMailRow("To", toValue || "-"),
@@ -2013,7 +2037,7 @@ function renderGroupedServicesTable(options) {
       rows.push(
         '<tr class="day-row">' +
         '<td colspan="' + columnCount + '" class="day-cell">' +
-        '<span class="day-chip">' + escapeHtml(formatGroupedDayLabel(group.dayKey)) + "</span>" +
+        '<span class="day-chip">' + escapeHtml(formatGroupedDayLabel(group.dayKey, state.selectedBooking?.Arrival_Date)) + "</span>" +
         "</td>" +
         "</tr>"
       );
@@ -2320,6 +2344,19 @@ function renderStatusPill(status) {
   return '<span class="' + escapeHtml(classes.join(" ")) + '">' + escapeHtml(status || "-") + "</span>";
 }
 
+function renderPaymentStatusPill(status) {
+  const modifiers = {
+    "to be paid": "pending",
+    "prepayment requested": "requested",
+    "partially paid": "partial",
+    "fully paid": "paid",
+    "partially refunded": "partial-refund",
+    "refunded": "refunded"
+  };
+  const modifier = modifiers[normalizeStatusValue(status)] || "neutral";
+  return '<span class="status-pill payment-status-pill--' + modifier + '">' + escapeHtml(status && status !== "-None-" ? status : "-") + '</span>';
+}
+
 function renderStatusOption(status) {
   const theme = getStatusTheme(status);
   const inlineStyle = [
@@ -2368,6 +2405,8 @@ function renderServiceTableCell(column, service, state) {
       return renderServiceCell(column.key, escapeHtml(service.Supplier_Name || "-"));
     case "status":
       return renderServiceCell(column.key, renderStatusPill(service.Status_EZUS));
+    case "paymentStatus":
+      return renderServiceCell(column.key, renderPaymentStatusPill(service.Payment_Status));
     case "sales":
       return renderServiceCell(column.key, escapeHtml(formatCurrency(service.Total_Sales_Price)));
     case "purchase":
@@ -2726,7 +2765,7 @@ function formatStepTimeRange(startValue, endValue) {
   return startTime && endTime && endTime !== startTime ? startTime + "–" + endTime : startTime;
 }
 
-function formatGroupedDayLabel(dayKey) {
+function formatGroupedDayLabel(dayKey, arrivalDate) {
   if (!dayKey) {
     return "No day assigned";
   }
@@ -2737,7 +2776,10 @@ function formatGroupedDayLabel(dayKey) {
     return dayKey;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  const arrivalKey = String(arrivalDate || "").slice(0, 10);
+  const tripDay = Math.round((Date.parse(dayKey + "T00:00:00Z") - Date.parse(arrivalKey + "T00:00:00Z")) / 86400000) + 1;
+  const prefix = Number.isFinite(tripDay) && tripDay > 0 ? "DAY " + tripDay + " | " : "";
+  return prefix + new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "short",
     day: "numeric",

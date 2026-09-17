@@ -1,7 +1,11 @@
+import { copyOverviewEmail } from "./booking-overview.js";
+import { openBookingCommunicationEditor } from "./booking-communication.js";
+import { createReviewNotesNavigation } from "./review-notes-navigation.js";
 import { crmExecuteFunction, crmGetAllRecords, crmGetFields, crmGetRecord, crmSearchRecord, crmUpdateRecord } from "./api.js";
 import { startDraftLoading, stopDraftLoading } from "./draft-loading.js";
 import { validateCreateInEzusAgency } from "./blueprint-contact-agency.js";
 import { initializeBookingTags } from "./booking-tags.js";
+import { sendDraftBatch } from "./draft-batch.js";
 import { createDeskTicketLoader } from "./booking-queue-desk.js";
 import { openCommunicationAttachments } from "./communication-attachments.js";
 import { initServiceTextSize, loadServiceTextSizeForUser } from "./service-text-size.js";
@@ -53,7 +57,6 @@ import {
   initializeServiceTableColumns,
   onApplyBulkStatus,
   onCreateDraftForSelection,
-  onRequestServicePrepayment,
   onRecordRenfePrepayment,
   onResetServiceColumns,
   onSaveService,
@@ -96,6 +99,7 @@ import {
   showLoading
 } from "./render.js";
 import { state } from "./state.js";
+import { initializePrepayments } from "./prepayments-controller.js";
 import {
   DRAFT_FROM_LOGIN_USER_VALUE,
   buildBookingLabel,
@@ -133,6 +137,10 @@ const AXUS_ITINERARY_SYNC_ATTEMPTS = 20;
 const AXUS_ITINERARY_SYNC_INTERVAL_MS = 1500;
 
 function bindEvents() {
+  initializePrepayments(elements, state, function () {
+    state.activePaymentTab = "prepayments";
+    switchTab("payments");
+  });
   elements.loadBooking.addEventListener("click", onLoadBookingClick);
   elements.bookingSearch.addEventListener("keydown", function (event) {
     if (event.key !== "Enter" || event.isComposing) {
@@ -204,6 +212,11 @@ function bindEvents() {
       setPaymentTab(elements, state, "travelers");
     });
   }
+  if (elements.paymentTabRefunds) {
+    elements.paymentTabRefunds.addEventListener("click", function () {
+      setPaymentTab(elements, state, "refunds");
+    });
+  }
   if (elements.paymentTabPrepayments) {
     elements.paymentTabPrepayments.addEventListener("click", function () {
       setPaymentTab(elements, state, "prepayments");
@@ -243,15 +256,28 @@ function bindEvents() {
       switchTab("travelers");
     });
   }
+  elements.summaryContent.addEventListener("click", event => {
+    const copyEmail = event.target.closest("[data-overview-copy-email]");
+    if (copyEmail) { void copyOverviewEmail(copyEmail); return; }
+    const toggle = event.target.closest("[data-communication-switch]");
+    if (toggle) {
+      state.communicationNotesView = toggle.dataset.communicationSwitch;
+      renderBookingSummary(elements, state);
+      elements.summaryContent.querySelector('[data-communication-switch="' + state.communicationNotesView + '"]').focus();
+      return;
+    }
+    const button = event.target.closest("[data-communication-edit]");
+    if (button && state.selectedBooking) openBookingCommunicationEditor(state, button.dataset.communicationEdit, () => renderBookingSummary(elements, state));
+  });
   elements.summaryViewBasic.addEventListener("click", function () {
     setSummaryView("basic");
   });
   elements.summaryViewFinancial.addEventListener("click", function () {
     setSummaryView("financial");
   });
-  if (elements.summaryViewDesk) {
-    elements.summaryViewDesk.addEventListener("click", function () {
-      switchTab("desk");
+  if (elements.summaryViewCommunication) {
+    elements.summaryViewCommunication.addEventListener("click", function () {
+      switchTab("communication");
     });
   }
   if (elements.summaryViewTravelers) {
@@ -259,9 +285,6 @@ function bindEvents() {
       setSummaryView("travelers");
     });
   }
-  elements.summaryViewTeam.addEventListener("click", function () {
-    setSummaryView("team");
-  });
   elements.summaryBlueprintPanel.addEventListener("click", onWorkspaceActionClick);
   elements.summaryDashboard.addEventListener("click", onWorkspaceActionClick);
   elements.bookingBrowserSearchBy.addEventListener("change", onBookingBrowserSearchByChange);
@@ -270,6 +293,16 @@ function bindEvents() {
   elements.bookingBrowserStagesMenu.addEventListener("change", onBookingBrowserStagesChange);
   if (elements.bookingBrowserLoad) {
     elements.bookingBrowserLoad.addEventListener("click", onBookingBrowserLoadClick);
+  }
+  if (elements.bookingBrowserRefresh) {
+    elements.bookingBrowserRefresh.addEventListener("click", function () {
+      if (state.bookingBrowserLoading) return;
+      if (state.bookingBrowserFiltersApplied) {
+        void onBookingBrowserLoadClick({ refresh: true });
+      } else {
+        void bootstrapBookings({ preserveLayout: true });
+      }
+    });
   }
   if (elements.bookingBrowserSizeToggle) {
     elements.bookingBrowserSizeToggle.addEventListener("click", onBookingBrowserSizeToggleClick);
@@ -292,6 +325,10 @@ function bindEvents() {
   document.addEventListener("click", onDocumentClick);
   elements.refreshBookingMails.addEventListener("click", onRefreshBookingMailsClick);
   elements.activeMailList.addEventListener("click", onActiveMailListClick);
+  elements.activeMailList.addEventListener("change", onDraftSelectionChange);
+  elements.mailSendSelected.addEventListener("click", onSendSelectedDraftsClick);
+  elements.mailDeleteSelected.addEventListener("click", onDeleteSelectedDraftsClick);
+  elements.mailSelectAllDrafts.addEventListener("change", onSelectAllDraftsChange);
   elements.mailSendDraft.addEventListener("click", onSendDraftClick);
   elements.mailResend.addEventListener("click", onResendClick);
   elements.mailResendEdit.addEventListener("click", onResendEditClick);
@@ -414,7 +451,6 @@ function bindEvents() {
   elements.serviceDetailTabStep.addEventListener("click", function () {
     setServiceDetailTab("step");
   });
-  elements.serviceActionPrepayment.addEventListener("click", onRequestServicePrepayment);
   elements.serviceActionCardPurchase.addEventListener("click", onRecordCardPurchase);
   elements.serviceActionRenfe.addEventListener("click", onRecordRenfePrepayment);
   elements.createAvailabilityDraft.addEventListener("click", function () {
@@ -737,6 +773,11 @@ function getBookingLinkFieldValue(booking, keys) {
 }
 
 function openWorkspaceExternalLink(linkKey) {
+  if (linkKey === "prepayments") {
+    state.activePaymentTab = "prepayments";
+    switchTab("payments");
+    return;
+  }
   if (!state.selectedBooking) {
     setError(elements, "Load a booking before opening workspace shortcuts.");
     return;
@@ -753,6 +794,8 @@ function openWorkspaceExternalLink(linkKey) {
 }
 
 function clearActiveBookingWorkspace() {
+  state.bookingWorkspaceRequestId = (state.bookingWorkspaceRequestId || 0) + 1;
+  state.bookingWorkspaceLoadingLabel = "";
   onCloseBookingReportDialog();
   onCloseCardPurchaseDialog();
   resetTravelersState();
@@ -762,6 +805,7 @@ function clearActiveBookingWorkspace() {
   state.cardPurchasesLoadedBookingId = "";
   state.cardPurchasesError = "";
   state.selectedBookingId = "";
+  state.prepaymentsData = null;
   state.selectedBooking = null;
   state.deskTicket = null;
   state.deskTicketLoading = false;
@@ -806,9 +850,7 @@ function setSummaryView(viewName) {
     ensureBookingTravelersLoaded();
   }
 
-  if (viewName === "desk") {
-    ensureDeskTicketLoaded();
-  }
+
 }
 
 function onBookingBrowserOwnerChange() {
@@ -878,11 +920,15 @@ function onBookingRailToggleClick() {
   renderBookingWorkspace(elements, state);
 }
 
-async function onBookingBrowserLoadClick() {
+async function onBookingBrowserLoadClick(options) {
+  const refreshing = Boolean(options && options.refresh);
+  if (state.bookingBrowserLoading) return;
   state.bookingBrowserError = "";
-  state.bookingBrowserOwnerId = String(state.bookingBrowserPendingOwnerId || "").trim();
-  state.bookingBrowserStages = mergeUniqueTextValues(state.bookingBrowserPendingStages || []);
-  state.bookingBrowserFiltersApplied = Boolean(state.bookingBrowserOwnerId && state.bookingBrowserStages.length);
+  if (!refreshing) {
+    state.bookingBrowserOwnerId = String(state.bookingBrowserPendingOwnerId || "").trim();
+    state.bookingBrowserStages = mergeUniqueTextValues(state.bookingBrowserPendingStages || []);
+    state.bookingBrowserFiltersApplied = Boolean(state.bookingBrowserOwnerId && state.bookingBrowserStages.length);
+  }
   state.bookingBrowserStagesMenuOpen = false;
   renderBookingBrowserPanel();
 
@@ -909,8 +955,10 @@ async function onBookingBrowserLoadClick() {
     state.bookings = normalizedRecords;
     indexBookings(state, normalizedRecords);
     syncBookingBrowserOwnerFilter(normalizedRecords);
-    state.bookingBrowserCollapsed = false;
-    state.bookingBrowserWide = true;
+    if (!refreshing) {
+      state.bookingBrowserCollapsed = false;
+      state.bookingBrowserWide = true;
+    }
     renderBookingBrowserPanel();
 
     state.initialized = true;
@@ -1003,6 +1051,7 @@ function onMailServicesIncludedClick(event) {
 }
 
 async function onActiveMailListClick(event) {
+  if (event.target.closest("[data-draft-select]")) return;
   if (state.draftEditorSaving || state.communicationContentEditorOpen) return;
   const row = event.target && event.target.closest ? event.target.closest("[data-mail-record-id]") : null;
 
@@ -1040,6 +1089,10 @@ async function onDeleteDraftClick() {
   if (state.activeMailTab !== "drafts" || !state.selectedBookingId || !state.selectedDraftRecordId || state.draftEditorSaving) {
     return;
   }
+  state.pendingDraftBatchDeletion = null;
+  elements.draftDeleteConfirmTitle.textContent = "Delete this draft?";
+  elements.draftDeleteConfirmDescription.textContent = "This permanently deletes the communication draft and its associated services. This action cannot be undone.";
+  elements.draftDeleteConfirmSubmit.textContent = "Delete draft";
   state.draftDeleteConfirmOpen = true;
   elements.draftDeleteConfirmModal.hidden = false;
   renderEmailsPanel(elements, state);
@@ -1102,6 +1155,7 @@ async function onRegenerateDraftClick() {
 }
 
 function closeDraftDeleteConfirmation() {
+  state.pendingDraftBatchDeletion = null;
   state.draftDeleteConfirmOpen = false;
   if (elements.draftDeleteConfirmModal) {
     elements.draftDeleteConfirmModal.hidden = true;
@@ -1113,8 +1167,82 @@ async function onConfirmDraftDelete() {
   if (!state.draftDeleteConfirmOpen || state.draftEditorSaving) {
     return;
   }
+  const batch = state.pendingDraftBatchDeletion;
   closeDraftDeleteConfirmation();
-  await deleteSelectedDraft("Communication deleted successfully.");
+  if (batch) await deleteDraftBatch(batch);
+  else await deleteSelectedDraft("Communication deleted successfully.");
+}
+
+function onDeleteSelectedDraftsClick() {
+  if (!state.selectedBookingId || state.draftEditorSaving || state.draftBatchSending || state.draftEditorOpen || state.communicationContentEditorOpen || state.emailStatusFilter === "Sent") return;
+  const ids = Object.keys(state.selectedDraftIds || {});
+  if (!ids.length) return;
+  const drafts = ids.map(id => {
+    const record = findMailRecordById(state.emailDrafts, "drafts", id);
+    return { draftId: id, communicationId: String(record?.communication_id || ""), status: String(record?.communication_status || "Draft").toLowerCase() };
+  });
+  if (drafts.some(draft => !draft.communicationId || draft.status !== "draft")) {
+    setError(elements, "Select only unsent drafts linked to a Communication. Refresh the list and try again.");
+    return;
+  }
+  state.pendingDraftBatchDeletion = { bookingId: String(state.selectedBookingId), drafts };
+  state.draftDeleteConfirmOpen = true;
+  elements.draftDeleteConfirmTitle.textContent = "Delete " + ids.length + (ids.length === 1 ? " selected draft?" : " selected drafts?");
+  elements.draftDeleteConfirmDescription.textContent = "This permanently deletes the selected communications, their drafts and their associated communication-service links. This action cannot be undone.";
+  elements.draftDeleteConfirmSubmit.textContent = "Delete " + ids.length + (ids.length === 1 ? " draft" : " drafts");
+  elements.draftDeleteConfirmModal.hidden = false;
+  elements.draftDeleteConfirmCancel.focus();
+  renderEmailsPanel(elements, state);
+}
+
+async function deleteDraftBatch(batch) {
+  if (String(state.selectedBookingId) !== batch.bookingId || state.draftEditorSaving || state.draftBatchSending) return;
+  // Validate the captured selection again; confirmation never expands its scope.
+  if (batch.drafts.some(draft => {
+    const record = findMailRecordById(state.emailDrafts, "drafts", draft.draftId);
+    return !record || String(record.communication_id || "") !== draft.communicationId || String(record.communication_status || "Draft").toLowerCase() !== "draft";
+  })) {
+    setError(elements, "The selected drafts changed. Refresh the list and select them again.");
+    return;
+  }
+  state.draftEditorSaving = true;
+  state.draftBatchSending = true;
+  renderEmailsPanel(elements, state);
+  setError(elements, "");
+  const deleted = new Set();
+  let deletedCount = 0;
+  try {
+    for (const draft of batch.drafts) {
+      if (String(state.selectedBookingId) !== batch.bookingId) throw new Error("Booking changed. Remaining drafts were not deleted.");
+      showSendModal("Deleting draft " + (deletedCount + 1) + " of " + batch.drafts.length + "…", false);
+      if (!deleted.has(draft.communicationId)) {
+        const response = await crmExecuteFunction("comm_deletecommunication", { communicationId: draft.communicationId });
+        const payload = extractFunctionPayload(response);
+        if (!payload || (typeof payload === "object" && Object.keys(payload).length === 0)) throw new Error("CRM did not confirm the deletion.");
+        const errorDetails = getFunctionPayloadErrorDetails(payload);
+        if (errorDetails) throw buildFunctionPayloadError(errorDetails);
+        deleted.add(draft.communicationId);
+      }
+      deletedCount++;
+      if (String(state.selectedBookingId) !== batch.bookingId) continue;
+      const relatedIds = state.emailDrafts.filter(record => String(record.communication_id || "") === draft.communicationId).map((record, index) => getMailRecordId(record, index, "drafts"));
+      relatedIds.forEach(id => {
+        removeMailRecordFromCollection(state.emailDrafts, "drafts", id);
+        delete state.selectedDraftIds[id];
+        delete state.mailContentByKey[getMailCacheKey("drafts", id)];
+        if (state.selectedDraftRecordId === id) state.selectedDraftRecordId = "";
+      });
+    }
+    showSendModal(deletedCount + " drafts deleted.", false);
+    elements.mailSendSpinner.hidden = true;
+    elements.mailSendModalClose.hidden = false;
+  } catch (error) {
+    showSendModal(deletedCount + " of " + batch.drafts.length + " drafts deleted. " + (error.message || "Deletion failed.") + " Remaining drafts are still selected.", true);
+  } finally {
+    state.draftEditorSaving = false;
+    state.draftBatchSending = false;
+    renderEmailsPanel(elements, state);
+  }
 }
 
 
@@ -1135,7 +1263,7 @@ async function onRefreshBookingMailsClick() {
 
 
 
-async function bootstrapBookings() {
+async function bootstrapBookings(options) {
   state.bookingBrowserError = "";
   state.bookingBrowserLoading = true;
   renderBookingBrowserPanel();
@@ -1177,8 +1305,10 @@ async function bootstrapBookings() {
     state.bookings = normalizedRecords;
     indexBookings(state, normalizedRecords);
     syncBookingBrowserOwnerFilter(normalizedRecords);
-    state.bookingBrowserCollapsed = false;
-    state.bookingBrowserWide = true;
+    if (!options || !options.preserveLayout) {
+      state.bookingBrowserCollapsed = false;
+      state.bookingBrowserWide = true;
+    }
     renderBookingBrowserPanel();
 
     setNotice(elements, "");
@@ -1585,6 +1715,7 @@ async function hydrateBookingBrowserOwners() {
       state.currentUserEmail = getUserRelationshipText(currentUserRelationship.Email);
     }
     state.currentUserIsAdministrator = isCurrentUserAdministrator(relationshipRecords);
+    state.currentUserRelationshipProfile = getUserRelationshipProfile(currentUserRelationship);
     if (!state.bookingBrowserPendingOwnerId) {
       state.bookingBrowserPendingOwnerId = resolveCurrentUserOwnerValueFromOptions(ownerOptions);
     }
@@ -1614,6 +1745,7 @@ async function hydrateBookingBrowserOwners() {
     renderBookingWorkspace(elements, state);
   } catch (error) {
     state.currentUserIsAdministrator = false;
+    state.currentUserRelationshipProfile = "";
     state.bookingBrowserOwnerDebug = {
       source: "User_Relationships",
       error: error && error.message ? error.message : String(error)
@@ -1628,7 +1760,7 @@ async function onSendDraftClick() {
     state.activeMailTab !== "drafts" ||
     !state.selectedBookingId ||
     !state.selectedDraftRecordId ||
-    state.draftEditorSaving ||
+    state.draftEditorSaving || state.draftBatchSending ||
     state.draftEditorOpen
   ) {
     return;
@@ -1696,6 +1828,85 @@ async function onSendDraftClick() {
   } finally {
     state.draftSending = false;
     state.draftEditorSaving = false;
+    renderEmailsPanel(elements, state);
+  }
+}
+
+function onDraftSelectionChange(event) {
+  const checkbox = event.target.closest("[data-draft-select]");
+  if (!checkbox || state.draftEditorSaving || state.draftBatchSending) return;
+  state.selectedDraftIds ||= {};
+  if (checkbox.checked) state.selectedDraftIds[checkbox.dataset.draftSelect] = true;
+  else delete state.selectedDraftIds[checkbox.dataset.draftSelect];
+  renderEmailsPanel(elements, state);
+}
+
+function onSelectAllDraftsChange(event) {
+  if (state.draftEditorSaving || state.draftBatchSending) return;
+  state.selectedDraftIds = {};
+  if (event.target.checked) elements.activeMailList.querySelectorAll("[data-draft-select]").forEach(checkbox => { state.selectedDraftIds[checkbox.dataset.draftSelect] = true; });
+  renderEmailsPanel(elements, state);
+}
+
+async function onSendSelectedDraftsClick() {
+  if (!state.selectedBookingId || state.draftEditorSaving || state.draftBatchSending || state.draftEditorOpen || state.communicationContentEditorOpen || state.emailStatusFilter === "Sent") return;
+  const bookingId = String(state.selectedBookingId);
+  const ids = Object.keys(state.selectedDraftIds || {});
+  if (!ids.length) return;
+  const drafts = [];
+  for (const draftId of ids) {
+    const record = findMailRecordById(state.emailDrafts, "drafts", draftId);
+    const communicationId = String(record?.communication_id || "").trim();
+    const fromEmail = String(record && (record.from || record.Sender_Email) || "").trim();
+    if (!record || String(record.communication_status || "Draft").toLowerCase() !== "draft" || !communicationId || !fromEmail) {
+      setError(elements, "Every selected draft must be unsent and have a Communication and Sender Email. Refresh or edit the draft before sending.");
+      return;
+    }
+    drafts.push({ draftId, communicationId, fromEmail, record });
+  }
+  state.draftBatchSending = true;
+  state.draftEditorSaving = true;
+  state.draftSending = true;
+  setError(elements, "");
+  setNotice(elements, "");
+  renderEmailsPanel(elements, state);
+  try {
+    const result = await sendDraftBatch(drafts, {
+      isCurrent: () => String(state.selectedBookingId) === bookingId,
+      onProgress: (index, total) => showSendModal("Sending draft " + index + " of " + total + "…", false),
+      send: async draft => {
+        const response = await crmExecuteFunction("comm_sendcommunicationdraft", {
+          communicationId: draft.communicationId, draftId: draft.draftId,
+          fromEmail: draft.fromEmail, actingUserEmail: draft.fromEmail
+        });
+        const payload = extractFunctionPayload(response);
+        if (!payload || (typeof payload === "object" && Object.keys(payload).length === 0)) throw new Error("CRM did not confirm the draft send.");
+        const errorDetails = getFunctionPayloadErrorDetails(payload);
+        if (errorDetails) throw buildFunctionPayloadError(errorDetails);
+      },
+      onSent: draft => {
+        draft.record.communication_status = "Sent";
+        if (String(state.selectedBookingId) !== bookingId) return;
+        delete state.selectedDraftIds[draft.draftId];
+        delete state.mailContentByKey[getMailCacheKey("drafts", draft.draftId)];
+      }
+    });
+    const summary = result.sentIds.length + " of " + drafts.length + " drafts sent.";
+    if (result.error) {
+      showSendModal(summary + " Sending stopped: " + (result.error.message || "Could not confirm the send.") + " Check the failed draft before retrying. Remaining drafts are still selected.", true);
+    } else {
+      showSendModal(summary, false);
+      elements.mailSendSpinner.hidden = true;
+      elements.mailSendModalClose.hidden = false;
+      if (String(state.selectedBookingId) === bookingId) {
+        try { await ensureBookingEmailsLoaded(true); }
+        catch (error) { showSendModal(summary + " Could not refresh the list: " + error.message, true); }
+      }
+    }
+  } finally {
+    state.draftBatchSending = false;
+    state.draftEditorSaving = false;
+    state.draftSending = false;
     renderEmailsPanel(elements, state);
   }
 }
@@ -2048,7 +2259,9 @@ function renderCommunicationContextBooking(booking) {
     communicationContextField("Arrival", getCommunicationContextValue(booking, ["Arrival_Date", "Check_In", "Arrival"])),
     communicationContextField("Departure", getCommunicationContextValue(booking, ["Departure_Date", "Check_Out", "Departure"])),
     communicationContextField("Status", getCommunicationContextValue(booking, ["Status", "Booking_Status"])),
-    communicationContextField("PAX Info", getCommunicationContextValue(booking, ["PAX_INFO_celebrations_special_requests_or_intere"]))
+    communicationContextField("Travelers Number", getCommunicationContextValue(booking, ["Travellers_Number"])),
+    communicationContextField("PAX Info", getCommunicationContextValue(booking, ["PAX_INFO_celebrations_special_requests_or_intere"])),
+    communicationContextField("Luggage", getCommunicationContextValue(booking, ["Luggage"]))
   ]);
 }
 
@@ -2609,7 +2822,7 @@ async function hydrateOrgInfoDebug() {
   }
 }
 
-function registerZohoEmbeddedAppListeners() {
+function registerZohoEmbeddedAppListeners(onPageLoad) {
   if (!window.ZOHO || !ZOHO.embeddedApp || typeof ZOHO.embeddedApp.on !== "function") {
     state.pageLoadDebug = {
       status: "listener-api-unavailable"
@@ -2624,6 +2837,7 @@ function registerZohoEmbeddedAppListeners() {
         data: data || null
       };
       renderBookingBrowserPanel();
+      if (onPageLoad) void onPageLoad(data);
     });
 
     state.pageLoadDebug = {
@@ -3194,8 +3408,8 @@ async function switchTab(tabName) {
   state.activeTab = tabName;
   renderActiveTab(elements, state);
 
-  if (tabName === "desk") {
-    setSummaryView("desk");
+  if (tabName === "communication" || tabName === "booking") {
+    renderBookingSummary(elements, state);
   }
 
   if (tabName === "emails") {
@@ -3211,8 +3425,8 @@ async function switchTab(tabName) {
 
   if (tabName === "payments") {
     renderPaymentsWorkspace(elements, state);
-    if (state.activePaymentTab === "cardPurchases") {
-      await setPaymentTab(elements, state, "cardPurchases");
+    if (["cardPurchases", "prepayments"].includes(state.activePaymentTab)) {
+      await setPaymentTab(elements, state, state.activePaymentTab);
     }
   }
 
@@ -3257,8 +3471,11 @@ async function loadBookingBlueprintForBooking(bookingId) {
   const payload = extractFunctionPayload(response);
   const errorDetails = getFunctionPayloadErrorDetails(payload);
 
-  if (errorDetails) {
-    throw buildFunctionPayloadError(errorDetails);
+  const hasTransitions = payload && (Array.isArray(payload.transitions) || Array.isArray(payload.blueprint && payload.blueprint.transitions));
+  if (errorDetails || !hasTransitions) {
+    throw buildBlueprintTransitionError(errorDetails ? payload : response, {
+      recordId: String(bookingId), transitionName: "Load Blueprint", stage: "get blueprint details"
+    });
   }
 
   return normalizeBookingBlueprintPayload(payload);
@@ -3994,11 +4211,11 @@ function getFunctionSuccessMessage(payload) {
 
 function logDraftEditorDebug(step, details) {
   if (details === undefined) {
-    console.log("[ReservationsManager:draft-editor]", step);
+    console.log("[BookingsManager:draft-editor]", step);
     return;
   }
 
-  console.log("[ReservationsManager:draft-editor]", step, details);
+  console.log("[BookingsManager:draft-editor]", step, details);
 }
 
 function findMailRecordById(records, tabName, recordId) {
@@ -4084,6 +4301,17 @@ function onClearBookingClick() {
 async function loadBookingWorkspace(bookingId, options) {
   const settings = options || {};
   const selectionSnapshot = settings.preserveSelection ? createSelectionSnapshot() : null;
+  if (String(state.selectedBookingId || "") !== String(bookingId)) {
+    const booking = (state.bookingIndex || {})[bookingId];
+    clearActiveBookingWorkspace();
+    state.bookingWorkspaceLoadingLabel = booking ? buildBookingLabel(booking) : String(bookingId);
+    renderBookingWorkspace(elements, state);
+    renderBookingSummary(elements, state);
+    renderSelectionPanel(elements, state);
+    clearSelectedMailPreview();
+    renderBookingBrowserPanel();
+  }
+  const requestId = state.bookingWorkspaceRequestId = (state.bookingWorkspaceRequestId || 0) + 1;
   showLoading(elements, state, "");
   state.bookingBlueprint = null;
   state.bookingBlueprintLoading = true;
@@ -4126,7 +4354,10 @@ async function loadBookingWorkspace(bookingId, options) {
       return leftDate.localeCompare(rightDate);
     });
 
+    const blueprintResult = await bookingBlueprintPromise;
+    if (state.bookingWorkspaceRequestId !== requestId) return;
     state.selectedBookingId = bookingId;
+    state.prepaymentsData = null;
     state.selectedBooking = bookingRecord;
     state.cardPurchases = [];
     state.cardPurchasesLoading = false;
@@ -4164,8 +4395,6 @@ async function loadBookingWorkspace(bookingId, options) {
     state.draftEmailsError = "";
 
     try {
-      const blueprintResult = await bookingBlueprintPromise;
-
       if (blueprintResult && blueprintResult.ok) {
         state.bookingBlueprint = blueprintResult.value;
         state.bookingBlueprintError = "";
@@ -4194,6 +4423,7 @@ async function loadBookingWorkspace(bookingId, options) {
       await ensureBookingTravelersLoaded();
     }
 
+    if (state.bookingWorkspaceRequestId !== requestId) return;
     elements.bookingSearch.value = buildBookingLabel(bookingRecord);
     if (!settings.preserveNotice) {
       setNotice(elements, "");
@@ -4203,16 +4433,22 @@ async function loadBookingWorkspace(bookingId, options) {
       await ensureBookingEmailsLoaded();
     }
 
+    if (state.bookingWorkspaceRequestId !== requestId) return;
     if (state.activeTab === "travelers") {
       await ensureBookingTravelersLoaded(true);
     }
   } catch (error) {
+    if (state.bookingWorkspaceRequestId !== requestId) return;
     state.bookingBlueprint = null;
     state.bookingBlueprintLoading = false;
     state.bookingBlueprintError = "";
     setError(elements, "Could not load the selected booking or its booking services.");
   } finally {
-    clearLoading(elements, state);
+    if (state.bookingWorkspaceRequestId === requestId) {
+      state.bookingWorkspaceLoadingLabel = "";
+      renderBookingWorkspace(elements, state);
+      clearLoading(elements, state);
+    }
   }
 }
 
@@ -4230,6 +4466,7 @@ async function onWorkspaceActionClick(event) {
 
   if (transitionButton) {
     event.stopPropagation();
+    if (transitionButton.disabled || state.bookingBlueprintExecuting) return;
     const transitionId = transitionButton.getAttribute("data-blueprint-transition-id") || "";
     const transition = findSelectedBookingBlueprintTransition(transitionId);
     if (!transition || !state.selectedBookingId) {
@@ -4241,10 +4478,15 @@ async function onWorkspaceActionClick(event) {
     setError(elements, "");
 
     try {
+      if (getBlueprintTransitionFields(transition).length) {
+        openBlueprintTransitionDialog(transition, transition.name || transition.next_field_value || "Workflow action");
+        return;
+      }
       await executeBlueprintTransition(transition, {});
     } catch (error) {
-      transitionButton.disabled = false;
       setError(elements, error && error.message ? error.message : "The workflow action could not be executed.");
+    } finally {
+      transitionButton.disabled = false;
     }
     return;
   }
@@ -4273,9 +4515,9 @@ async function onWorkspaceActionClick(event) {
 }
 
 function openBlueprintTransitionDialog(transition, transitionName) {
-  const fields = Array.isArray(transition.fields) ? transition.fields.filter(function (field) {
-    return field && field.api_name && !field.read_only && !field.field_read_only;
-  }) : [];
+  const fields = getBlueprintTransitionFields(transition);
+  const bookingId = String(state.selectedBookingId);
+  if (document.querySelector(".blueprint-transition-dialog")) return;
   const dialog = document.createElement("div");
   const processInfo = state.bookingBlueprint && state.bookingBlueprint.processInfo || {};
   const currentPicklist = processInfo.current_picklist && typeof processInfo.current_picklist === "object" ? processInfo.current_picklist : {};
@@ -4308,11 +4550,12 @@ function openBlueprintTransitionDialog(transition, transitionName) {
   });
   dialog.querySelector("form").addEventListener("submit", async function (submitEvent) {
     submitEvent.preventDefault();
-    const data = collectBlueprintTransitionData(fields, dialog.querySelector("form"));
     const submitButton = dialog.querySelector('[type="submit"]');
+    if (submitButton.disabled) return;
     submitButton.disabled = true;
     try {
-      await executeBlueprintTransition(transition, data);
+      const data = collectBlueprintTransitionData(fields, dialog.querySelector("form"));
+      await executeBlueprintTransition(transition, data, bookingId);
       dialog.remove();
     } catch (error) {
       submitButton.disabled = false;
@@ -4345,7 +4588,7 @@ function renderBlueprintTransitionField(field, initialData) {
     control = '<textarea name="' + escapeHtml(apiName) + '" rows="3"' + required + ">" + escapeHtml(value) + "</textarea>";
   } else {
     const type = dataType === "date" ? "date" : (dataType === "integer" || dataType === "double" || dataType === "currency" ? "number" : "text");
-    control = '<input name="' + escapeHtml(apiName) + '" type="' + type + '" value="' + escapeHtml(value) + '"' + required + ">";
+    control = '<input name="' + escapeHtml(apiName) + '" type="' + type + '" value="' + escapeHtml(value) + '"' + (type === "number" ? ' step="' + (dataType === "integer" ? "1" : "any") + '"' : "") + required + ">";
   }
   return '<label class="field booking-form-field"><span>' + escapeHtml(label) + (required ? " <em>*</em>" : "") + "</span>" + control + "</label>";
 }
@@ -4355,33 +4598,161 @@ function collectBlueprintTransitionData(fields, form) {
   fields.forEach(function (field) {
     const input = form.elements[field.api_name];
     if (!input) return;
-    data[field.api_name] = input.type === "checkbox" ? input.checked : input.value;
+    if (input.type === "checkbox") {
+      data[field.api_name] = input.checked;
+    } else if (input.value !== "") {
+      const numeric = ["integer", "double", "currency"].includes(field.data_type);
+      const value = numeric ? Number(input.value) : input.value;
+      if (numeric && (!Number.isFinite(value) || (field.data_type === "integer" && !Number.isInteger(value)))) {
+        throw new Error("Enter a valid number for " + (field.field_label || field.api_name) + ".");
+      }
+      data[field.api_name] = value;
+    } else if (field.mandatory || field.system_mandatory) {
+      throw new Error("Complete " + (field.field_label || field.api_name) + " before executing this transition.");
+    }
   });
   return data;
 }
 
-async function executeBlueprintTransition(transition, data) {
+async function executeBlueprintTransition(transition, data, expectedBookingId) {
   const bookingId = String(state.selectedBookingId);
-  await validateCreateInEzusAgency(transition, bookingId);
-  if (String(state.selectedBookingId) !== bookingId) {
-    throw new Error("The selected booking changed. Please try the action again on the booking you want to update.");
+  if (!state.selectedBookingId || (expectedBookingId && bookingId !== expectedBookingId)) {
+    throw new Error("The selected booking changed. Reopen the workflow action on the booking you want to update.");
   }
-  const response = await crmExecuteFunction("blueprint_executetransition", {
-    moduleApiName: MODULES.bookings,
-    recordId: bookingId,
-    expectedCurrentState: String(state.bookingBlueprint && state.bookingBlueprint.processInfo && state.bookingBlueprint.processInfo.field_value || ""),
-    transitionId: String(transition.id),
-    transitionDataJson: JSON.stringify(data || {})
+  if (state.bookingBlueprintExecuting) throw new Error("A workflow action is already running. Wait for it to finish.");
+  if (!transition || !transition.id || transition.criteria_matched === false) {
+    throw new Error("This workflow action is no longer available. Refresh the booking and try again.");
+  }
+  state.bookingBlueprintExecuting = true;
+  setBlueprintTransitionButtonsBusy(true);
+  try {
+    await validateCreateInEzusAgency(transition, bookingId);
+    if (String(state.selectedBookingId) !== bookingId) {
+      throw new Error("The selected booking changed. Please try the action again on the booking you want to update.");
+    }
+    const context = {
+      recordId: bookingId,
+      transitionId: String(transition.id),
+      transitionName: transition.name || transition.next_field_value || "Workflow action",
+      currentState: String(state.bookingBlueprint && state.bookingBlueprint.processInfo && state.bookingBlueprint.processInfo.field_value || ""),
+      submittedFields: Object.keys(data || {}),
+      transitionFields: (Array.isArray(transition.fields) ? transition.fields : []).filter(Boolean).map(field => ({
+        apiName: field.api_name || "",
+        label: field.field_label || field.display_label || "",
+        type: field.data_type || "",
+        mandatory: Boolean(field.mandatory || field.system_mandatory)
+      }))
+    };
+    let response;
+    try {
+      response = await crmExecuteFunction("blueprint_executetransition", {
+        moduleApiName: MODULES.bookings,
+        recordId: bookingId,
+        expectedCurrentState: context.currentState,
+        transitionId: String(transition.id),
+        transitionDataJson: JSON.stringify(data || {})
+      });
+    } catch (cause) {
+      throw buildBlueprintTransitionError(cause, context);
+    }
+    const payload = extractFunctionPayload(response);
+    if (!payload || payload.success !== true || getBlueprintFailureDetails(payload).length || getBlueprintFailureDetails(response).length) {
+      throw buildBlueprintTransitionError(payload || response, context);
+    }
+    if (String(state.selectedBookingId) !== bookingId) return;
+    state.bookingBlueprintClosingMenuOpen = false;
+    setError(elements, "");
+    await loadBookingWorkspace(bookingId, { preserveSelection: true });
+    if (String(state.selectedBookingId) !== bookingId) return;
+    const partial = /transition saved partially/i.test(String(payload.result && payload.result.message || ""));
+    if (partial) {
+      setNotice(elements, "The transition was saved partially. Complete its remaining requirements before it can finish.");
+    }
+  } finally {
+    state.bookingBlueprintExecuting = false;
+    setBlueprintTransitionButtonsBusy(false);
+  }
+}
+
+function setBlueprintTransitionButtonsBusy(busy) {
+  const panel = elements.summaryBlueprintPanel;
+  if (!panel || !panel.querySelectorAll) return;
+  panel.querySelectorAll("[data-blueprint-transition-id]").forEach(function (button) {
+    const id = button.getAttribute("data-blueprint-transition-id");
+    const transitions = state.bookingBlueprint && state.bookingBlueprint.transitions || [];
+    const transition = transitions.find(item => item && String(item.id) === id);
+    button.disabled = busy || !transition || transition.criteria_matched === false;
   });
-  const payload = extractFunctionPayload(response);
-  const errorDetails = getFunctionPayloadErrorDetails(payload);
-  if (errorDetails || !payload || payload.success !== true) {
-    throw buildFunctionPayloadError(errorDetails || { message: payload && payload.message || "Zoho CRM rejected the workflow action." });
+}
+
+function getBlueprintTransitionFields(transition) {
+  const fields = (Array.isArray(transition.fields) ? transition.fields : [])
+    .filter(field => field && !field.read_only && !field.field_read_only);
+  const supported = ["text", "textarea", "email", "phone", "website", "date", "integer", "double", "currency", "boolean", "picklist"];
+  const unsupported = fields.filter(field => !field.api_name || !supported.includes(field.data_type));
+  if (unsupported.length) {
+    throw new Error("Complete this transition in the booking's CRM record. The widget cannot edit: " +
+      unsupported.map(field => field.field_label || field.display_label || field.api_name || field.data_type || "additional requirements").join(", ") + ".");
   }
-  state.bookingBlueprintClosingMenuOpen = false;
-  setError(elements, "");
-  await loadBookingWorkspace(state.selectedBookingId, { preserveSelection: true });
-  setNotice(elements, payload.message || "Workflow action executed successfully.");
+  return fields;
+}
+
+function getBlueprintFailureDetails(value, depth = 0) {
+  if (!value || depth > 10) return [];
+  if (typeof value === "string") {
+    try { return getBlueprintFailureDetails(JSON.parse(value), depth + 1); } catch (_) { return []; }
+  }
+  if (Array.isArray(value)) return value.flatMap(item => getBlueprintFailureDetails(item, depth + 1));
+  if (typeof value !== "object") return [];
+  // Successful CRM leaf responses may contain data/diagnostics with a `code`
+  // property; those are not new API errors. Function wrappers use `success`.
+  if (String(value.status || "").toLowerCase() === "success") return [];
+  const code = String(value.code || "");
+  const isFailure = value.success === false || value.error === true || value.status === "error" || (code && code.toLowerCase() !== "success");
+  // Only follow response envelopes, never booking/transition field values.
+  const envelopes = ["result", "blueprint", "data", "api_response", "response", "responseJSON", "body", "output"];
+  if (!isFailure) envelopes.push("details");
+  const nested = envelopes
+    .flatMap(key => getBlueprintFailureDetails(value[key], depth + 1));
+  if (nested.length) return nested;
+  if (!isFailure) return [];
+  const details = value.details && typeof value.details === "object" ? value.details : {};
+  return [{
+    code,
+    message: String(value.message || ""),
+    field: String(details.api_name || value.api_name || ""),
+    path: String(details.json_path || ""),
+    expectedType: String(details.expected_data_type || ""),
+    // Preserve CRM's diagnostics even when it uses an unfamiliar details shape.
+    // Do not include the submitted booking data or the full function response.
+    crmDetails: details
+  }];
+}
+
+function buildBlueprintTransitionError(payload, context) {
+  const failures = getBlueprintFailureDetails(payload);
+  if (!failures.length) {
+    failures.push({ code: "", message: payload && payload.message || (typeof payload === "string" ? payload : "Zoho returned no usable error details. Check the booking's current state before trying again.") });
+  }
+  const reasons = failures.map(function (failure) {
+    return [failure.message || "Blueprint transition failed.",
+      failure.code ? "Code: " + failure.code + "." : "",
+      failure.field ? "Field: " + failure.field + "." : "",
+      failure.path ? "Path: " + failure.path + "." : "",
+      failure.expectedType ? "Expected type: " + failure.expectedType + "." : ""
+    ].filter(Boolean).join(" ");
+  });
+  const error = new Error(context.transitionName + ": " + [...new Set(reasons)].join(" "));
+  error.code = failures[0].code;
+  error.details = failures;
+  const diagnostic = {
+    ...context,
+    stage: payload && payload.stage || context.stage || "execute transition",
+    failures
+  };
+  // A text snapshot survives copying the console without expanding objects.
+  console.error("[Reservations Manager][Blueprint] Transition failed", diagnostic, JSON.stringify(diagnostic, null, 2));
+  return error;
 }
 
 async function onSyncEzusClick(options) {
@@ -4599,6 +4970,16 @@ export async function init() {
   }
 
   try {
+    const reviewNotesNavigation = createReviewNotesNavigation({
+      open: async function (bookingId) {
+        await loadBookingWorkspace(bookingId);
+        if (String(state.selectedBooking?.id || '') !== bookingId) throw new Error('The booking in this Review Notes link could not be opened. Check your access and try again.');
+        await switchTab('communication');
+        await openBookingCommunicationEditor(state, 'Review_Notes', () => renderBookingSummary(elements, state));
+      },
+      onError: error => setError(elements, error.message || 'The Review Notes link could not be opened.')
+    });
+    registerZohoEmbeddedAppListeners(data => reviewNotesNavigation.receive(data));
     await ZOHO.embeddedApp.init();
     state.zohoInitDebug = {
       status: "embedded-app-init-ok",
@@ -4606,26 +4987,9 @@ export async function init() {
     };
     renderBookingBrowserPanel();
 
-    if (ZOHO.CRM && ZOHO.CRM.UI && ZOHO.CRM.UI.Resize) {
-      try {
-        await withTimeout(
-          ZOHO.CRM.UI.Resize({
-            width: "1500",
-            height: "900"
-          }),
-          1500,
-          "ZOHO.CRM.UI.Resize timed out"
-        );
-        state.zohoInitDebug = Object.assign({}, state.zohoInitDebug, {
-          resize: "ok"
-        });
-      } catch (resizeError) {
-        state.zohoInitDebug = Object.assign({}, state.zohoInitDebug, {
-          resize: resizeError && resizeError.message ? resizeError.message : String(resizeError)
-        });
-      }
-      renderBookingBrowserPanel();
-    }
+    // This workspace runs in a CRM web tab; the host controls its viewport.
+    // Avoid requesting a fixed popup size through the host panel's resize API.
+    state.zohoInitDebug.resize = "managed-by-host";
 
     await hydrateCurrentUser();
     await hydrateBookingBrowserOwners();
@@ -4636,6 +5000,7 @@ export async function init() {
     });
     await hydrateBookingStageOptions();
     await bootstrapBookingBrowserQueue();
+    await reviewNotesNavigation.start();
     state.zohoInitDebug = Object.assign({}, state.zohoInitDebug, {
       status: "ready"
     });
@@ -4648,5 +5013,6 @@ export async function init() {
     };
     renderBookingBrowserPanel();
     setError(elements, "The widget could not initialize inside Zoho CRM.");
+    console.error("[Reservations Manager] Widget initialization failed", state.zohoInitDebug);
   }
 }

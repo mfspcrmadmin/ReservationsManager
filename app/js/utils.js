@@ -372,6 +372,7 @@ export function normalizeBookingCandidate(record) {
   return {
     id: record.id,
     Booking_Tags_JSON: record.Booking_Tags_JSON,
+    Desk_Ticket_ID: firstNonEmptyText(record.Desk_Ticket_ID, record.Desk_Ticket_Id, record.DeskTicketID, record["Desk Ticket ID"]),
     MFSP_Reference: firstNonEmptyText(record.MFSP_Reference, record.Reference, record.Booking_Reference),
     Deal_Name: firstNonEmptyText(record.Deal_Name, record.Name, record.Booking_Name),
     Account_Name: record.Account_Name || null,

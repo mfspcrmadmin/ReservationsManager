@@ -36,8 +36,8 @@ test("stored queue columns discard unknown and duplicate keys and retain at leas
 
 test("queue preferences and width storage are isolated per user and text size is bounded", () => {
   const context = setup({
-    "reservationsManager.bookingQueue.id:one": JSON.stringify({ textSize: 999 }),
-    "reservationsManager.bookingQueue.id:two": JSON.stringify({ textSize: -1 })
+    "bookingsManager.bookingQueue.id:one": JSON.stringify({ textSize: 999 }),
+    "bookingsManager.bookingQueue.id:two": JSON.stringify({ textSize: -1 })
   });
   const one = context.getQueueTablePreferences({ currentUserId: "one" });
   const two = context.getQueueTablePreferences({ currentUserId: "two" });
@@ -50,7 +50,7 @@ test("queue preferences and width storage are isolated per user and text size is
 });
 
 test("malformed queue storage falls back to usable defaults", () => {
-  const context = setup({ "reservationsManager.bookingQueue.id:one": "invalid JSON" });
+  const context = setup({ "bookingsManager.bookingQueue.id:one": "invalid JSON" });
   const pref = context.getQueueTablePreferences({ currentUserId: "one" });
   assert.equal(pref.textSize, 12);
   assert.equal(context.getQueueVisibleColumns(pref, false).length, 4);

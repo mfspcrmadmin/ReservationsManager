@@ -6,6 +6,7 @@
     <title>Reservations Manager</title>
     <link rel="stylesheet" href="./styles/widget.css">
     <link rel="stylesheet" href="./styles/booking-shell.css">
+    <link rel="stylesheet" href="./styles/booking-overview.css">
     <link rel="stylesheet" href="./styles/booking-tags.css">
     <link rel="stylesheet" href="./styles/booking-queue-table.css">
     <link rel="stylesheet" href="./styles/communication-attachments.css">
@@ -20,6 +21,7 @@
           <div class="card-header compact-card-header booking-browser-header">
             <h2 class="panel-mini-title">Booking Queue</h2>
             <div class="booking-browser-header-actions">
+              <button id="booking-browser-refresh" class="button tertiary compact icon-button refresh-card-purchases-button" type="button" title="Refresh booking queue" aria-label="Refresh booking queue" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3v5.5h5.5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 21v-5.5h-5.5"/></svg></button>
               <button id="booking-browser-size-toggle" class="button tertiary compact booking-browser-size-toggle icon-button" type="button" title="Expand booking queue" aria-label="Expand booking queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M3 3l6 6M16 3h5v5M21 3l-6 6M8 21H3v-5M3 21l6-6M16 21h5v-5M21 21l-6-6"/></svg></button>
               <button id="booking-browser-collapse-toggle" class="button tertiary compact booking-browser-collapse-toggle icon-button" type="button" title="Close booking queue" aria-label="Close booking queue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
             </div>
@@ -240,7 +242,7 @@
                 <button id="tab-emails" class="page-tab" type="button">Emails</button>
                 <button id="tab-payments" class="page-tab" type="button">Payments</button>
                 <button id="tab-reports" class="page-tab" type="button">Reports</button>
-                <button id="summary-view-desk" class="page-tab" type="button">Desk</button>
+                <button id="summary-view-communication" class="page-tab" type="button">Internal Communication</button>
               </nav>
               <button id="toggle-workspace-focus" class="button tertiary compact icon-button workspace-focus-toggle" type="button" aria-pressed="false" title="Focus workspace" aria-label="Focus workspace"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4"/></svg></button>
             </div>
@@ -248,21 +250,14 @@
 
           <section id="manage-booking-panel" class="tab-panel booking-summary-lower-grid" hidden>
             <section class="booking-details-card booking-details-card--embedded">
-              <div class="card-header booking-details-card-header">
-                <div>
-                  <h2 class="panel-mini-title">Booking Information</h2>
-                </div>
-              </div>
-
               <div id="summary-booking-hero"></div>
               <div id="booking-personal-tags" class="booking-personal-tags" aria-label="My booking tags"></div>
 
               <div class="summary-view-controls">
                 <div class="segmented-control segmented-control-minimal summary-mode-switch summary-mode-switch--details" role="tablist" aria-label="Booking summary view">
-                  <button id="summary-view-basic" class="segmented-control-button is-active" type="button">Basic</button>
+                  <button id="summary-view-basic" class="segmented-control-button is-active" type="button">Overview</button>
                   <button id="summary-view-financial" class="segmented-control-button" type="button">Financial</button>
                   <button id="summary-view-travelers" class="segmented-control-button" type="button">Travelers</button>
-                  <button id="summary-view-team" class="segmented-control-button" type="button">Team</button>
                 </div>
               </div>
 
@@ -486,6 +481,7 @@
                         <div class="bulk-status-popover-actions"><button id="bulk-status-cancel" class="button tertiary compact" type="button">Cancel</button><button id="apply-bulk-status" class="button secondary compact" type="button">Apply to selected services</button></div>
                       </section>
                     </div>
+                    <button id="bulk-request-prepayment" class="button tertiary compact" type="button" disabled>Request prepayment</button>
                     <div class="bulk-action-menu">
                       <button id="bulk-drafts-toggle" class="button secondary compact" type="button" aria-expanded="false" aria-controls="bulk-drafts-menu">Create draft <span aria-hidden="true">â–¾</span></button>
                       <div id="bulk-drafts-menu" class="bulk-drafts-menu" role="menu" hidden><button id="create-availability-draft" type="button" role="menuitem">Availability request</button><button id="create-reservations-draft" type="button" role="menuitem">Reservation request</button></div>
@@ -609,6 +605,7 @@
                       >&#8635;</button>
                     </div>
                   </div>
+                  <div id="mail-bulk-draft-actions" class="mail-bulk-draft-actions" hidden><input id="mail-select-all-drafts" class="draft-select-checkbox" type="checkbox" aria-label="Select all drafts" title="Select all drafts"><div class="mail-bulk-draft-buttons"><button id="mail-send-selected" class="button success compact" type="button" disabled>Send (0)</button><button id="mail-delete-selected" class="button danger compact" type="button" disabled>Delete (0)</button></div></div>
                   <div id="active-mail-list" class="mail-list"></div>
                 </section>
 
@@ -741,6 +738,7 @@
           <nav class="payments-tabs" aria-label="Payment records">
             <span class="payments-tab-group-label">Clients</span>
             <button id="payment-tab-travelers" class="payments-tab active payments-tab--client" type="button" role="tab" aria-selected="true">Travelers Payments</button>
+            <button id="payment-tab-refunds" class="payments-tab payments-tab--client" type="button" role="tab" aria-selected="false">Refunds</button>
             <span class="payments-tab-divider" aria-hidden="true"></span>
             <span class="payments-tab-group-label">Suppliers</span>
             <button id="payment-tab-prepayments" class="payments-tab" type="button" role="tab" aria-selected="false">Prepayments</button>
@@ -753,13 +751,19 @@
             <a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Travellers_Payments" target="_blank" rel="noopener noreferrer">Open Travelers Payments in Creator</a>
           </section>
 
-          <section id="payment-prepayments-panel" class="payments-subpanel" role="tabpanel" hidden>
-            <div class="payments-subpanel-copy"><h3>Prepayments</h3><p>Supplier prepayment requests and related proformas.</p></div>
-            <div class="payments-subpanel-actions"><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Pre_Payments" target="_blank" rel="noopener noreferrer">Open Prepayments in Creator</a><a class="payments-proformas-link" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Proformas" target="_blank" rel="noopener noreferrer">View proformas</a></div>
+          <section id="payment-refunds-panel" class="payments-subpanel" role="tabpanel" hidden>
+            <div class="payments-subpanel-copy"><h3>Refunds</h3><p>Client refund records.</p></div>
+            <a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Refunds" target="_blank" rel="noopener noreferrer">Open Refunds in Creator</a>
+          </section>
+
+          <section id="payment-prepayments-panel" class="payments-subpanel payments-subpanel--table" role="tabpanel" hidden>
+            <div class="payments-card-purchases-heading"><div class="payments-subpanel-copy"><h3 id="prepayments-title">Prepayments</h3></div><button id="refresh-prepayments" class="button tertiary compact icon-button refresh-card-purchases-button" type="button" title="Refresh prepayments" aria-label="Refresh prepayments"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3v5.5h5.5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 21v-5.5h-5.5"/></svg></button></div>
+            <div id="prepayments-summary" class="prepayments-summary"></div>
+            <div id="prepayments-content" aria-live="polite"></div>
           </section>
 
           <section id="payment-card-purchases-panel" class="payments-subpanel payments-subpanel--table" role="tabpanel" hidden>
-              <div class="payments-card-purchases-heading"><div class="payments-subpanel-copy"><h3>Card Transactions</h3></div><button id="refresh-card-purchases" class="button tertiary compact icon-button refresh-card-purchases-button" type="button" title="Refresh card transactions" aria-label="Refresh card transactions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3v5.5h5.5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 21v-5.5h-5.5"/></svg></button></div>
+              <div class="payments-card-purchases-heading"><div class="payments-subpanel-copy"><h3 id="card-transactions-title">Card Transactions</h3></div><button id="refresh-card-purchases" class="button tertiary compact icon-button refresh-card-purchases-button" type="button" title="Refresh card transactions" aria-label="Refresh card transactions"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 0-15.5-6.2L3 8.5"/><path d="M3 3v5.5h5.5"/><path d="M3 12a9 9 0 0 0 15.5 6.2L21 15.5"/><path d="M21 21v-5.5h-5.5"/></svg></button></div>
               <div class="table-wrap payments-card-purchases-table-wrap"><table class="services-table payments-card-purchases-table"><thead><tr><th>Card transaction</th><th>Transaction type</th><th>Accounting status</th><th>Amount</th><th>Transaction date</th><th>Card payment account</th><th>Supplier</th><th>Booking service</th><th>Original card purchase</th><th>Transaction notes</th><th>Supporting documents</th></tr></thead><tbody id="card-purchases-body"><tr><td colspan="11" class="table-empty">Open this tab to load card transactions for the selected booking.</td></tr></tbody></table></div>
           </section>
 
@@ -776,7 +780,6 @@
           <div class="table-wrap"><table class="services-table creator-reports-table"><thead><tr><th>Report</th><th>Description</th><th></th></tr></thead><tbody>
             <tr><td><strong>Cancellations</strong></td><td>Booking cancellation reports.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Cancellations" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
             <tr><td><strong>Changes</strong></td><td>Booking change reports.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Changes" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
-            <tr><td><strong>Refunds</strong></td><td>Refund records.</td><td><a class="button tertiary compact" href="https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager/#Report:All_Refunds" target="_blank" rel="noopener noreferrer">Open report</a></td></tr>
           </tbody></table></div>
         </section>
       </section>
@@ -842,6 +845,7 @@
       </div>
     </div>
 
+    <script src="./js/review-notes-save.js"></script>
     <script type="module" src="./widget.js"></script>
   </body>
 </html>

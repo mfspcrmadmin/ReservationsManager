@@ -1,22 +1,25 @@
 import { crmGetRelatedRecords } from "./api.js";
 import { MODULES } from "./constants.js";
+import { ensurePrepaymentsLoaded, renderPrepayments } from "./prepayments-controller.js";
 import { escapeHtml, formatCurrency, formatDateTime, getLookupName } from "./utils.js";
 
 export function renderPaymentsWorkspace(elements, state) {
   const activeTab = state.activePaymentTab || "travelers";
-  const tabs = { travelers: elements.paymentTabTravelers, prepayments: elements.paymentTabPrepayments, cardPurchases: elements.paymentTabCardPurchases, renfe: elements.paymentTabRenfe };
-  const panels = { travelers: elements.paymentTravelersPanel, prepayments: elements.paymentPrepaymentsPanel, cardPurchases: elements.paymentCardPurchasesPanel, renfe: elements.paymentRenfePanel };
+  const tabs = { travelers: elements.paymentTabTravelers, refunds: elements.paymentTabRefunds, prepayments: elements.paymentTabPrepayments, cardPurchases: elements.paymentTabCardPurchases, renfe: elements.paymentTabRenfe };
+  const panels = { travelers: elements.paymentTravelersPanel, refunds: elements.paymentRefundsPanel, prepayments: elements.paymentPrepaymentsPanel, cardPurchases: elements.paymentCardPurchasesPanel, renfe: elements.paymentRenfePanel };
   Object.keys(tabs).forEach(function (key) {
     if (tabs[key]) { const active = key === activeTab; tabs[key].classList.toggle("active", active); tabs[key].setAttribute("aria-selected", active ? "true" : "false"); }
     if (panels[key]) panels[key].hidden = key !== activeTab;
   });
   renderCardPurchases(elements, state);
+  renderPrepayments(elements, state);
 }
 
 export async function setPaymentTab(elements, state, tabName) {
   state.activePaymentTab = tabName;
   renderPaymentsWorkspace(elements, state);
   if (tabName === "cardPurchases") await ensureCardPurchasesLoaded(elements, state);
+  if (tabName === "prepayments") await ensurePrepaymentsLoaded(elements, state);
 }
 
 export async function refreshCardPurchases(elements, state) {
@@ -50,6 +53,10 @@ export async function ensureCardPurchasesLoaded(elements, state) {
 
 function renderCardPurchases(elements, state) {
   if (!elements.cardPurchasesBody) return;
+  if (elements.cardTransactionsTitle) {
+    const countAvailable = state.selectedBookingId && state.cardPurchasesLoaded && state.cardPurchasesLoadedBookingId === String(state.selectedBookingId) && !state.cardPurchasesLoading && !state.cardPurchasesError;
+    elements.cardTransactionsTitle.textContent = "Card Transactions" + (countAvailable ? " (" + state.cardPurchases.length + ")" : "");
+  }
   if (elements.refreshCardPurchases) {
     elements.refreshCardPurchases.disabled = !state.selectedBookingId || state.cardPurchasesLoading;
     elements.refreshCardPurchases.classList.toggle("is-loading", state.cardPurchasesLoading);

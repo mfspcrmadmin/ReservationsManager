@@ -8,7 +8,20 @@ let catalog = { version: 1, tags: [] };
 let catalogError = "";
 let initialized = false;
 let activeDialog = null;
-const defaultTags = [ ["VIP", "#c4b5fd"], ["Honeymoon", "#f9a8d4"], ["Family", "#93c5fd"], ["Repeat client", "#86efac"], ["Special occasion", "#fde68a"] ];
+const defaultTags = [
+  ["AGENT", "#93c5fd"],
+  ["FLAMENCO", "#f9a8d4"],
+  ["HEIGHT/WEIGHT", "#a5b4fc"],
+  ["MEET AND GREET", "#86efac"],
+  ["MENUS", "#fde68a"],
+  ["PARQUE GÜELL", "#6ee7b7"],
+  ["RESTAURANTES", "#fdba74"],
+  ["SHOREX", "#67e8f9"],
+  ["STUDYTOUR", "#d8b4fe"],
+  ["TICKETS", "#bef264"],
+  ["TOROS", "#fca5a5"],
+  ["VIP", "#c4b5fd"]
+];
 const TAG_READ_TIMEOUT_MS = 5000;
 
 async function readTagRecord(entity, id) {
@@ -42,11 +55,77 @@ export function renderBookingTags(booking, compact) {
     const ids = parseBookingTags(booking[BOOKING_TAGS_FIELD]).users[ownerId()] || [];
     tags = catalog.tags.filter(tag => ids.includes(tag.id));
   } catch (_) { invalid = true; }
-  const visible = compact ? tags.slice(0, 2) : tags;
   return '<span class="booking-tags-slot" data-booking-tags-slot="' + escapeHtml(booking.id) + '" data-tags-compact="' + Boolean(compact) + '">' +
     '<button class="booking-tags-trigger" type="button" data-booking-tags="' + escapeHtml(booking.id) + '" title="Manage my tags" aria-label="Manage my tags for ' + escapeHtml(booking.Deal_Name || "this booking") + '">' +
-    visible.map(chip).join("") + (tags.length > visible.length ? '<span>+' + (tags.length - visible.length) + '</span>' : '') +
-    '<span class="booking-tags-add">' + (invalid ? "Tags !" : "+ Tags") + '</span></button></span>';
+    tags.map(chip).join("") +
+    '<span class="booking-tags-add">' + (invalid ? "Tags !" : "+ Tags") + '</span></button>' +
+    (compact ? '<button class="booking-tags-more" type="button" data-booking-tags-more hidden aria-label="Show all tags">+0</button>' : '') + '</span>';
+}
+
+function fitBookingTags(slot) {
+  if (!slot.isConnected || !slot.clientWidth) return;
+  const chips = [...slot.querySelectorAll(".booking-tag-chip")];
+  const more = slot.querySelector("[data-booking-tags-more]");
+  const add = slot.querySelector(".booking-tags-add");
+  chips.forEach(chip => { chip.hidden = false; });
+  more.hidden = true;
+  const widths = chips.map(chip => chip.getBoundingClientRect().width);
+  const addWidth = add.getBoundingClientRect().width;
+  const totalWidth = widths.reduce((sum, width) => sum + width + 4, addWidth);
+  if (totalWidth <= slot.clientWidth) return;
+  more.hidden = false;
+  more.textContent = "+" + chips.length;
+  const available = slot.clientWidth - more.getBoundingClientRect().width - 4;
+  let used = addWidth;
+  let visible = 0;
+  for (const width of widths) {
+    if (used + width + 4 > available) break;
+    used += width + 4;
+    visible++;
+  }
+  chips.forEach((chip, index) => { chip.hidden = index >= visible; });
+  more.textContent = "+" + (chips.length - visible);
+  more.setAttribute("aria-label", "Show all " + chips.length + " tags");
+}
+
+function observeBookingTags() {
+  const table = document.getElementById("booking-queue-table");
+  if (!table) return;
+  const observed = new Set();
+  const resize = new ResizeObserver(entries => entries.forEach(entry => fitBookingTags(entry.target)));
+  const sync = () => {
+    for (const slot of observed) {
+      if (!table.contains(slot)) { resize.unobserve(slot); observed.delete(slot); }
+    }
+    table.querySelectorAll('[data-tags-compact="true"]').forEach(slot => {
+      if (!observed.has(slot)) { observed.add(slot); resize.observe(slot); fitBookingTags(slot); }
+    });
+  };
+  new MutationObserver(records => {
+    if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === 1 && (node.matches("[data-booking-tags-slot]") || node.querySelector("[data-booking-tags-slot]"))))) sync();
+  }).observe(table, { childList: true, subtree: true });
+  sync();
+  if (document.fonts) document.fonts.ready.then(() => observed.forEach(fitBookingTags));
+}
+
+function showAllBookingTags(slot) {
+  if (activeDialog) return;
+  const dialog = document.createElement("dialog");
+  activeDialog = dialog;
+  dialog.className = "booking-tags-dialog booking-tags-preview";
+  dialog.setAttribute("aria-labelledby", "booking-tags-preview-title");
+  const booking = bookingRecord(slot.dataset.bookingTagsSlot);
+  const chips = [...slot.querySelectorAll(".booking-tag-chip")].map(chip => {
+    const copy = chip.cloneNode(true);
+    copy.hidden = false;
+    return copy.outerHTML;
+  }).join("");
+  dialog.innerHTML = '<header><div><h3 id="booking-tags-preview-title">My booking tags</h3><p>' + escapeHtml(booking?.Deal_Name || "Booking") + '</p></div><button type="button" class="icon-button" data-tags-close aria-label="Close">×</button></header><div class="booking-tags-preview-list">' + chips + '</div>';
+  dialog.querySelector("[data-tags-close]").onclick = () => dialog.close();
+  dialog.addEventListener("keydown", event => { if (event.key === "Escape") event.stopPropagation(); });
+  dialog.addEventListener("close", () => { dialog.remove(); activeDialog = null; });
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
 function refreshTags() {
   document.querySelectorAll("[data-booking-tags-slot]").forEach(slot => {
@@ -83,7 +162,15 @@ async function writeJson(entity, record, field, value) {
 export async function initializeBookingTags() {
   if (!initialized) {
     initialized = true;
+    observeBookingTags();
     document.addEventListener("click", function (event) {
+      const more = event.target.closest("[data-booking-tags-more]");
+      if (more) {
+        event.preventDefault();
+        event.stopPropagation();
+        showAllBookingTags(more.closest("[data-booking-tags-slot]"));
+        return;
+      }
       const button = event.target.closest("[data-booking-tags]");
       if (!button) return;
       event.preventDefault();

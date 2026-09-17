@@ -42,18 +42,26 @@ export function observeQueueDeskCells(body, loadTicket, formatTicket) {
       if (!cell.isConnected) return;
       cell.textContent = formatTicket(ticket);
       cell.title = cell.textContent;
+      cell.dataset.queueDeskParty = ticket?.latest_interaction?.party || "system";
     }).catch(() => {
-      if (cell.isConnected) cell.textContent = "Interaction unavailable";
+      if (cell.isConnected) {
+        cell.textContent = "Interaction unavailable";
+        cell.title = cell.textContent;
+        delete cell.dataset.queueDeskParty;
+      }
     });
   }
   if (typeof IntersectionObserver === "undefined") { cells.forEach(load); return; }
+  // Observe rows so a Desk column outside the horizontal viewport still loads.
+  const rowCells = new Map();
+  cells.forEach(cell => rowCells.set(cell.closest("tr"), cell));
   const observer = new IntersectionObserver(entries => {
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
       observer.unobserve(entry.target);
-      load(entry.target);
+      load(rowCells.get(entry.target));
     });
   }, { root: body.closest(".booking-browser-results-scroll"), rootMargin: "100px" });
   observers.set(body, observer);
-  cells.forEach(cell => observer.observe(cell));
+  rowCells.forEach((cell, row) => observer.observe(row));
 }

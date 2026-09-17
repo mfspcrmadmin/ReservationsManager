@@ -118,18 +118,6 @@ export function onSelectedServiceStatusChange() {
   onSaveService({ preventDefault: function () {} });
 }
 
-export function onRequestServicePrepayment() {
-  if (!state.selectedService || !state.selectedService.id) {
-    return;
-  }
-
-  window.open(
-    "https://creatorapp.zoho.eu/madeforspainandportugal/administration-manager#Form:Proforma_Form?Service_ID=" + encodeURIComponent(state.selectedService.id),
-    "_blank",
-    "noopener,noreferrer"
-  );
-}
-
 export function onRecordRenfePrepayment() {
   if (!state.selectedService || !state.selectedBooking) {
     return;
@@ -740,14 +728,16 @@ function openRenfePrepaymentDialog() {
   dialog.innerHTML = [
     '<div class="booking-action-dialog-backdrop"></div>',
     '<div class="booking-action-dialog-panel booking-action-dialog-panel--wide renfe-payment-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="renfe-payment-dialog-title">',
-    '<div class="renfe-payment-dialog-heading"><h4 id="renfe-payment-dialog-title">RENFE Payments Form</h4><code class="renfe-payment-service-id">Service ID: ' + escapeHtml(values.service_id) + "</code></div>",
+    '<div class="renfe-payment-dialog-heading"><h4 id="renfe-payment-dialog-title">RENFE Payments Form</h4></div>',
     '<form class="booking-form renfe-payment-form">',
     '<input name="service_id" type="hidden" value="' + escapeHtml(values.service_id) + '">',
-    '<div class="renfe-payment-form-grid">',
+    '<section class="record-context" aria-label="Request and booking information"><div class="record-context-section"><h5>Request</h5><dl>',
     renderRenfeField("Requested Date", "requested_date", values.requested_date, { readOnly: true, type: "date" }),
     renderRenfeField("Requested By", "requested_by", values.requested_by, { readOnly: true, type: "email" }),
+    '</dl></div><div class="record-context-section"><h5>Booking</h5><dl>',
     renderRenfeField("MFSP Reference", "mfsp_reference", values.mfsp_reference, { readOnly: true, required: true }),
     renderRenfeField("Booking Name", "booking_name", values.booking_name, { readOnly: true, required: true }),
+    '</dl></div></section><div class="renfe-payment-form-grid">',
     renderRenfeField("Localizador Ticket RENFE", "localizador_ticket_renfe", values.localizador_ticket_renfe, { required: true }),
     renderRenfeCurrencyField("Total Tickets Amount", "total_tickets_amount", values.total_tickets_amount),
     '<label class="field renfe-payment-observations"><span>Observations</span><textarea name="observations" rows="5">' + escapeHtml(values.observations) + "</textarea></label>",
@@ -794,6 +784,9 @@ function openRenfePrepaymentDialog() {
 
 function renderRenfeField(label, name, value, options) {
   const settings = options || {};
+  if (settings.readOnly) {
+    return '<div><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value || "-") + '</dd><input type="hidden" name="' + escapeHtml(name) + '" value="' + escapeHtml(value) + '"></div>';
+  }
   const attributes = [
     'name="' + name + '"',
     'value="' + escapeHtml(value) + '"',

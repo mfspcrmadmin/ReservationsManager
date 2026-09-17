@@ -3384,7 +3384,8 @@ textarea {
   display: grid;
   place-items: center;
   padding: 20px;
-  z-index: 90;
+  /* Keep form dialogs above the workspace focus layer (z-index: 200). */
+  z-index: 1000;
   isolation: isolate;
 }
 
@@ -3464,12 +3465,14 @@ body:has(.booking-action-dialog:not([hidden])) { overflow: hidden; }
 
 .booking-action-dialog-panel .button,
 .columns-panel-dialog .button,
+.draft-sync-required-dialog .button,
 .mail-outlook-confirm-dialog .button {
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background 150ms ease;
 }
 
 .booking-action-dialog-panel .button:hover:not(:disabled),
 .columns-panel-dialog .button:hover:not(:disabled),
+.draft-sync-required-dialog .button:hover:not(:disabled),
 .mail-outlook-confirm-dialog .button:hover:not(:disabled) {
   box-shadow: 0 4px 10px rgba(16, 24, 40, .12);
   transform: translateY(-1px);
@@ -3477,6 +3480,7 @@ body:has(.booking-action-dialog:not([hidden])) { overflow: hidden; }
 
 .booking-action-dialog-panel .button:active:not(:disabled),
 .columns-panel-dialog .button:active:not(:disabled),
+.draft-sync-required-dialog .button:active:not(:disabled),
 .mail-outlook-confirm-dialog .button:active:not(:disabled) { box-shadow: none; transform: translateY(1px) scale(.98); }
 
 body:has(.blueprint-transition-dialog) .notice { backdrop-filter: none; }

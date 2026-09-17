@@ -5,11 +5,13 @@ export const MODULES = {
   userRelationships: "User_Relationships",
   paymentAccounts: "Payment_Accounts",
   cardPurchases: "Card_Purchases",
+  prepaymentRequests: "Prepayment_Requests",
+  prepayments: "Prepayments",
   pax: "PAX",
   paxBookingServices: "PAX_Booking_Services"
 };
 
-export const SERVICE_TABLE_COLUMNS_STORAGE_KEY = "reservationsManager.serviceTableColumns";
+export const SERVICE_TABLE_COLUMNS_STORAGE_KEY = "bookingsManager.serviceTableColumns";
 
 export const SERVICE_TABLE_COLUMNS = [
   {
@@ -27,6 +29,10 @@ export const SERVICE_TABLE_COLUMNS = [
   {
     key: "status",
     label: "Status"
+  },
+  {
+    key: "paymentStatus",
+    label: "Payment Status"
   },
   {
     key: "serviceName",

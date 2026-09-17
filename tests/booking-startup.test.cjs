@@ -11,9 +11,11 @@ for (const mode of ["pending", "rejected"]) {
   test("startup loads Booking Queue when optional tag loading is " + mode, async () => {
     let loaded = false;
     const noop = () => {};
-    const ZOHO = { embeddedApp: { init: async () => {} }, CRM: {} };
+    let resizeCalls = 0;
+    const ZOHO = { embeddedApp: { init: async () => {} }, CRM: { UI: { Resize: async () => { resizeCalls++; } } } };
     const context = vm.createContext({
       state: {}, elements: {}, ZOHO, window: { ZOHO }, console: { warn: noop },
+      createReviewNotesNavigation: () => ({ receive: noop, start: async () => {} }), registerZohoEmbeddedAppListeners: noop,
       configureServicesController: noop, loadBookingWorkspace: noop, onSyncEzusClick: noop,
       initializeServiceTableColumns: noop, bindEvents: noop, populateStatusOptions: noop,
       initServiceTextSize: noop, loadServiceTextSizeForUser: noop,
@@ -32,5 +34,6 @@ for (const mode of ["pending", "rejected"]) {
     assert.equal(loaded, true, "Tags must not block the booking list");
     await initialization;
     assert.equal(context.state.zohoInitDebug.status, "ready");
+    assert.equal(resizeCalls, 0, "The web tab must leave viewport sizing to the host");
   });
 }

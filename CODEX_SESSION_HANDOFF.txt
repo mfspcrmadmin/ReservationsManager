@@ -6,11 +6,11 @@ Migrate all supplier and reconfirmation email templates from Creator/TemplatesHu
 
 ## 2. System / Architecture
 
-Workspace: `C:\Users\angela\Desktop\dev_zoho_widgets\reservationsManager`.
+Workspace: `C:\Users\angela\Desktop\dev_zoho_widgets\bookingsManager`.
 
 Relevant CRM source workspace: `C:\Users\angela\Desktop\dev_zoho_widgets\reconfirmationManager\_local\crm\functions`.
 
-New common template engine lives in `...\crm\functions\templates`. CRM records configure templates in modules `Templates`, `Template_Sections`, and `Section_Field_Mappings` (metadata in `reservationsManager\_local\crm\modules`).
+New common template engine lives in `...\crm\functions\templates`. CRM records configure templates in modules `Templates`, `Template_Sections`, and `Section_Field_Mappings` (metadata in `bookingsManager\_local\crm\modules`).
 
 Supplier flow: widget calls CRM `comm_*`; communications are created in `Communications`, rendered from a compact model, then a native `__email_drafts` record is created.
 
@@ -22,7 +22,7 @@ Old Creator reference implementation (read-only source of truth for behavior/mod
 
 `C:\Users\angela\Desktop\dev_zoho_widgets\reconfirmationManager\_local\creator_templateshub\functions\buildReconfirmationModelFromRequest`
 
-Old template data: `reservationsManager\_local\creator\templatesHub\data`.
+Old template data: `bookingsManager\_local\creator\templatesHub\data`.
 
 ## 3. Current implementation
 
@@ -35,7 +35,7 @@ Implemented and used by the reservations widget:
 - `templ_renderTemplate`: routes `SUPPLIER_BOOKING_REQUEST` and `SUPPLIER_AVAILABILITY_REQUEST` to `templ_renderBookingTemplate`.
 - `templ_renderSection`, `templ_loadTemplateConfig`, `templ_getSourceValue`, `templ_getContextValue`, `templ_formatValue`, `templ_replacePlaceholders`, `templ_wrapEmail`: common engine functions.
 
-Booking/Availability configuration and generated import workbooks are in `reservationsManager\_local\crm\data` / workspace root as generated earlier. Hotel imports exist: `HOTEL_DETAILS_TEMPLATE_SECTIONS_import.xlsx`, `HOTEL_DETAILS_FIELD_MAPPINGS_import.xlsx`.
+Booking/Availability configuration and generated import workbooks are in `bookingsManager\_local\crm\data` / workspace root as generated earlier. Hotel imports exist: `HOTEL_DETAILS_TEMPLATE_SECTIONS_import.xlsx`, `HOTEL_DETAILS_FIELD_MAPPINGS_import.xlsx`.
 
 ### Widget changes
 

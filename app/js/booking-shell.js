@@ -1,3 +1,5 @@
+import { renderBookingOverview } from "./booking-overview.js";
+import { renderBookingCommunication } from "./booking-communication.js";
 import { updateBookingQueueOverlay } from "./booking-queue-overlay.js";
 import { observeQueueDeskCells } from "./booking-queue-desk.js";
 import { renderBookingTags } from "./booking-tags.js";
@@ -20,9 +22,7 @@ export function renderBookingSummary(elements, state) {
   const switchButtons = {
     basic: elements.summaryViewBasic,
     financial: elements.summaryViewFinancial,
-    desk: elements.summaryViewDesk,
-    travelers: elements.summaryViewTravelers,
-    team: elements.summaryViewTeam
+    travelers: elements.summaryViewTravelers
   };
 
   Object.keys(switchButtons).forEach(function (viewKey) {
@@ -47,9 +47,9 @@ export function renderBookingSummary(elements, state) {
     return;
   }
 
-  if (summaryView === "desk") {
+  if (state.activeTab === "communication") {
     elements.summaryContent.hidden = false;
-    elements.summaryContent.innerHTML = renderDeskSummaryPanel(booking, state);
+    elements.summaryContent.innerHTML = renderBookingCommunication(booking, state.communicationNotesView);
     if (elements.summaryTravelersView) {
       elements.summaryTravelersView.hidden = true;
     }
@@ -214,6 +214,10 @@ export function renderBookingBrowser(options) {
   if (elements.bookingBrowserLoad) {
     elements.bookingBrowserLoad.disabled = isWorkspaceLoading || !(pendingOwnerId && pendingStages.length);
   }
+  if (elements.bookingBrowserRefresh) {
+    elements.bookingBrowserRefresh.disabled = isWorkspaceLoading;
+    elements.bookingBrowserRefresh.classList.toggle("is-loading", Boolean(state.bookingBrowserLoading));
+  }
   if (elements.bookingBrowserSizeToggle) {
     elements.bookingBrowserSizeToggle.disabled = isWorkspaceLoading;
   }
@@ -317,7 +321,7 @@ function renderQueueCell(key, booking, state) {
       const ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
       if (!ticketId || ticketId === "-") return "No Desk ticket";
       const selectedTicket = String(booking.id) === String(state.selectedBookingId) && state.deskTicketLoadedBookingId === state.selectedBookingId ? state.deskTicket : null;
-      return '<strong data-queue-desk-ticket="' + escapeHtml(ticketId) + '">' + escapeHtml(selectedTicket ? formatDeskLatestInteraction(selectedTicket) : "Loading latest interaction…") + '</strong>';
+      return '<strong data-queue-desk-ticket="' + escapeHtml(ticketId) + '" data-queue-desk-party="' + escapeHtml(selectedTicket?.latest_interaction?.party || "system") + '">' + escapeHtml(selectedTicket ? formatDeskLatestInteraction(selectedTicket) : "Loading latest interaction…") + '</strong>';
     }
     default: return "";
   }
@@ -468,101 +472,7 @@ function renderSummaryMainPanel(booking, viewName) {
     return renderFinancialSummaryView(booking);
   }
 
-  const summaryViews = {
-    basic: {
-      title: "Booking Information",
-      items: [
-        buildSummaryItem("Booking Name", getBookingValue(booking, ["Deal_Name", "Name", "Booking_Name"])),
-        buildSummaryItem("Arrival Date", formatDate(booking.Arrival_Date)),
-        buildSummaryItem("Departure Date", formatDate(booking.Departure_Date)),
-        buildSummaryItem("Trip Duration", getTripDurationLabel(booking)),
-        buildSummaryItem("Travelers Number", firstTextValue(booking.Travellers_Number, booking.Travelers_Number, booking.Number_of_Travelers))
-      ]
-    },
-    contact: {
-      title: "Client",
-      items: [
-        buildSummaryItem("Contact", getBookingValue(booking, ["Contact_Name", "Primary_Contact"])),
-        buildSummaryItem("Contact Email", getBookingValue(booking, ["Agent_Email", "Travel_Agent_Email"])),
-        buildSummaryItem("Client", getBookingValue(booking, ["Client_Name", "Account_Name", "Agency"])),
-        buildSummaryItem("Client Type", getBookingValue(booking, ["Client_Type"]))
-      ]
-    },
-    analytics: {
-      title: "Analitics",
-      items: [
-        buildSummaryItem("Traveler type", getBookingValue(booking, ["Traveler_Type", "Traveller_Type", "Travellers_Type"])),
-        buildSummaryItem("Trip type", getBookingValue(booking, ["Trip_Type"])),
-        buildSummaryItem("Department", getBookingValue(booking, ["Department"])),
-        buildSummaryItem("Countries visited", getBookingValue(booking, ["Countries_Visited"]))
-      ]
-    },
-    team: {
-      title: "Internal ownership",
-      items: [
-        buildSummaryItem("Booking owner", getLookupName(booking.Owner) || "-"),
-        buildSummaryItem("Sales rep", getBookingValue(booking, ["Sales_Rep", "Sales_Representative", "Salesperson"])),
-        buildSummaryItem("Reservations rep", getBookingValue(booking, ["Reservation_Rep", "Reservations_Rep", "Reservations_Representative"])),
-        buildSummaryItem("Accounting rep", getBookingValue(booking, ["Accounting_Rep", "Accounting_Representative"])),
-        buildSummaryItem("Guest relations", getBookingValue(booking, ["Guest_Relations_Rep", "Guest_Relations_Representative"])),
-        buildSummaryItem("24h rep", getBookingValue(booking, ["Hour_Rep", "Rep_24h", "24h_Rep", "TwentyFourHour_Rep", "TwentyFour_Hour_Rep"]))
-      ]
-    }
-  };
-  const sections = viewName === "team"
-    ? [summaryViews.team]
-    : [summaryViews.basic, summaryViews.contact, summaryViews.analytics];
-
-  return [
-    '<div class="summary-view-layout">',
-    sections.map(function (section) {
-      return '<section class="summary-section"><div class="summary-section-header"><h2>' +
-        escapeHtml(section.title) + '</h2></div><div class="summary-cards-grid">' +
-        section.items.join("") + '</div></section>';
-    }).join(""),
-    "</div>"
-  ].join("");
-}
-
-function renderDeskSummaryPanel(booking, state) {
-  var ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
-  var ticket = state.deskTicket;
-
-  if (!ticketId || ticketId === "-") {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">This booking has no associated Desk ticket.</p></section>';
-  }
-
-  if (state.deskTicketLoading) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">Loading the latest ticket interaction…</p></section>';
-  }
-
-  if (state.deskTicketError) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">' + escapeHtml(state.deskTicketError) + '</p></section>';
-  }
-
-  if (!ticket) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">No Desk information is available yet.</p></section>';
-  }
-
-  var interaction = ticket.latest_interaction || {};
-  var party = interaction.party === "agent" ? "Our team" : interaction.party === "customer" ? "Customer" : "System";
-  var openButton = ticket.url
-    ? '<a class="button tertiary compact" href="' + escapeHtml(ticket.url) + '" target="_blank" rel="noopener noreferrer">Open in Desk</a>'
-    : "";
-
-  return [
-    '<section class="summary-section">',
-    '  <div class="summary-section-header"><h2>Desk</h2>' + openButton + '</div>',
-    '  <div class="summary-cards-grid">',
-    buildSummaryItem("Ticket", ticket.ticket_number || ticket.id || ticketId),
-    buildSummaryItem("Status", ticket.status || "-"),
-    buildSummaryItem("Last interaction", party),
-    buildSummaryItem("When", interaction.created_time ? formatDateTime(interaction.created_time) : "-"),
-    buildSummaryItem("By", interaction.author_name || "-"),
-    '  </div>',
-    '  <article class="summary-metric-panel"><h3>Latest message</h3><p>' + escapeHtml(interaction.summary || "No message preview is available.") + '</p></article>',
-    '</section>'
-  ].join("");
+  return renderBookingOverview(booking, getTripDurationLabel(booking));
 }
 
 function renderFinancialSummaryView(booking) {
@@ -624,6 +534,16 @@ function renderSummaryHero(booking) {
 }
 
 function renderWorkspaceEmptyState(state) {
+  if (state.bookingWorkspaceLoadingLabel) {
+    return [
+      '<section class="workspace-surface workspace-empty-state workspace-empty-state--loading" role="status" aria-live="polite" aria-busy="true">',
+      '  <div class="workspace-empty-state-copy">',
+      '    <span class="table-loading-indicator" aria-hidden="true"></span>',
+      '    <strong>Loading booking: ' + escapeHtml(state.bookingWorkspaceLoadingLabel) + '</strong>',
+      '  </div>',
+      '</section>'
+    ].join("");
+  }
   const isBookingQueueLoading = !state.initialized || state.bookingBrowserLoading;
 
   if (isBookingQueueLoading) {
@@ -910,7 +830,7 @@ function renderBookingBlueprintPanel(state) {
     '        <span class="summary-blueprint-state" style="' + escapeHtml(buildBlueprintStateStyle(currentStateColor)) + '">' + escapeHtml(currentStateLabel) + "</span>",
     "    </div>",
     orderedTransitions.length
-      ? '    <div class="booking-workflow-actions">' + renderBookingBlueprintTransitions(orderedTransitions) + "</div>"
+      ? '    <div class="booking-workflow-actions">' + renderBookingBlueprintTransitions(orderedTransitions, state.bookingBlueprintExecuting) + "</div>"
       : '    <span class="booking-workflow-empty">No workflow action is currently required.</span>',
     "  </div>",
     "</section>"
@@ -928,13 +848,13 @@ function renderBookingBlueprintPlaceholder(title, message, modifierClass) {
   ].join("");
 }
 
-function renderBookingBlueprintTransitions(transitions) {
+function renderBookingBlueprintTransitions(transitions, busy) {
   return '<div class="summary-blueprint-transition-list">' +
-    '<div class="workflow-transition-group">' + renderWorkflowTransitionButtons(transitions, true) + "</div>" +
+    '<div class="workflow-transition-group">' + renderWorkflowTransitionButtons(transitions, true, busy) + "</div>" +
     "</div>";
 }
 
-function renderWorkflowTransitionButtons(transitions, canContainPrimary) {
+function renderWorkflowTransitionButtons(transitions, canContainPrimary, busy) {
   return transitions.map(function (transition, index) {
     const transitionId = transition && transition.id ? String(transition.id) : "";
     const transitionName = transition && transition.name ? String(transition.name) : (transition && transition.next_field_value ? String(transition.next_field_value) : "Transition");
@@ -942,12 +862,12 @@ function renderWorkflowTransitionButtons(transitions, canContainPrimary) {
     const transitionTextColor = transition && transition.text_color_code ? String(transition.text_color_code) : "#132019";
     const transitionFields = Array.isArray(transition && transition.fields) ? transition.fields : [];
     const requiresFields = transitionFields.length > 0;
-    const isDisabled = transition && transition.criteria_matched === false;
+    const isDisabled = busy || !transitionId || transition && transition.criteria_matched === false;
     const normalizedName = normalizeComparableText(transitionName);
     const isDestructive = normalizedName.indexOf("cancel") !== -1 || normalizedName.indexOf("dead") !== -1;
     const actionClassName = ["blueprint-transition-button", canContainPrimary && index === 0 && !isDisabled ? "blueprint-transition-button--primary" : "", isDestructive ? "blueprint-transition-button--danger" : ""].filter(Boolean).join(" ");
     const helperText = requiresFields
-      ? transitionFields.length + (transitionFields.length === 1 ? " required field" : " required fields")
+      ? transitionFields.length + (transitionFields.length === 1 ? " transition field" : " transition fields")
       : transition && transition.next_field_value
         ? "Move to: " + transition.next_field_value
         : "Ready to run";

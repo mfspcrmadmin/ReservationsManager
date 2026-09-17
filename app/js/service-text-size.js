@@ -35,7 +35,7 @@ export function initServiceTextSize() {
 export function loadServiceTextSizeForUser(state) {
   const identity = state.currentUserId ? "id:" + state.currentUserId
     : state.currentUserEmail ? "email:" + state.currentUserEmail.trim().toLowerCase() : "";
-  const nextKey = identity ? "reservationsManager.serviceTextSize." + identity : "";
+  const nextKey = identity ? "bookingsManager.serviceTextSize." + identity : "";
   if (nextKey === storageKey) return;
   storageKey = nextKey;
   let stored = DEFAULT_SIZE;

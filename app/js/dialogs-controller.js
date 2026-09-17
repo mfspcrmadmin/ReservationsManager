@@ -251,6 +251,8 @@ export async function onSubmitCardPurchaseForm(event) {
       Name: transactionType + " - " + (booking.MFSP_Reference || booking.Deal_Name || booking.id),
       Booking: { id: booking.id },
       Boking_Service: { id: service.id },
+      MFSP_Reference: booking.MFSP_Reference || service.Booking_Reference || "",
+      Supplier_Code: getCardPurchaseSupplierCode(service),
       Card_Payment_Account: { id: elements.cardPurchasePaymentAccount.value },
       Transaction_Type: transactionType,
       Accounting_Status: isRefund ? "Pending credit note" : "Pending invoice",
@@ -292,6 +294,10 @@ export async function onSubmitCardPurchaseForm(event) {
   }
 }
 
+function getCardPurchaseSupplierCode(service) {
+  return String(service.Ezus_Supplier_Reference || service.EZUS_Supplier_Reference || service.Supplier_Reference || service.Supplier_Code || "").replace(/^.*-supnew-/, "");
+}
+
 function initializeCardPurchaseForm() {
   if (!elements.cardPurchaseForm) {
     return;
@@ -300,10 +306,7 @@ function initializeCardPurchaseForm() {
   elements.cardPurchaseForm.reset();
   var service = state.selectedService || {};
   var booking = state.selectedBooking || {};
-  var supplierCode = String(service.Ezus_Supplier_Reference || service.EZUS_Supplier_Reference || service.Supplier_Reference || "");
-  if (supplierCode.indexOf("-supnew-") !== -1) {
-    supplierCode = supplierCode.replace(/^.*-supnew-/, "");
-  }
+  var supplierCode = getCardPurchaseSupplierCode(service);
   elements.cardPurchaseMfspReference.textContent = booking.MFSP_Reference || service.Booking_Reference || "-";
   elements.cardPurchaseBookingName.textContent = booking.Deal_Name || booking.Name || booking.Booking && booking.Booking.name || "-";
   elements.cardPurchaseSupplierName.textContent = service.Supplier_Name || service.Supplier && service.Supplier.name || "-";

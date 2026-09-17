@@ -9,8 +9,9 @@ function functionSource(name) {
   const start = source.search(new RegExp("^(?:async )?function " + name + "\\(", "m"));
   assert.ok(start >= 0, name);
   const rest = source.slice(start);
-  const end = rest.indexOf("\n}\n") >= 0 ? rest.indexOf("\n}\n") + 2 : rest.indexOf("\n}\r\n") + 2;
-  return rest.slice(0, end);
+  const end = /\r?\n}/.exec(rest);
+  assert.ok(end, name + " closing brace");
+  return rest.slice(0, end.index + end[0].length);
 }
 
 function setup({ response = { success: true }, persisted = "<p>New</p>", readError = false } = {}) {

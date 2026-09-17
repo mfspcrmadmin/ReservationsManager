@@ -40,7 +40,7 @@ function read(key) {
 
 export function getQueueTablePreferences(state) {
   const identity = state.currentUserId ? "id:" + state.currentUserId : state.currentUserEmail ? "email:" + state.currentUserEmail.trim().toLowerCase() : "";
-  const key = identity ? "reservationsManager.bookingQueue." + identity : "";
+  const key = identity ? "bookingsManager.bookingQueue." + identity : "";
   if (!preferences.has(key)) {
     const stored = read(key) || {};
     preferences.set(key, {

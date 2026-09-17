@@ -31,7 +31,7 @@ Los IDs de etiquetas no cambian al editar el nombre o color. Borrar una etiqueta
 - `+ Tags` en cada fila de Queue y en el detalle Booking abre el mismo editor, también en Focus y sobre la Queue expandida.
 - Crear, editar nombre/color y borrar afectan al catálogo personal y se guardan con sus propios botones.
 - Seleccionar etiquetas y pulsar `Apply to booking` guarda las asignaciones. Desmarcar permite quitarlas del viaje.
-- `Add suggested tags` añade VIP, Honeymoon, Family, Repeat client y Special occasion sin asignarlas al booking; evita duplicar los nombres existentes.
+- `Add suggested tags` añade AGENT, FLAMENCO, HEIGHT/WEIGHT, MEET AND GREET, MENUS, PARQUE GÜELL, RESTAURANTES, SHOREX, STUDYTOUR, TICKETS, TOROS y VIP sin asignarlas al booking; evita duplicar los nombres existentes.
 - Los colores y nombres se muestran como chips. Queue muestra dos chips y el número de etiquetas adicionales.
 - Las etiquetas pertenecen a cada usuario en la interfaz; los campos JSON no aportan confidencialidad frente a usuarios con acceso CRM al registro.
 
