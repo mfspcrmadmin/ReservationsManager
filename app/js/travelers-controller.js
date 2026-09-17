@@ -59,7 +59,7 @@ export async function ensureBookingTravelersLoaded(forceReload) {
 
   try {
     var travelers = (await loadTravelersForBooking(bookingId)).sort(compareTravelers);
-    console.debug("[ReservationsManager:travelers] travelers parsed", {
+    console.debug("[BookingsManager:travelers] travelers parsed", {
       bookingId: bookingId,
       count: travelers.length,
       travelers: travelers
@@ -86,7 +86,7 @@ export async function ensureBookingTravelersLoaded(forceReload) {
       state.selectedTraveler = null;
     }
   } catch (error) {
-    console.debug("[ReservationsManager:travelers] travelers load failed", {
+    console.debug("[BookingsManager:travelers] travelers load failed", {
       bookingId: bookingId,
       error: error
     });
@@ -105,12 +105,12 @@ async function loadTravelersForBooking(bookingId) {
   var response = await crmExecuteFunction("gettravellersforbooking", {
     bookingId: bookingId
   });
-  console.debug("[ReservationsManager:travelers] function response", {
+  console.debug("[BookingsManager:travelers] function response", {
     bookingId: bookingId,
     response: response
   });
   var payload = extractFunctionPayload(response);
-  console.debug("[ReservationsManager:travelers] function payload", {
+  console.debug("[BookingsManager:travelers] function payload", {
     bookingId: bookingId,
     payload: payload
   });

@@ -1,0 +1,56 @@
+string standalone.reviewNotes_markReviewed(string bookingId, string actingUserId, string expectedNotes)
+{
+result = {"success":false};
+try
+{
+    if(!bookingId.matches("[0-9]+") || !actingUserId.matches("[0-9]+"))
+    {
+        result.put("message","Invalid booking or user ID.");
+        return result.toString();
+    }
+    booking = zoho.crm.getRecordById("Deals",bookingId.toLong());
+    guestId = ifnull(ifnull(booking.get("Guest_Relations_Rep"),Map()).get("id"),"").toString();
+    if(guestId != actingUserId)
+    {
+        result.put("message","Only the assigned Guest Relations user can mark this booking as reviewed.");
+        return result.toString();
+    }
+    if(!booking.containKey("GR_Review_Pending") || !booking.containKey("Review_Notes") || booking.get("Modified_Time") == null)
+    {
+        result.put("message","Review fields are unavailable. Check GR_Review_Pending and field permissions.");
+        return result.toString();
+    }
+    // Do not acknowledge a new note which arrived after the user loaded the list/panel.
+    if(ifnull(booking.get("Review_Notes"),"").toString() != ifnull(expectedNotes,""))
+    {
+        result.put("message","Review Notes changed since you loaded them. Refresh and read the new notes before marking as reviewed.");
+        return result.toString();
+    }
+    if(booking.get("GR_Review_Pending") == false)
+    {
+        result.put("success",true);
+        return result.toString();
+    }
+    payload = {"data":{{"id":bookingId,"GR_Review_Pending":false}},"trigger":List()};
+    headers = {"Content-Type":"application/json","If-Unmodified-Since":booking.get("Modified_Time").toString()};
+    response = invokeurl
+    [
+        url :"https://www.zohoapis.eu/crm/v8/Deals/" + bookingId
+        type :PUT
+        parameters:payload.toString()
+        headers:headers
+        connection:"crm_oauth_connection"
+    ];
+    if(response.get("data") == null || response.get("data").get(0).get("code") != "SUCCESS")
+    {
+        result.put("message","CRM did not confirm the review. The booking may have changed; refresh before retrying.");
+        return result.toString();
+    }
+    result.put("success",true);
+}
+catch(error)
+{
+    result.put("message","Could not mark as reviewed: " + error.toString());
+}
+return result.toString();
+}

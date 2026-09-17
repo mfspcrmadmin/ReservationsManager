@@ -1,0 +1,187 @@
+# CONTEXT FOR NEXT CODEX SESSION
+
+## 1. Objective
+
+Migrate all supplier and reconfirmation email templates from Creator/TemplatesHub to the CRM template system. Supplier Booking and Availability templates already use CRM configuration (`Templates`, `Template_Sections`, `Section_Field_Mappings`). The active next objective is reconfirmations: create `Reconfirmation_Requests` and their native CRM drafts entirely through CRM/Deluge templates, with no Creator endpoint, function, connection, or public Creator URL in the new flow.
+
+## 2. System / Architecture
+
+Workspace: `C:\Users\angela\Desktop\dev_zoho_widgets\bookingsManager`.
+
+Relevant CRM source workspace: `C:\Users\angela\Desktop\dev_zoho_widgets\reconfirmationManager\_local\crm\functions`.
+
+New common template engine lives in `...\crm\functions\templates`. CRM records configure templates in modules `Templates`, `Template_Sections`, and `Section_Field_Mappings` (metadata in `bookingsManager\_local\crm\modules`).
+
+Supplier flow: widget calls CRM `comm_*`; communications are created in `Communications`, rendered from a compact model, then a native `__email_drafts` record is created.
+
+Reconfirmation must instead create records in `Reconfirmation_Requests` and native drafts under:
+
+`https://www.zohoapis.eu/crm/v8/Reconfirmation_Requests/{requestId}/__email_drafts`
+
+Old Creator reference implementation (read-only source of truth for behavior/model):
+
+`C:\Users\angela\Desktop\dev_zoho_widgets\reconfirmationManager\_local\creator_templateshub\functions\buildReconfirmationModelFromRequest`
+
+Old template data: `bookingsManager\_local\creator\templatesHub\data`.
+
+## 3. Current implementation
+
+### Supplier template system
+
+Implemented and used by the reservations widget:
+
+- `templ_buildBookingModel`: builds compact booking/supplier/steps/travelers model. It reuses legacy hierarchy only for base data, avoids persisting huge legacy data, and includes Food budget logic.
+- `templ_renderBookingTemplate`: data-driven renderer. It honours `Template_Sections.Order`; Email sections render globally in position, and Step/Service/Related_Service sections render together for each step.
+- `templ_renderTemplate`: routes `SUPPLIER_BOOKING_REQUEST` and `SUPPLIER_AVAILABILITY_REQUEST` to `templ_renderBookingTemplate`.
+- `templ_renderSection`, `templ_loadTemplateConfig`, `templ_getSourceValue`, `templ_getContextValue`, `templ_formatValue`, `templ_replacePlaceholders`, `templ_wrapEmail`: common engine functions.
+
+Booking/Availability configuration and generated import workbooks are in `bookingsManager\_local\crm\data` / workspace root as generated earlier. Hotel imports exist: `HOTEL_DETAILS_TEMPLATE_SECTIONS_import.xlsx`, `HOTEL_DETAILS_FIELD_MAPPINGS_import.xlsx`.
+
+### Widget changes
+
+- `app/js/render.js`: email sender selector has 22 allowed MFSP emails in `COMMUNICATION_SENDER_EMAILS`.
+- `app/styles/widget.css`: communication/email controls and popups received hover/active interaction styles.
+- Services title now contains `#services-title-count`, rendering `X shown · Y total`, where `filteredServices` is visible and `services` is booking total. Changed files: `app/widget.html`, `app/js/dom.js`, `app/js/render.js`, `app/styles/widget.css`.
+- The sender CRM function for the communication flow is `comm_sendCommunicationDraft` in `reconfirmationManager\_local\crm\functions\templates`; it was expanded with the same 22 literal `sendmail` sender branches. It remains `isTestMode = true`, so destination is still `angela@madeforspainandportugal.com` until intentionally changed.
+
+### Reconfirmation migration: local, incomplete, DO NOT publish yet
+
+Some preliminary functions were created in `...\crm\functions\templates`:
+
+- `templ_buildReconfirmationModel`
+- `templ_renderReconfirmationTemplate`
+- `recReq_buildModelsForSelection`
+- `recReq_createRequestsForSelection`
+- `recReq_createDraftForRequest`
+
+They are NOT final. Most importantly, current `templ_buildReconfirmationModel` still calls `drafts_rec_buildModelForRequest`, and `recReq_buildModelsForSelection` still calls `drafts_rec_buildModelsForSelection`. This explicitly violates the final decision below; replace them with standalone implementations inside `functions\templates`.
+
+The local `recReq_createRequestsForSelection` and `recReq_createDraftForRequest` were drafted too quickly and have compact/semicolon-heavy formatting. Reformat/review them before any publication. Do not treat them as tested production implementations.
+
+Preliminary `recReq_getServiceEmailFragments` and `recReq_prepareEmailRender` were deleted from `functions\templates`; fragments are deliberately not part of the new system.
+
+Existing legacy functions in `drafts_reconfirmation` and old `rec_requests` may still contain Creator calls. They are legacy reference only; do not call, publish, or modify widget wiring to use the new code until the new standalone flow is tested.
+
+## 4. Decisions made
+
+- All template content, order, wording, criteria, categories and styles must stay data-driven. Never hardcode in JS/Deluge something that belongs in `Templates`, `Template_Sections`, or `Section_Field_Mappings`.
+- Do not use Creator for the new reconfirmation system. This means no `Render_Reconfirmation_Template`, no `templatehubconnection`, no `creatorapp.zohopublic.eu` action URLs, and no dependency on Creator helper functions.
+- Reconfirmation is not a Communication. It creates `Reconfirmation_Requests`; drafts are created under that module's native `__email_drafts` endpoint.
+- Reconfirmation must use the same common CRM template engine where possible (`templ_loadTemplateConfig`, `templ_renderSection`, formatting/replacement/wrapping helpers) but needs its own model builder and renderer because its model hierarchy differs.
+- Reconfirmation model must be ported from Creator's `buildReconfirmationModelFromRequest`, not from `drafts_rec_*` or `comm_*` builders.
+- Reconfirmation naming: new functions must use `recReq_*`, not `rec_*` or `rec_requests_*`.
+- No `recReq_*` fragment function: Creator fragments existed only because large Creator API renders failed. CRM local rendering does not need that workaround.
+- Do not change the functions called by the widget until the new `recReq_*` flow is fully tested. Existing local changes in `rec_requests` were premature; remote CRM has not been changed by Codex.
+- `SERVICES_MINI_SUMMARY` is deliberately excluded from supplier template migration.
+
+## 5. UI / UX decisions
+
+Services header displays an inline badge beside the `Services` title: `X shown · Y total`.
+
+Emails UI: all buttons in communication area and modals should have app-consistent hover and press feedback. This includes Draft/Sent filter, mail list items, icon edit/save/cancel buttons, mail chips/service removal, menus, Send/Create/Edit/Delete popup buttons. CSS is scoped to `.emails-workspace` and `.mail-send-modal`.
+
+Email detail should have its own scroll; email body has fixed height and its own scroll. Quick Actions collapsed state must not reserve hidden scroll space.
+
+## 6. Important technical constraints
+
+- Deluge `sendmail` requires each allowed sender in a literal separate branch. Do not replace this with a dynamic `from` value.
+- `Communications.Render_Model_JSON` is roughly limited to 32,000 chars. Do not store `legacy_model` or complete `service_dates` there for Communications.
+- CRM datetime strings such as `2026-07-12T09:20:00+02:00` must be manually parsed by `templ_formatValue`; output is `dd MMM yyyy h:mm AM/PM` / `h:mm AM/PM`.
+- Use `apply_patch` for local edits. Preserve unrelated dirty worktree changes.
+- Deluge code must be readable: one instruction/concern per line, normal blocks, no dense semicolon-heavy generated code.
+- A public supplier action UI replacing Creator Confirm/Issue pages is undecided. Do not invent URLs. The new model may expose `actions.confirm_url` / `actions.issue_url` only once a non-Creator destination is supplied.
+
+## 7. Relevant functions / code
+
+`buildReconfirmationModelFromRequest` (Creator reference)
+Purpose: current authoritative reconfirmation model construction.
+Inputs: `requestId`, `actions`.
+Output: model with `service_dates -> bookings -> steps -> services`, `related_services`, travelers, supplier/contact/user.
+Important behavior: loads Request-linked Booking Services; validates relationship; loads Deals, PAX_X_Bookings/PAX, Booking Steps and related services; applies supplier fallback category/subcategory; compacts records.
+Dependencies: Creator helper functions only in old implementation; port behavior directly to CRM, do not call it.
+
+`templ_buildReconfirmationModel` (incomplete)
+Purpose: should replace the Creator builder.
+Inputs: `requestId`, `language`, `actingUserJson`.
+Output: CRM-native reconfirmation model.
+Important behavior required: standalone CRM loading and compact output; no `drafts_rec_*` dependency.
+
+`templ_renderReconfirmationTemplate` (preliminary)
+Purpose: render `RECONFIRMATION_REQUEST` through common CRM section config.
+Inputs: `templateCode`, `modelJson`.
+Output: `{success, subject, html, template_code}`.
+Important behavior: must support Email, Date, Booking, Step, Service, Related_Service and Traveler section contexts and preserve configured order.
+
+`recReq_createRequestsForSelection` (preliminary)
+Purpose: future widget entry to group selected services, create Reconfirmation Requests, link services and create a native draft for Email requests.
+Inputs: `serviceIds`, `actingUserJson`.
+Dependencies: must only call new `functions\templates` functions after refactor.
+
+`recReq_createDraftForRequest` (preliminary)
+Purpose: build model, render `RECONFIRMATION_REQUEST`, POST native draft, update request subject/status.
+Inputs: `requestId`, `language`.
+Endpoint: `/crm/v8/Reconfirmation_Requests/{requestId}/__email_drafts`.
+
+`comm_buildModelsForSelection`
+Purpose: Communication-specific builder for Booking/Availability. Do not merge with reconfirmation builder now: it uses compact booking model and `templ_groupServicesByRecipient`, while reconfirmation must preserve a different multi-date/multi-booking hierarchy.
+
+## 8. Current state
+
+DONE:
+
+- Supplier Booking/Availability CRM template engine and data-driven renderer are in use.
+- Communication sender list/UI/backend was expanded to 22 addresses.
+- Services title counts and email hover/active UX were added.
+- Creator reconfirmation reference flow has been identified precisely.
+- Preliminary CRM reconfirmation renderer/build/create function files exist; no Creator references are inside the new template-folder functions.
+
+IN PROGRESS:
+
+- Full standalone port of Creator `buildReconfirmationModelFromRequest` into `templ_buildReconfirmationModel`.
+- Clean, readable implementation of `recReq_createRequestsForSelection` and `recReq_createDraftForRequest`.
+
+NOT STARTED:
+
+- CRM `Templates` record `RECONFIRMATION_REQUEST`.
+- Reconfirmation `Template_Sections` / `Section_Field_Mappings` import data.
+- Non-Creator replacement for public confirmation/issue actions.
+- End-to-end test and widget switchover.
+
+## 9. Pending tasks
+
+1. Replace `templ_buildReconfirmationModel` with a standalone direct port of Creator `buildReconfirmationModelFromRequest`. Remove all `drafts_rec_*` calls.
+2. Rewrite/reformat `recReq_buildModelsForSelection`, `recReq_createRequestsForSelection`, `recReq_createDraftForRequest` using only `functions\templates` dependencies and preserve old Request payload/business rules.
+3. Compare Creator reconfirmation renderer/components (`HEADER_RECONFIRMATION`, `RECONFIRMATION_SERVICES_TO_RECONFIRM`, `RECONFIRMATION_STEP_INFO`, `RECONFIRMATION_RELATED_SERVICES`, accommodation, travelers, actions, footer) and create CRM Template Sections/Field Mappings imports.
+4. Add `RECONFIRMATION_REQUEST` Template record and import config.
+5. Test direct function sequence in CRM with one small Email request. Only then alter widget integration.
+6. Decide non-Creator public action host, then populate `actions.confirm_url` and `actions.issue_url`.
+
+## 10. Known issues / bugs
+
+- Reconfirmation new builders are incomplete and currently violate the no-cross-folder dependency rule.
+- `recReq_createRequestsForSelection` lacks verified parity with old logic (train/manual policy, no-supplier/restaurant handling, all request snapshot fields, technical key, dates/bookings, public-action replacement). Do not publish it.
+- No actual Reconfirmation template configuration exists yet, so renderer cannot produce final intended HTML.
+- Current public Confirm/Issue actions cannot work without a replacement UI/endpoint; Creator URLs must not be retained.
+
+## 11. Conventions to preserve
+
+- Names: `templ_*` for common template engine; `comm_*` for Communications; `recReq_*` for new Reconfirmation Request flow.
+- Keep Reconfirmation-specific new functions in `...\crm\functions\templates`.
+- Functions must be formatted clearly, no compressed Deluge.
+- New reconfirmation code cannot use functions from `drafts_reconfirmation`, `rec_requests`, `comm_*`, or Creator.
+- Template style/content remains configured in CRM data, not hardcoded.
+- Section rendering order must come from `Template_Sections.Order`.
+
+## 12. Important context that must not be lost
+
+The desired reconfirmation model is not the compact Booking/Availability model. Its crucial structure is:
+
+`service_dates[] -> bookings[] -> { booking, travelers[], steps[] } -> { step, services[], related_services[] }`
+
+Creator's model builder contains the exact CRM field reads and fallbacks; port it carefully rather than simplifying it. It is the only accepted behavioral reference.
+
+The old Creator fragment mechanism must not be reintroduced. It only existed to work around Creator render limits.
+
+## 13. Recommended next action
+
+Open and fully port `creator_templateshub\functions\buildReconfirmationModelFromRequest` into a readable standalone replacement for `templ_buildReconfirmationModel`, checking each CRM query, normalized field and compaction step. Do this before writing any Reconfirmation template import workbook or publishing/switching widget functions.

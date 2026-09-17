@@ -1,3 +1,9 @@
+import { renderBookingOverview } from "./booking-overview.js";
+import { renderBookingCommunication } from "./booking-communication.js";
+import { updateBookingQueueOverlay } from "./booking-queue-overlay.js";
+import { observeQueueDeskCells } from "./booking-queue-desk.js";
+import { renderBookingTags } from "./booking-tags.js";
+import { getQueueTablePreferences, getQueueVisibleColumns, queueColumnButton, configureQueueTable } from "./booking-queue-table.js";
 import {
   escapeHtml,
   formatCurrency,
@@ -11,15 +17,12 @@ import {
 
 export function renderBookingSummary(elements, state) {
   const booking = state.selectedBooking;
+  if (elements.bookingPersonalTags) elements.bookingPersonalTags.innerHTML = renderBookingTags(booking, false);
   const summaryView = state.summaryView || "basic";
   const switchButtons = {
     basic: elements.summaryViewBasic,
     financial: elements.summaryViewFinancial,
-    contact: elements.summaryViewContact,
-    desk: elements.summaryViewDesk,
-    analytics: elements.summaryViewAnalytics,
-    travelers: elements.summaryViewTravelers,
-    team: elements.summaryViewTeam
+    travelers: elements.summaryViewTravelers
   };
 
   Object.keys(switchButtons).forEach(function (viewKey) {
@@ -44,9 +47,9 @@ export function renderBookingSummary(elements, state) {
     return;
   }
 
-  if (summaryView === "desk") {
+  if (state.activeTab === "communication") {
     elements.summaryContent.hidden = false;
-    elements.summaryContent.innerHTML = renderDeskSummaryPanel(booking, state);
+    elements.summaryContent.innerHTML = renderBookingCommunication(booking, state.communicationNotesView);
     if (elements.summaryTravelersView) {
       elements.summaryTravelersView.hidden = true;
     }
@@ -69,8 +72,16 @@ export function renderBookingWorkspace(elements, state) {
   renderBookingAdminActions(elements, state, booking);
 
   if (!booking) {
+    state.workspaceFocusMode = false;
     if (elements.bookingMainShell) {
       elements.bookingMainShell.classList.add("is-empty-workspace");
+      elements.bookingMainShell.classList.remove("is-workspace-focus");
+    }
+    if (elements.toggleWorkspaceFocus) {
+      elements.toggleWorkspaceFocus.disabled = true;
+      elements.toggleWorkspaceFocus.setAttribute("aria-pressed", "false");
+      elements.toggleWorkspaceFocus.setAttribute("title", "Focus workspace");
+      elements.toggleWorkspaceFocus.setAttribute("aria-label", "Focus workspace");
     }
     elements.summaryDashboard.innerHTML = renderWorkspaceEmptyState(state);
     elements.summaryBlueprintPanel.innerHTML = renderBookingBlueprintPlaceholder(
@@ -91,6 +102,9 @@ export function renderBookingWorkspace(elements, state) {
 
   if (elements.bookingMainShell) {
     elements.bookingMainShell.classList.remove("is-empty-workspace");
+  }
+  if (elements.toggleWorkspaceFocus) {
+    elements.toggleWorkspaceFocus.disabled = false;
   }
   elements.summaryDashboard.innerHTML = renderWorkspaceDashboard(booking, state);
   elements.summaryBlueprintPanel.innerHTML = renderBookingBlueprintPanel(state);
@@ -146,6 +160,9 @@ export function renderBookingBrowser(options) {
   const elements = options.elements;
   const state = options.state;
   const onBookingSelected = options.onBookingSelected;
+  const onSyncBooking = options.onSyncBooking;
+  // Disconnect observations from the previous render, including empty states.
+  observeQueueDeskCells(elements.bookingBrowserBody, null, null);
   const ownerOptions = buildBookingBrowserOwnerOptions(state);
   const stageOptions = buildBookingBrowserStageOptions(state.bookings, state.bookingBrowserStageOptions);
   const hasStageOptions = stageOptions.length > 0;
@@ -153,17 +170,22 @@ export function renderBookingBrowser(options) {
   const pendingOwnerId = state.bookingBrowserPendingOwnerId || "";
   const pendingStages = Array.isArray(state.bookingBrowserPendingStages) ? state.bookingBrowserPendingStages : [];
   const isWide = Boolean(state.bookingBrowserWide);
-  const columnCount = isWide ? 9 : 4;
+  const tablePreferences = getQueueTablePreferences(state);
+  const visibleColumns = getQueueVisibleColumns(tablePreferences, isWide);
+  const columnCount = visibleColumns.length + 1;
   const isWorkspaceLoading = !state.initialized || state.bookingBrowserLoading;
 
   applyBookingBrowserLayoutState(elements, state);
-  elements.bookingBrowserHead.innerHTML = buildBookingBrowserHeaders(isWide);
+  elements.bookingBrowserHead.innerHTML = visibleColumns.map(column => '<th data-service-column-key="' + column.key + '">' + escapeHtml(column.label) + '</th>').join("") + queueColumnButton();
+  configureQueueTable(elements, tablePreferences, isWide, () => renderBookingBrowser(options));
 
-  elements.bookingBrowserOwner.innerHTML = ownerOptions.map(function (option) {
-    return '<option value="' + escapeHtml(option.value) + '"' + (option.value === pendingOwnerId ? " selected" : "") + ">" +
-      escapeHtml(option.label) +
-      "</option>";
-  }).join("");
+  elements.bookingBrowserSearchBy.innerHTML = buildBookingBrowserSearchByOptions(
+    state.bookingBrowserSearchField
+  );
+  elements.bookingBrowserOwner.innerHTML = buildBookingBrowserOwnerOptionMarkup(
+    ownerOptions,
+    pendingOwnerId
+  );
 
   elements.bookingBrowserStagesMenu.innerHTML = hasStageOptions
     ? [
@@ -186,10 +208,15 @@ export function renderBookingBrowser(options) {
   elements.bookingBrowserStagesToggle.textContent = hasStageOptions
     ? getBookingBrowserStagesLabel(stageOptions, pendingStages)
     : "No stages available";
+  elements.bookingBrowserSearchBy.disabled = isWorkspaceLoading;
   elements.bookingBrowserOwner.disabled = isWorkspaceLoading;
   elements.bookingBrowserStagesToggle.disabled = isWorkspaceLoading || !hasStageOptions;
   if (elements.bookingBrowserLoad) {
     elements.bookingBrowserLoad.disabled = isWorkspaceLoading || !(pendingOwnerId && pendingStages.length);
+  }
+  if (elements.bookingBrowserRefresh) {
+    elements.bookingBrowserRefresh.disabled = isWorkspaceLoading;
+    elements.bookingBrowserRefresh.classList.toggle("is-loading", Boolean(state.bookingBrowserLoading));
   }
   if (elements.bookingBrowserSizeToggle) {
     elements.bookingBrowserSizeToggle.disabled = isWorkspaceLoading;
@@ -223,12 +250,17 @@ export function renderBookingBrowser(options) {
     return;
   }
 
-  if (!filteredBookings.length) {
+  if (state.bookingBrowserError || !filteredBookings.length) {
+    const query = state.bookingBrowserQueryDebug;
+    const diagnostic = query
+      ? 'CRM records received: ' + query.received + '. ' + query.ownerField + ': ' + query.ownerId + '. ' + query.stageField + ': ' + query.stages.join(', ')
+      : 'Loaded records: ' + state.bookings.length + '. Filters applied: ' + Boolean(state.bookingBrowserFiltersApplied);
     elements.bookingBrowserBody.innerHTML = [
       '<tr class="booking-browser-empty-row">',
       '  <td colspan="' + columnCount + '" class="table-empty booking-browser-empty">',
-      '    <strong>No bookings found</strong>',
-      '    <span>Try changing the owner or stage filters.</span>',
+      '    <strong>' + (state.bookingBrowserError ? 'Could not load bookings' : 'No bookings found') + '</strong>',
+      '    <span>' + escapeHtml(state.bookingBrowserError || (state.bookings.length ? 'The current filters exclude the loaded bookings.' : 'CRM returned no bookings for this search.')) + '</span>',
+      '    <details class="booking-queue-search-details"><summary>Search details</summary><p>' + escapeHtml(diagnostic) + '</p></details>',
       '  </td>',
       '</tr>'
     ].join("");
@@ -240,19 +272,15 @@ export function renderBookingBrowser(options) {
 
     return [
       '<tr class="booking-browser-row' + isActive + '" data-browser-booking-id="' + escapeHtml(booking.id) + '">',
-      "  <td>" + escapeHtml(booking.Deal_Name || "-") + "</td>",
-      "  <td>" + escapeHtml(booking.MFSP_Reference || "-") + "</td>",
-      "  <td>" + escapeHtml(formatDate(booking.Arrival_Date)) + "</td>",
-      isWide ? "  <td>" + escapeHtml(formatDate(booking.Departure_Date)) + "</td>" : "",
-      "  <td>" + escapeHtml(booking.Stage || "-") + "</td>",
-      isWide ? "  <td>" + escapeHtml(booking.Travelers_Number || "-") + "</td>" : "",
-      isWide ? "  <td>" + escapeHtml(getLookupName(booking.Account_Name) || "-") + "</td>" : "",
-      isWide ? "  <td>" + escapeHtml(getLookupName(booking.Primary_Contact) || "-") + "</td>" : "",
-      isWide ? "  <td>" + escapeHtml(formatCurrency(booking.Sales_Price)) + "</td>" : "",
+      visibleColumns.map(function (column) {
+        return '<td data-queue-column="' + column.key + '"' + (column.key === "sync" ? ' class="booking-browser-sync-cell"' : '') + '>' + renderQueueCell(column.key, booking, state) + '</td>';
+      }).join(""),
+      '<td class="queue-columns-spacer"></td>',
       "</tr>"
     ].join("");
   }).join("");
 
+  observeQueueDeskCells(elements.bookingBrowserBody, options.onLoadDeskTicket, formatDeskLatestInteraction);
   Array.prototype.forEach.call(elements.bookingBrowserBody.querySelectorAll("tr[data-browser-booking-id]"), function (row) {
     row.addEventListener("click", function () {
       const bookingId = row.getAttribute("data-browser-booking-id");
@@ -265,24 +293,126 @@ export function renderBookingBrowser(options) {
       }
     });
   });
+
+  Array.prototype.forEach.call(elements.bookingBrowserBody.querySelectorAll("[data-browser-sync-booking-id]"), function (button) {
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const bookingId = button.getAttribute("data-browser-sync-booking-id");
+      const booking = state.bookings.find(function (entry) { return String(entry.id) === String(bookingId); });
+      if (booking && onSyncBooking) onSyncBooking(booking);
+    });
+  });
 }
 
-function buildBookingBrowserHeaders(isWide) {
-  const headers = ["Booking", "MFSP", "Arrival date"];
+function renderQueueCell(key, booking, state) {
+  switch (key) {
+    case "booking": return escapeHtml(booking.Deal_Name || "-") + renderBookingTags(booking, true);
+    case "mfsp": return escapeHtml(booking.MFSP_Reference || "-");
+    case "arrival": return escapeHtml(formatDate(booking.Arrival_Date));
+    case "departure": return escapeHtml(formatDate(booking.Departure_Date));
+    case "stage": return renderBookingBrowserStage(booking.Stage);
+    case "travelers": return escapeHtml(booking.Travelers_Number || "-");
+    case "agency": return escapeHtml(getLookupName(booking.Account_Name) || "-");
+    case "contact": return escapeHtml(getLookupName(booking.Primary_Contact) || "-");
+    case "sales": return escapeHtml(formatCurrency(booking.Sales_Price));
+    case "sync": return renderBookingBrowserSync(booking, state);
+    case "desk": {
+      const ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
+      if (!ticketId || ticketId === "-") return "No Desk ticket";
+      const selectedTicket = String(booking.id) === String(state.selectedBookingId) && state.deskTicketLoadedBookingId === state.selectedBookingId ? state.deskTicket : null;
+      return '<strong data-queue-desk-ticket="' + escapeHtml(ticketId) + '" data-queue-desk-party="' + escapeHtml(selectedTicket?.latest_interaction?.party || "system") + '">' + escapeHtml(selectedTicket ? formatDeskLatestInteraction(selectedTicket) : "Loading latest interaction…") + '</strong>';
+    }
+    default: return "";
+  }
+}
 
-  if (isWide) {
-    headers.push("Departure date");
+function renderBookingBrowserSync(booking, state) {
+  const lastSyncAtRaw = getBookingRawValue(booking, ["Last_Ezus_Sync_At", "Last EZUS Sync At", "Last_EZUS_Sync_At"]);
+  const lastSyncBy = getBookingValue(booking, ["Last_Ezus_Sync_By", "Last EZUS Sync By", "Last_EZUS_Sync_By"]);
+  const lastSyncAt = lastSyncAtRaw ? new Date(lastSyncAtRaw) : null;
+  const syncLabel = lastSyncAt && !Number.isNaN(lastSyncAt.getTime())
+    ? formatElapsedTime(Date.now() - lastSyncAt.getTime()) + " ago"
+    : "No sync recorded";
+  const syncMessage = buildEzusSyncMessage(booking, lastSyncAtRaw);
+  const tooltip = "Last synchronized by: " + (lastSyncBy || "Unknown") + ". When: " + (lastSyncAtRaw ? formatDateTime(lastSyncAtRaw) : "Unknown");
+  const isSyncing = Boolean(state.syncingEzusBookingIds && state.syncingEzusBookingIds[String(booking.id)]);
+  const canSync = Boolean(booking.Ezus_Project_ID) && !isSyncing;
+  return [
+    '<div class="booking-browser-sync">',
+    '  <strong title="' + escapeHtml(tooltip) + '">' + escapeHtml(syncLabel) + "</strong>",
+    '  <button class="button tertiary compact booking-browser-sync-button' + (isSyncing ? " is-loading" : "") + '" type="button" data-browser-sync-booking-id="' + escapeHtml(booking.id) + '"' + (canSync ? "" : " disabled") + (isSyncing ? ' aria-label="Synchronizing with EZUS" aria-busy="true"' : "") + ">" + (isSyncing ? '<span class="booking-browser-sync-spinner" aria-hidden="true"></span><span>Syncing...</span>' : "Sync EZUS") + "</button>",
+    syncMessage ? '  <span class="booking-browser-sync-note ' + escapeHtml(syncMessage.className) + '">' + escapeHtml(syncMessage.text) + "</span>" : "",
+    "</div>"
+  ].join("");
+}
+
+function renderBookingBrowserStage(stage) {
+  const label = String(stage || "-");
+  const color = getBookingBrowserStageColor(label);
+
+  if (!color) {
+    return '<span class="booking-browser-stage">' + escapeHtml(label) + "</span>";
   }
 
-  headers.push("Stage");
+  return '<span class="booking-browser-stage" style="background-color:' + color + "; color:" + getReadableTextColor(color) + '">' +
+    escapeHtml(label) +
+    "</span>";
+}
 
-  if (isWide) {
-    headers.push("Travelers", "Agency", "Primary contact", "Sales price");
+function getBookingBrowserStageColor(stage) {
+  const normalizedStage = normalizeComparableText(stage);
+  const colors = {
+    "quotation": "#add9ff",
+    "quotation1": "#add9ff",
+    "copy quote": "#f5c72f",
+    "in progress": "#25b52a",
+    "in review": "#25b52a",
+    "closed won": "#25b52a",
+    "confirmed": "#25b52a",
+    "closed": "#25b52a",
+    "cancelled w/charges": "#eb4d4d",
+    "cancelled w/charges1": "#177ba0",
+    "closed lost": "#eb4d4d",
+    "dead": "#eb4d4d",
+    "dead1": "#f00707",
+    "pending assignation": "#5d4ffb",
+    "reservation in progress": "#ffda62",
+    "changes requested": "#f27e22",
+    "all services confirmed": "#98d681",
+    "cancelled": "#9a2e47",
+    "fid in review": "#e972fd",
+    "fid sent": "#25b52a",
+    "on tour": "#578c42",
+    "trip accounting closure": "#168aef",
+    "booking closed": "#25b52a",
+    "pending review": "#f6c1ff",
+    "review done": "#34a617",
+    "request qualified": "#8a37be",
+    "proposal sent": "#98d681",
+    "mi - migrated": "#f27e22",
+    "testing": "#4137be"
+  };
+
+  if (colors[normalizedStage]) {
+    return colors[normalizedStage];
   }
 
-  return headers.map(function (label) {
-    return "<th>" + escapeHtml(label) + "</th>";
-  }).join("");
+  const displayStageAliases = {
+    "qu - quotation": "quotation",
+    "cc - copy quote": "copy quote",
+    "ip - in progress": "in progress",
+    "ir - in review": "in review",
+    "ac - accepted": "closed won",
+    "cf - confirmed": "confirmed",
+    "cl - closed": "closed",
+    "cg - cancelled w/charges": "cancelled w/charges",
+    "cx - cancelled": "closed lost",
+    "de - dead": "dead",
+    "ir - migrated": "mi - migrated"
+  };
+
+  return colors[displayStageAliases[normalizedStage]] || "";
 }
 
 function applyBookingBrowserLayoutState(elements, state) {
@@ -290,11 +420,11 @@ function applyBookingBrowserLayoutState(elements, state) {
   var isCollapsed = Boolean(state.bookingBrowserCollapsed);
 
   if (elements.bookingHubShell) {
-    elements.bookingHubShell.classList.toggle("is-browser-wide", isWide && !isCollapsed);
     elements.bookingHubShell.classList.toggle("is-browser-collapsed", isCollapsed);
   }
 
   if (elements.bookingBrowserPanel) {
+    updateBookingQueueOverlay(elements.bookingBrowserPanel, isWide && !isCollapsed);
     elements.bookingBrowserPanel.classList.toggle("is-wide", isWide && !isCollapsed);
     elements.bookingBrowserPanel.classList.toggle("is-collapsed", isCollapsed);
   }
@@ -309,6 +439,7 @@ function applyBookingBrowserLayoutState(elements, state) {
       : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M3 3l6 6M16 3h5v5M21 3l-6 6M8 21H3v-5M3 21l6-6M16 21h5v-5M21 21l-6-6"/></svg>';
     elements.bookingBrowserSizeToggle.setAttribute("aria-label", isWide ? "Make booking queue compact" : "Expand booking queue");
     elements.bookingBrowserSizeToggle.setAttribute("title", isWide ? "Make compact" : "Expand");
+    elements.bookingBrowserSizeToggle.setAttribute("aria-expanded", String(isWide && !isCollapsed));
     elements.bookingBrowserSizeToggle.disabled = isCollapsed;
   }
 
@@ -341,100 +472,7 @@ function renderSummaryMainPanel(booking, viewName) {
     return renderFinancialSummaryView(booking);
   }
 
-  const summaryViews = {
-    basic: {
-      title: "Booking Information",
-      items: [
-        buildSummaryItem("Booking Name", getBookingValue(booking, ["Deal_Name", "Name", "Booking_Name"])),
-        buildSummaryItem("Arrival Date", formatDate(booking.Arrival_Date)),
-        buildSummaryItem("Departure Date", formatDate(booking.Departure_Date)),
-        buildSummaryItem("Trip Duration", getTripDurationLabel(booking)),
-        buildSummaryItem("Travelers Number", firstTextValue(booking.Travellers_Number, booking.Travelers_Number, booking.Number_of_Travelers))
-      ]
-    },
-    contact: {
-      title: "Contacts",
-      items: [
-        buildSummaryItem("Contact", getBookingValue(booking, ["Contact_Name", "Primary_Contact"])),
-        buildSummaryItem("Contact Email", getBookingValue(booking, ["Agent_Email", "Travel_Agent_Email"])),
-        buildSummaryItem("Client", getBookingValue(booking, ["Client_Name", "Account_Name", "Agency"])),
-        buildSummaryItem("Client Type", getBookingValue(booking, ["Client_Type"]))
-      ]
-    },
-    analytics: {
-      title: "Trip profile",
-      items: [
-        buildSummaryItem("Traveler type", getBookingValue(booking, ["Traveler_Type", "Traveller_Type", "Travellers_Type"])),
-        buildSummaryItem("Trip type", getBookingValue(booking, ["Trip_Type"])),
-        buildSummaryItem("Department", getBookingValue(booking, ["Department"])),
-        buildSummaryItem("Countries visited", getBookingValue(booking, ["Countries_Visited"]))
-      ]
-    },
-    team: {
-      title: "Internal ownership",
-      items: [
-        buildSummaryItem("Booking owner", getLookupName(booking.Owner) || "-"),
-        buildSummaryItem("Sales rep", getBookingValue(booking, ["Sales_Rep", "Sales_Representative", "Salesperson"])),
-        buildSummaryItem("Reservations rep", getBookingValue(booking, ["Reservation_Rep", "Reservations_Rep", "Reservations_Representative"])),
-        buildSummaryItem("Accounting rep", getBookingValue(booking, ["Accounting_Rep", "Accounting_Representative"])),
-        buildSummaryItem("Guest relations", getBookingValue(booking, ["Guest_Relations_Rep", "Guest_Relations_Representative"])),
-        buildSummaryItem("24h rep", getBookingValue(booking, ["Hour_Rep", "Rep_24h", "24h_Rep", "TwentyFourHour_Rep", "TwentyFour_Hour_Rep"]))
-      ]
-    }
-  };
-  const section = summaryViews[viewName] || summaryViews.basic;
-
-  return [
-    '<div class="summary-view-layout">',
-    '  <section class="summary-section">',
-    '    <div class="summary-section-header">',
-    '      <h2>' + escapeHtml(section.title) + "</h2>",
-    "    </div>",
-    '    <div class="summary-cards-grid">' + section.items.join("") + "</div>",
-    "  </section>",
-    "</div>"
-  ].join("");
-}
-
-function renderDeskSummaryPanel(booking, state) {
-  var ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
-  var ticket = state.deskTicket;
-
-  if (!ticketId || ticketId === "-") {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">This booking has no associated Desk ticket.</p></section>';
-  }
-
-  if (state.deskTicketLoading) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">Loading the latest ticket interaction…</p></section>';
-  }
-
-  if (state.deskTicketError) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">' + escapeHtml(state.deskTicketError) + '</p></section>';
-  }
-
-  if (!ticket) {
-    return '<section class="summary-section"><div class="summary-section-header"><h2>Desk</h2></div><p class="summary-empty-state">No Desk information is available yet.</p></section>';
-  }
-
-  var interaction = ticket.latest_interaction || {};
-  var party = interaction.party === "agent" ? "Our team" : interaction.party === "customer" ? "Customer" : "System";
-  var openButton = ticket.url
-    ? '<a class="button tertiary compact" href="' + escapeHtml(ticket.url) + '" target="_blank" rel="noopener noreferrer">Open in Desk</a>'
-    : "";
-
-  return [
-    '<section class="summary-section">',
-    '  <div class="summary-section-header"><h2>Desk</h2>' + openButton + '</div>',
-    '  <div class="summary-cards-grid">',
-    buildSummaryItem("Ticket", ticket.ticket_number || ticket.id || ticketId),
-    buildSummaryItem("Status", ticket.status || "-"),
-    buildSummaryItem("Last interaction", party),
-    buildSummaryItem("When", interaction.created_time ? formatDateTime(interaction.created_time) : "-"),
-    buildSummaryItem("By", interaction.author_name || "-"),
-    '  </div>',
-    '  <article class="summary-metric-panel"><h3>Latest message</h3><p>' + escapeHtml(interaction.summary || "No message preview is available.") + '</p></article>',
-    '</section>'
-  ].join("");
+  return renderBookingOverview(booking, getTripDurationLabel(booking));
 }
 
 function renderFinancialSummaryView(booking) {
@@ -496,6 +534,16 @@ function renderSummaryHero(booking) {
 }
 
 function renderWorkspaceEmptyState(state) {
+  if (state.bookingWorkspaceLoadingLabel) {
+    return [
+      '<section class="workspace-surface workspace-empty-state workspace-empty-state--loading" role="status" aria-live="polite" aria-busy="true">',
+      '  <div class="workspace-empty-state-copy">',
+      '    <span class="table-loading-indicator" aria-hidden="true"></span>',
+      '    <strong>Loading booking: ' + escapeHtml(state.bookingWorkspaceLoadingLabel) + '</strong>',
+      '  </div>',
+      '</section>'
+    ].join("");
+  }
   const isBookingQueueLoading = !state.initialized || state.bookingBrowserLoading;
 
   if (isBookingQueueLoading) {
@@ -571,6 +619,8 @@ function renderBookingActionArea(elements, booking, state) {
       elements.actionHasAxus.textContent = "Not set";
       elements.actionHasAxus.className = "";
     }
+    renderItineraryLinkControl(elements, "");
+    renderBookingQuickAccess(elements, null, "");
     elements.actionEzusSyncWarning.hidden = true;
     elements.actionEzusSyncWarning.textContent = "";
     elements.actionEzusSyncWarning.className = "booking-status-note";
@@ -615,10 +665,82 @@ function renderBookingActionArea(elements, booking, state) {
     elements.actionHasAxus.textContent = hasAxusState.label;
     elements.actionHasAxus.className = "action-status-badge " + hasAxusState.className;
   }
+  renderItineraryLinkControl(elements, getItineraryLinkValue(booking));
+  renderBookingQuickAccess(elements, booking, hasAxusState.label);
   renderBookingDeskStatus(elements, booking, state);
   elements.actionEzusSyncWarning.hidden = !syncMessage;
   elements.actionEzusSyncWarning.textContent = syncMessage ? syncMessage.text : "";
   elements.actionEzusSyncWarning.className = "booking-status-note " + (syncMessage ? syncMessage.className : "");
+}
+
+function renderBookingQuickAccess(elements, booking, itineraryFormat) {
+  if (!elements.bookingQuickAccess) {
+    return;
+  }
+
+  const deskTicketId = getBookingQuickAccessValue(booking, ["Desk Ticket ID", "Desk_Ticket_ID", "Desk_Ticket_Id", "DeskTicketID"]);
+  const workdriveFolderId = getBookingQuickAccessValue(booking, ["Booking Workdrive Folder ID", "Booking_Workdrive_Folder_ID", "Booking_WorkDrive_Folder_ID", "BookingWorkdriveFolderID", "Workdrive_Folder_ID"]);
+  const ezusProjectApi = getBookingQuickAccessValue(booking, ["Ezus Project API", "Ezus_Project_API", "Ezus_Project_Api", "EzusProjectAPI", "Ezus_Project_ID"]);
+  const axusItineraryId = getBookingQuickAccessValue(booking, ["Axus Itinerary ID", "Axus_Itinerary_ID", "AXUS_Itinerary_ID", "Axus_Itinerary_Id", "AXUS Itinerary ID"]);
+  const isAxus = itineraryFormat === "AXUS";
+  const isEzus = itineraryFormat === "EZUS";
+
+  setQuickAccessLink(elements.quickAccessDesk, deskTicketId, "https://desk.zoho.eu/agent/madeforspainandportugal/new-request-handling/tickets/details/");
+  setQuickAccessLink(elements.quickAccessWorkdrive, workdriveFolderId, "https://workdrive.zoho.eu/folder/");
+  setQuickAccessLink(elements.quickAccessEzus, isEzus ? ezusProjectApi : "", "https://pro.ezus.io/project?id=");
+  setQuickAccessLink(elements.quickAccessAxus, isAxus ? axusItineraryId : "", "https://axustravelapp.com/admin/itinerary/");
+
+  elements.bookingQuickAccess.hidden = !booking || ![deskTicketId, workdriveFolderId, isEzus ? ezusProjectApi : "", isAxus ? axusItineraryId : ""].some(Boolean);
+}
+
+function getBookingQuickAccessValue(booking, fieldNames) {
+  const value = booking ? getBookingValue(booking, fieldNames) : "";
+  return value && value !== "-" ? value : "";
+}
+
+function setQuickAccessLink(linkElement, id, urlPrefix) {
+  if (!linkElement) {
+    return;
+  }
+
+  linkElement.hidden = !id;
+  if (id) {
+    linkElement.href = urlPrefix + encodeURIComponent(id);
+  } else {
+    linkElement.removeAttribute("href");
+  }
+}
+
+function renderItineraryLinkControl(elements, itineraryLink) {
+  if (!elements.actionItineraryOpen || !elements.actionItineraryEdit || !elements.actionItineraryForm) {
+    return;
+  }
+
+  const hasItineraryLink = Boolean(itineraryLink);
+  elements.actionItineraryLink.classList.toggle("is-missing", !hasItineraryLink);
+  elements.actionItineraryOpen.hidden = false;
+  elements.actionItineraryOpen.textContent = hasItineraryLink ? "Open itinerary ↗" : "Itinerary link required";
+  elements.actionItineraryOpen.setAttribute("aria-label", hasItineraryLink ? "Open itinerary" : "Add required itinerary link");
+  elements.actionItineraryEdit.hidden = !hasItineraryLink;
+  elements.actionItineraryEdit.textContent = "Edit";
+  elements.actionItineraryForm.hidden = true;
+  elements.actionItineraryLink.classList.remove("is-editing");
+}
+
+function getItineraryLinkValue(booking) {
+  var fieldNames = ["Axus_Link", "AXUS_Link", "AXUS Link", "Axus Link"];
+
+  for (var index = 0; index < fieldNames.length; index += 1) {
+    var rawValue = booking && booking[fieldNames[index]];
+    var itineraryLink = rawValue === null || rawValue === undefined ? "" : String(rawValue).trim();
+    var normalizedLink = itineraryLink.toLowerCase();
+
+    if (itineraryLink && normalizedLink !== "null" && normalizedLink !== "undefined" && itineraryLink !== "-") {
+      return itineraryLink;
+    }
+  }
+
+  return "";
 }
 
 function renderBookingDeskStatus(elements, booking, state) {
@@ -649,6 +771,11 @@ function renderBookingDeskStatus(elements, booking, state) {
     return;
   }
 
+  elements.bookingDeskStatus.textContent = formatDeskLatestInteraction(ticket);
+}
+
+export function formatDeskLatestInteraction(ticket) {
+  if (!ticket) return "No interaction available";
   var interaction = ticket.latest_interaction || {};
   var party = interaction.party === "agent" ? "Our team" : interaction.party === "customer" ? "Client" : "System";
   var author = interaction.author_name ? " · " + interaction.author_name : "";
@@ -657,7 +784,7 @@ function renderBookingDeskStatus(elements, booking, state) {
     ? " · " + formatElapsedTime(Date.now() - interactionTime.getTime()) + " ago"
     : "";
 
-  elements.bookingDeskStatus.textContent = party + author + elapsed;
+  return party + author + elapsed;
 }
 
 function renderBookingBlueprintPanel(state) {
@@ -703,7 +830,7 @@ function renderBookingBlueprintPanel(state) {
     '        <span class="summary-blueprint-state" style="' + escapeHtml(buildBlueprintStateStyle(currentStateColor)) + '">' + escapeHtml(currentStateLabel) + "</span>",
     "    </div>",
     orderedTransitions.length
-      ? '    <div class="booking-workflow-actions">' + renderBookingBlueprintTransitions(orderedTransitions) + "</div>"
+      ? '    <div class="booking-workflow-actions">' + renderBookingBlueprintTransitions(orderedTransitions, state.bookingBlueprintExecuting) + "</div>"
       : '    <span class="booking-workflow-empty">No workflow action is currently required.</span>',
     "  </div>",
     "</section>"
@@ -721,13 +848,13 @@ function renderBookingBlueprintPlaceholder(title, message, modifierClass) {
   ].join("");
 }
 
-function renderBookingBlueprintTransitions(transitions) {
+function renderBookingBlueprintTransitions(transitions, busy) {
   return '<div class="summary-blueprint-transition-list">' +
-    '<div class="workflow-transition-group">' + renderWorkflowTransitionButtons(transitions, true) + "</div>" +
+    '<div class="workflow-transition-group">' + renderWorkflowTransitionButtons(transitions, true, busy) + "</div>" +
     "</div>";
 }
 
-function renderWorkflowTransitionButtons(transitions, canContainPrimary) {
+function renderWorkflowTransitionButtons(transitions, canContainPrimary, busy) {
   return transitions.map(function (transition, index) {
     const transitionId = transition && transition.id ? String(transition.id) : "";
     const transitionName = transition && transition.name ? String(transition.name) : (transition && transition.next_field_value ? String(transition.next_field_value) : "Transition");
@@ -735,12 +862,12 @@ function renderWorkflowTransitionButtons(transitions, canContainPrimary) {
     const transitionTextColor = transition && transition.text_color_code ? String(transition.text_color_code) : "#132019";
     const transitionFields = Array.isArray(transition && transition.fields) ? transition.fields : [];
     const requiresFields = transitionFields.length > 0;
-    const isDisabled = transition && transition.criteria_matched === false;
+    const isDisabled = busy || !transitionId || transition && transition.criteria_matched === false;
     const normalizedName = normalizeComparableText(transitionName);
     const isDestructive = normalizedName.indexOf("cancel") !== -1 || normalizedName.indexOf("dead") !== -1;
     const actionClassName = ["blueprint-transition-button", canContainPrimary && index === 0 && !isDisabled ? "blueprint-transition-button--primary" : "", isDestructive ? "blueprint-transition-button--danger" : ""].filter(Boolean).join(" ");
     const helperText = requiresFields
-      ? transitionFields.length + (transitionFields.length === 1 ? " required field" : " required fields")
+      ? transitionFields.length + (transitionFields.length === 1 ? " transition field" : " transition fields")
       : transition && transition.next_field_value
         ? "Move to: " + transition.next_field_value
         : "Ready to run";
@@ -785,6 +912,12 @@ function buildSummaryMetricRow(label, value) {
     '  <strong>' + escapeHtml(value !== null && value !== undefined && value !== "" ? String(value) : "-") + "</strong>",
     "</div>"
   ].join("");
+}
+
+export function isBookingSyncRequired(booking) {
+  if (!booking) return false;
+  const lastSyncAtRaw = getBookingRawValue(booking, ["Last_Ezus_Sync_At", "Last EZUS Sync At", "Last_EZUS_Sync_At"]);
+  return Boolean(buildEzusSyncMessage(booking, lastSyncAtRaw));
 }
 
 function buildEzusSyncMessage(booking, lastSyncAtRaw) {
@@ -939,32 +1072,67 @@ function parseDateOnlyValue(value) {
 }
 
 function buildBookingBrowserOwnerOptions(state) {
-  if (Array.isArray(state.bookingBrowserOwnerOptions) && state.bookingBrowserOwnerOptions.length) {
-    return [{ value: "", label: "Select owner" }].concat(state.bookingBrowserOwnerOptions);
-  }
+  return Array.isArray(state.bookingBrowserOwnerOptions)
+    ? state.bookingBrowserOwnerOptions.slice()
+    : [];
+}
 
-  const ownersById = {};
+function buildBookingBrowserSearchByOptions(selectedValue) {
+  const options = [
+    { value: "booking_owner", label: "Booking Owner" },
+    { value: "sales_rep", label: "Sales rep" },
+    { value: "reservations_rep", label: "Reservations rep" },
+    { value: "accounting_rep", label: "Accounting rep" },
+    { value: "guest_relations_rep", label: "Guest relations rep" },
+    { value: "hour_rep", label: "24h rep" }
+  ];
 
-  state.bookings.forEach(function (booking) {
-    const owner = getBookingOwnerInfo(booking);
+  return options.map(function (option) {
+    return '<option value="' + option.value + '"' + (option.value === selectedValue ? " selected" : "") + ">" +
+      escapeHtml(option.label) +
+      "</option>";
+  }).join("");
+}
 
-    if (!owner || !owner.value || ownersById[owner.value]) {
+function buildBookingBrowserOwnerOptionMarkup(ownerOptions, selectedOwnerId) {
+  const selectedOption = (ownerOptions || []).find(function (option) {
+    return option && option.value === selectedOwnerId;
+  });
+  const selectedRole = String(selectedOption && selectedOption.role || "").trim();
+  const groups = {};
+
+  (ownerOptions || []).forEach(function (option) {
+    if (!option || !option.value || !option.label) {
       return;
     }
 
-    ownersById[owner.value] = owner.label;
+    const role = String(option.role || "Other").trim() || "Other";
+    groups[role] = groups[role] || [];
+    groups[role].push(option);
   });
 
-  return [{ value: "", label: "Select owner" }].concat(
-    Object.keys(ownersById).sort(function (left, right) {
-      return ownersById[left].localeCompare(ownersById[right]);
-    }).map(function (ownerId) {
-      return {
-        value: ownerId,
-        label: ownersById[ownerId]
-      };
-    })
-  );
+  const roles = Object.keys(groups).sort(function (left, right) {
+    if (left === selectedRole) {
+      return -1;
+    }
+    if (right === selectedRole) {
+      return 1;
+    }
+    return left.localeCompare(right);
+  });
+  const placeholder = '<option value="">Select owner</option>';
+
+  return placeholder + roles.map(function (role) {
+    const options = groups[role].sort(function (left, right) {
+      return left.label.localeCompare(right.label);
+    }).map(function (option) {
+      return '<option value="' + escapeHtml(option.value) + '"' + (option.value === selectedOwnerId ? " selected" : "") + ">" +
+        escapeHtml(option.label) +
+        "</option>";
+    }).join("");
+
+    return '<optgroup label="' + escapeHtml(role) + '">' + options + "</optgroup>";
+  }).join("");
 }
 
 function buildBookingBrowserStageOptions(bookings, fallbackStages) {
@@ -1010,12 +1178,12 @@ function filterBookingsForBrowser(bookings, state) {
   });
 
   return bookings.filter(function (booking) {
-    const owner = getBookingOwnerInfo(booking);
     const stageValue = normalizeComparableText(getBookingStageValue(booking) || "");
-    const matchesOwner = !state.bookingBrowserOwnerId || owner && owner.value === state.bookingBrowserOwnerId;
     const matchesStage = !selectedStages.length || selectedStages.indexOf(stageValue) !== -1;
 
-    return matchesOwner && matchesStage;
+    // The API query already applies the selected search field and User ID.
+    // Do not re-check Booking Owner here, because the selected field can be a rep lookup.
+    return matchesStage;
   }).sort(function (left, right) {
     const leftArrival = left.Arrival_Date || "";
     const rightArrival = right.Arrival_Date || "";

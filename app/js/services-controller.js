@@ -1,7 +1,9 @@
 import { crmExecuteFunction, crmUpdateRecord } from "./api.js";
-import { onOpenPrepaymentRequestDialog } from "./dialogs-controller.js";
+import { startDraftLoading, stopDraftLoading } from "./draft-loading.js";
 import { MODULES, SERVICE_TABLE_COLUMNS, SERVICE_TABLE_COLUMNS_STORAGE_KEY } from "./constants.js";
 import { buildGroupedRows } from "./data.js";
+import { isBookingSyncRequired } from "./booking-shell.js";
+import { resetServiceColumnWidths } from "./service-column-resizing.js";
 import { elements } from "./dom.js";
 import {
   applyStatusSelectAppearance,
@@ -17,11 +19,13 @@ import { state } from "./state.js";
 import { escapeHtml, normalizeComparableText } from "./utils.js";
 
 let reloadBookingWorkspaceHandler = null;
+let syncBookingHandler = null;
 let serviceStatusPreviewFeedbackTimeout = 0;
 let draggedServiceColumnKey = "";
 
 export function configureServicesController(config) {
   const settings = config || {};
+  syncBookingHandler = typeof settings.syncBooking === "function" ? settings.syncBooking : null;
   reloadBookingWorkspaceHandler = typeof settings.reloadBookingWorkspace === "function"
     ? settings.reloadBookingWorkspace
     : null;
@@ -66,12 +70,6 @@ export function setServiceDetailTab(tabName) {
 
 export function syncBulkPanels() {
   syncBulkStatusActionState();
-}
-
-export function clearServiceSelection() {
-  state.selectedServiceIds = {};
-  closeBulkActionMenus();
-  renderServicesWorkspace();
 }
 
 export function toggleBulkStatusPopover() {
@@ -120,10 +118,6 @@ export function onSelectedServiceStatusChange() {
   onSaveService({ preventDefault: function () {} });
 }
 
-export function onRequestServicePrepayment() {
-  onOpenPrepaymentRequestDialog();
-}
-
 export function onRecordRenfePrepayment() {
   if (!state.selectedService || !state.selectedBooking) {
     return;
@@ -139,7 +133,15 @@ export function onServiceFilterToggleClick(filterKey, event) {
   renderServicesWorkspace();
 }
 
-export function onServiceMultiFilterChange(filterKey, menuElement) {
+export function onServiceMultiFilterChange(filterKey, menuElement, event) {
+  const changedInput = event && event.target;
+
+  if (changedInput && changedInput.matches("input[data-service-filter-toggle-all]")) {
+    Array.prototype.forEach.call(menuElement.querySelectorAll("input[data-service-filter-option]"), function (input) {
+      input.checked = changedInput.checked;
+    });
+  }
+
   state.serviceFilters[filterKey] = Array.prototype.map.call(
     menuElement.querySelectorAll("input[data-service-filter-option]:checked"),
     function (input) {
@@ -171,6 +173,7 @@ export function onToggleServiceColumnsPanel() {
 }
 
 export function onResetServiceColumns() {
+  resetServiceColumnWidths();
   state.serviceTableColumns = getDefaultServiceTableColumns();
   saveServiceTableColumns();
   renderServicesWorkspace();
@@ -476,40 +479,110 @@ export async function onApplyBulkStatus() {
 }
 
 export async function onCreateDraftForSelection(purpose, draftLabel) {
+  if (state.syncingEzus) return;
   const selectedIds = getSelectedServiceIdsForAction();
 
   if (!selectedIds.length) {
     return;
   }
 
-  showLoading(elements, state, "Creating " + draftLabel + " draft...");
+  if ((purpose === "Check Availability" || purpose === "Reservation") && isBookingSyncRequired(state.selectedBooking)) {
+    closeBulkActionMenus();
+    showDraftSyncRequiredDialog();
+    return;
+  }
+
+  const loadingMessage = "Creating " + draftLabel + " draft...";
+  // Draft creation has its own progress and result dialog.
+  showLoading(elements, state, "");
+  closeBulkActionMenus();
+  showCreateDraftModal(loadingMessage, false);
 
   try {
-    const response = await crmExecuteFunction("drafts_new_createdraftsforselection_1", {
+    const response = await crmExecuteFunction("comm_createcommunicationsforselection", {
       serviceIds: formatSelectedServiceIds(selectedIds),
-      purpose: purpose
+      communicationPurpose: purpose,
+      actingUserJson: JSON.stringify({
+        name: state.currentUserName || "",
+        email: state.currentUserEmail || ""
+      })
     });
 
-    let message = "Draft request created for " + selectedIds.length + (selectedIds.length === 1 ? " service." : " services.");
-
-    if (response && response.details && typeof response.details.output === "string" && response.details.output) {
-      message = response.details.output;
-    } else if (response && response.message) {
-      message = response.message;
+    const result = extractCrmFunctionResult(response);
+    const resultErrors = Array.isArray(result.errors) ? result.errors.filter(Boolean) : [];
+    if (result.success !== true || resultErrors.length) {
+      throw new Error(result.message || resultErrors.join(" ") || "CRM could not create all drafts for the selected services.");
     }
 
+    state.selectedServiceIds = {};
+    closeBulkActionMenus();
     if (reloadBookingWorkspaceHandler) {
       await reloadBookingWorkspaceHandler(state.selectedBookingId, {
         preserveNotice: true,
-        preserveSelection: true
+        preserveSelection: false
       });
+    } else {
+      renderServicesWorkspace();
     }
-    setNotice(elements, message);
+    showCreateDraftModal("All drafts were created successfully.", false, true);
   } catch (error) {
-    setError(elements, error.message || "Could not create drafts for the selected services.");
+    const errorMessage = error.message || "Could not create drafts for the selected services.";
+    showCreateDraftModal(errorMessage, true);
   } finally {
     clearLoading(elements, state);
   }
+}
+
+function showDraftSyncRequiredDialog() {
+  if (document.getElementById("draft-sync-required-dialog")) return;
+  const bookingId = state.selectedBookingId;
+  const dialog = document.createElement("dialog");
+  dialog.id = "draft-sync-required-dialog";
+  dialog.className = "draft-sync-required-dialog";
+  dialog.setAttribute("aria-labelledby", "draft-sync-required-title");
+  dialog.setAttribute("aria-describedby", "draft-sync-required-description");
+  dialog.innerHTML = '<h3 id="draft-sync-required-title">You must sync</h3>' +
+    '<p id="draft-sync-required-description">Sync this booking with EZUS before creating an availability or reservation draft. After syncing, select the services and create the draft again.</p>' +
+    '<div class="draft-sync-required-actions"><button class="button success" type="button" data-draft-sync>Sync</button>' +
+    '<button class="button tertiary" type="button" data-draft-sync-close>Close</button></div>';
+  const syncButton = dialog.querySelector("[data-draft-sync]");
+  syncButton.disabled = !syncBookingHandler;
+  syncButton.addEventListener("click", function () {
+    dialog.close();
+    dialog.remove();
+    if (state.selectedBookingId === bookingId && !state.syncingEzus && syncBookingHandler) {
+      syncBookingHandler({ fromCreateDraft: true });
+    }
+  });
+  dialog.querySelector("[data-draft-sync-close]").addEventListener("click", function () { dialog.close(); });
+  dialog.addEventListener("close", function () { dialog.remove(); });
+  document.body.appendChild(dialog);
+  dialog.showModal();
+}
+
+function showCreateDraftModal(message, isError, isSuccess = false) {
+  stopDraftLoading(elements.createDraftModal);
+  const completed = Boolean(isError || isSuccess);
+  elements.createDraftModal.hidden = false;
+  elements.createDraftSpinner.hidden = completed;
+  elements.createDraftModalTitle.hidden = !completed;
+  elements.createDraftModalTitle.textContent = isError ? "Error occurred" : "Drafts created";
+  elements.createDraftModalTitle.classList.toggle("is-success", isSuccess && !isError);
+  const dialog = elements.createDraftModal.querySelector('[role="dialog"]');
+  dialog.setAttribute("aria-labelledby", completed ? "create-draft-modal-title" : "create-draft-modal-message");
+  if (completed) dialog.setAttribute("aria-describedby", "create-draft-modal-message");
+  else dialog.removeAttribute("aria-describedby");
+  elements.createDraftModalMessage.textContent = message;
+  elements.createDraftModalMessage.classList.toggle("is-error", Boolean(isError));
+  elements.createDraftModalClose.hidden = !completed;
+  elements.createDraftModalEmails.hidden = !isSuccess || Boolean(isError);
+  if (completed) elements.createDraftModalClose.focus();
+  else startDraftLoading(elements.createDraftModal, elements.createDraftSpinner);
+}
+
+function closeCreateDraftModal() {
+  stopDraftLoading(elements.createDraftModal);
+  elements.createDraftModal.hidden = true;
 }
 
 export async function onSaveService(event) {
@@ -541,7 +614,7 @@ export async function onSaveService(event) {
 
     renderServicesWorkspace();
     playServiceStatusSavedFeedback();
-    setNotice(elements, "Booking service updated successfully.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error.message || "Could not save the booking service.");
   } finally {
@@ -569,7 +642,7 @@ export async function onUpdateServiceNotes() {
 
     state.selectedService.Service_Notes = elements.fieldServiceNotes.value;
     renderServicesWorkspace();
-    setNotice(elements, "Service notes updated successfully.");
+    setNotice(elements, "");
   } catch (error) {
     setError(elements, error.message || "Could not update service notes.");
   } finally {
@@ -655,14 +728,16 @@ function openRenfePrepaymentDialog() {
   dialog.innerHTML = [
     '<div class="booking-action-dialog-backdrop"></div>',
     '<div class="booking-action-dialog-panel booking-action-dialog-panel--wide renfe-payment-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="renfe-payment-dialog-title">',
-    '<div class="renfe-payment-dialog-heading"><h4 id="renfe-payment-dialog-title">RENFE Payments Form</h4><code class="renfe-payment-service-id">Service ID: ' + escapeHtml(values.service_id) + "</code></div>",
+    '<div class="renfe-payment-dialog-heading"><h4 id="renfe-payment-dialog-title">RENFE Payments Form</h4></div>',
     '<form class="booking-form renfe-payment-form">',
     '<input name="service_id" type="hidden" value="' + escapeHtml(values.service_id) + '">',
-    '<div class="renfe-payment-form-grid">',
+    '<section class="record-context" aria-label="Request and booking information"><div class="record-context-section"><h5>Request</h5><dl>',
     renderRenfeField("Requested Date", "requested_date", values.requested_date, { readOnly: true, type: "date" }),
     renderRenfeField("Requested By", "requested_by", values.requested_by, { readOnly: true, type: "email" }),
+    '</dl></div><div class="record-context-section"><h5>Booking</h5><dl>',
     renderRenfeField("MFSP Reference", "mfsp_reference", values.mfsp_reference, { readOnly: true, required: true }),
     renderRenfeField("Booking Name", "booking_name", values.booking_name, { readOnly: true, required: true }),
+    '</dl></div></section><div class="renfe-payment-form-grid">',
     renderRenfeField("Localizador Ticket RENFE", "localizador_ticket_renfe", values.localizador_ticket_renfe, { required: true }),
     renderRenfeCurrencyField("Total Tickets Amount", "total_tickets_amount", values.total_tickets_amount),
     '<label class="field renfe-payment-observations"><span>Observations</span><textarea name="observations" rows="5">' + escapeHtml(values.observations) + "</textarea></label>",
@@ -709,6 +784,9 @@ function openRenfePrepaymentDialog() {
 
 function renderRenfeField(label, name, value, options) {
   const settings = options || {};
+  if (settings.readOnly) {
+    return '<div><dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(value || "-") + '</dd><input type="hidden" name="' + escapeHtml(name) + '" value="' + escapeHtml(value) + '"></div>';
+  }
   const attributes = [
     'name="' + name + '"',
     'value="' + escapeHtml(value) + '"',
@@ -915,4 +993,20 @@ function getSelectedServiceIdsForAction() {
 
 function formatSelectedServiceIds(serviceIds) {
   return serviceIds.join("|||");
+}
+
+function extractCrmFunctionResult(response) {
+  const candidate = response && response.details && (response.details.output || response.details.response)
+    ? response.details.output || response.details.response
+    : response;
+
+  if (typeof candidate === "string") {
+    try {
+      return JSON.parse(candidate);
+    } catch (error) {
+      return { success: !/error|fail|exception/i.test(candidate), message: candidate };
+    }
+  }
+
+  return candidate || {};
 }

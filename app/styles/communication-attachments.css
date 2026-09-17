@@ -1,0 +1,28 @@
+.mail-attachments-button { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.mail-attachments-button[hidden] { display: none; }
+.mail-attachments-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.communication-attachments-dialog { box-sizing: border-box; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 22px; border: 1px solid #e4e7ec; border-radius: 14px; background: #fff; color: #344054; box-shadow: 0 20px 48px rgba(16,24,40,.22); font: 13px/1.4 var(--font-body); }
+.communication-attachments-dialog::backdrop { background: rgba(16,24,40,.35); }
+.communication-attachments-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.communication-attachments-dialog h3 { margin: 0; font-size: 16px; }
+.communication-attachments-dialog .attachment-help { margin: 7px 0 16px; color: #667085; font-size: 12px; }
+.attachment-drop-zone { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 14px; border: 1px dashed #98a2b3; border-radius: 10px; background: #f8fbfa; transition: background 140ms ease, border-color 140ms ease; }
+.attachment-drop-zone[hidden] { display: none; }
+.attachment-drop-zone.is-dragging { border-color: #167b62; background: #eaf7ef; }
+.attachment-drop-zone > svg { width: 28px; height: 28px; fill: none; stroke: #167b62; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.attachment-drop-zone > span { color: #667085; font-size: 12px; }
+.attachment-list { padding: 0; margin: 16px 0 0; list-style: none; }
+.attachment-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid #eaecf0; }
+.attachment-list li > div { min-width: 0; }
+.attachment-list strong { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.attachment-list small { display: block; margin-top: 2px; color: #667085; font-size: 11px; }
+.attachment-list .icon-button { flex: 0 0 auto; }
+.attachment-list .attachment-empty { color: #667085; font-size: 12px; }
+.attachment-feedback { margin: 12px 0; color: #167b62; font-size: 12px; overflow-wrap: anywhere; }
+.attachment-feedback.is-error { color: #b42318; }
+.attachment-diagnostic { color: #667085; font-size: 11px; }
+.attachment-diagnostic summary { cursor: pointer; }
+.attachment-diagnostic pre { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.communication-attachments-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.communication-attachments-dialog button:disabled { opacity: .55; cursor: default; }
+.communication-attachments-dialog[aria-busy="true"] .attachment-drop-zone { opacity: .6; }

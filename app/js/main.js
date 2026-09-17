@@ -1,5 +1,7 @@
 import { init } from "./booking-controller.js";
 import { initFloatingLayer } from "./floating-layer.js";
+import { initMailFormatting } from "./mail-formatting.js";
+import { onToggleServiceColumnsPanel } from "./services-controller.js";
 
 function addDialogCloseButton(panel) {
   if (!panel || panel.querySelector("[data-dialog-dismiss]")) {
@@ -38,7 +40,7 @@ function closeDialogFromDismissButton(button) {
   const outlookConfirm = button.closest("#mail-outlook-confirm");
 
   if (columnsPanel) {
-    columnsPanel.querySelector("#close-service-columns").click();
+    onToggleServiceColumnsPanel();
     return;
   }
 
@@ -62,6 +64,7 @@ function closeDialogFromDismissButton(button) {
   }
 }
 
+initMailFormatting();
 addDialogCloseButtons(document);
 document.addEventListener("click", function (event) {
   const dismissButton = event.target.closest("[data-dialog-dismiss]");

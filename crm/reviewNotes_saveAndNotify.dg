@@ -1,0 +1,247 @@
+string standalone.reviewNotes_saveAndNotify(string bookingId, string actingUserId, string expectedNotes, string notesJson)
+{
+result = {"success":false,"saved":false,"notificationStatus":"not_attempted"};
+diagnostics = {"phase":"validate_input","bookingId":bookingId,"actingUserId":actingUserId,"sender":"crmadmin@madeforspainandportugal.com","functionVersion":"review-notes-diagnostics-v1"};
+result.put("diagnostics",diagnostics);
+try
+{
+    if(!bookingId.matches("[0-9]+") || !actingUserId.matches("[0-9]+"))
+    {
+        result.put("message","Invalid booking or signed-in user.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    // The widget supplies the acting CRM user ID. Resolve contact details from
+    // User_Relationships.User_ID, not the relationship record ID or function owner.
+    diagnostics.put("phase","read_booking");
+    booking = zoho.crm.getRecordById("Deals",bookingId.toLong());
+    if(!booking.containKey("Review_Notes") || booking.get("Modified_Time") == null)
+    {
+        result.put("message","Review Notes are unavailable. Check CRM permissions.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    ownerId = ifnull(ifnull(booking.get("Owner"),Map()).get("id"),"").toString();
+    guestId = ifnull(ifnull(booking.get("Guest_Relations_Rep"),Map()).get("id"),"").toString();
+    diagnostics.put("ownerId",ownerId);
+    diagnostics.put("guestId",guestId);
+    diagnostics.put("phase","check_booking_roles");
+    if(actingUserId != ownerId && actingUserId != guestId)
+    {
+        result.put("message","Only this booking's Owner or Guest Relations representative can change Review Notes.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    diagnostics.put("phase","compare_notes");
+    current = ifnull(booking.get("Review_Notes"),"").toString();
+    if(current == notesJson)
+    {
+        // A repeated save must not send another email. This does not assert delivery.
+        result.put("success",true);
+        result.put("saved",true);
+        result.put("notesJson",current);
+        result.put("notificationStatus","unchanged");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    if(current != ifnull(expectedNotes,""))
+    {
+        result.put("message","Review Notes changed in another session. Reopen notes before saving.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    diagnostics.put("phase","parse_notes");
+    nextDoc = notesJson.toMap();
+    if(nextDoc.get("version") != 1 || nextDoc.get("notes") == null || notesJson.length() > 30000)
+    {
+        result.put("message","Invalid or oversized Review Notes document.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    previous = Map();
+    if(current.trim().startsWith("{") || current.trim().startsWith("["))
+    {
+        previousDoc = current.toMap();
+        if(previousDoc.get("version") != 1 || previousDoc.get("notes") == null)
+        {
+            result.put("message","Unsupported saved Review Notes. No changes were made.");
+            result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+        }
+        for each entry in previousDoc.get("notes") { previous.put(entry.get("id"),entry); }
+        if(ifnull(previousDoc.get("legacyText"),"") != ifnull(nextDoc.get("legacyText"),""))
+        {
+            result.put("message","Existing review history cannot be removed during this save.");
+            result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+        }
+    }
+    else if(current.trim() != "")
+    {
+        // Both widgets historically used different wrappers for the same free text.
+        if(ifnull(nextDoc.get("legacyText"),"") != current)
+        {
+            legacy = {"id":"legacy-review-note","body":current,"author":"Existing review notes","at":""};
+            previous.put("legacy-review-note",legacy);
+        }
+    }
+    incoming = Map();
+    changed = List();
+    for each entry in nextDoc.get("notes")
+    {
+        noteId = ifnull(entry.get("id"),"").toString();
+        if(noteId == "" || incoming.containKey(noteId) || ifnull(entry.get("body"),"").trim() == "" || entry.get("author") == null || entry.get("at") == null)
+        {
+            result.put("message","Invalid Review Note. No changes were made.");
+            result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+        }
+        incoming.put(noteId,entry);
+        old = previous.get(noteId);
+        if(old == null)
+        {
+            changed.add({"action":"added","note":entry});
+        }
+        else if(old.get("body") != entry.get("body") || ifnull(old.get("formatting"),List()).toString() != ifnull(entry.get("formatting"),List()).toString())
+        {
+            changed.add({"action":"edited","note":entry});
+        }
+    }
+    for each noteId in previous.keys()
+    {
+        if(!incoming.containKey(noteId)) { changed.add({"action":"deleted","note":previous.get(noteId)}); }
+    }
+    if(changed.isEmpty())
+    {
+        result.put("success",true);
+        result.put("saved",true);
+        result.put("notesJson",current);
+        result.put("notificationStatus","unchanged");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    if(changed.size() != 1)
+    {
+        result.put("message","Save one Review Note at a time. Reopen notes and try again.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    recipientId = if(actingUserId == guestId,ownerId,guestId);
+    diagnostics.put("recipientId",recipientId);
+    diagnostics.put("action",changed.get(0).get("action"));
+    diagnostics.put("phase","resolve_user_relationships");
+    userIds = List();
+    userIds.add(actingUserId);
+    if(recipientId != "" && recipientId != actingUserId) { userIds.add(recipientId); }
+    usersById = Map();
+    for each userId in userIds
+    {
+        diagnostics.put("lookupUserId",userId);
+        matches = zoho.crm.searchRecords("User_Relationships","(User_ID:equals:" + userId + ")");
+        matchingUsers = List();
+        for each relationship in matches
+        {
+            if(ifnull(relationship.get("User_ID"),"").toString().trim() == userId && ifnull(relationship.get("Status"),"").toString().trim().toLowerCase() == "active")
+            {
+                matchingUsers.add(relationship);
+            }
+        }
+        if(matchingUsers.size() != 1)
+        {
+            result.put("message","Expected one active User_Relationships record for CRM User ID " + userId + ". Check User_ID and Status before saving.");
+            result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+        }
+        relationship = matchingUsers.get(0);
+        if(ifnull(relationship.get("Email"),"").toString().trim() == "")
+        {
+            result.put("message","Email is missing in User_Relationships for CRM User ID " + userId + ". Complete it before saving.");
+            result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+        }
+        usersById.put(userId,relationship);
+    }
+    actor = usersById.get(actingUserId);
+    actorEmail = actor.get("Email").toString().trim();
+    actorName = ifnull(actor.get("Full_Name"),"").toString().trim();
+    if(actorName == "") { actorName = actorEmail; }
+    recipientEmail = "";
+    recipientName = "";
+    if(recipientId != "" && recipientId != actingUserId)
+    {
+        recipient = usersById.get(recipientId);
+        recipientEmail = recipient.get("Email").toString().trim();
+        recipientName = ifnull(recipient.get("Full_Name"),"").toString().trim();
+        if(recipientName == "") { recipientName = recipientEmail; }
+    }
+    if(recipientId != actingUserId && recipientEmail == "")
+    {
+        result.put("message","The other booking representative is not assigned. Correct the booking assignment before saving.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    diagnostics.put("recipientEmail",recipientEmail);
+    diagnostics.put("phase","save_notes");
+    // Optimistic concurrency: fail rather than overwrite another user's save.
+    updateData = {"id":bookingId,"Review_Notes":notesJson};
+    if(actingUserId == ownerId && actingUserId != guestId && changed.get(0).get("action") != "deleted")
+    {
+        if(!booking.containKey("GR_Review_Pending"))
+        {
+            result.put("message","GR_Review_Pending is unavailable. Check the checkbox API name and field permissions before saving.");
+            return result.toString();
+        }
+        updateData.put("GR_Review_Pending",true);
+    }
+    updateRows = List();
+    updateRows.add(updateData);
+    payload = {"data":updateRows,"trigger":List()};
+    headers = {"Content-Type":"application/json","If-Unmodified-Since":booking.get("Modified_Time").toString()};
+    savedResponse = invokeurl
+    [
+        url :"https://www.zohoapis.eu/crm/v8/Deals/" + bookingId
+        type :PUT
+        parameters:payload.toString()
+        headers:headers
+        connection:"crm_oauth_connection"
+    ];
+    if(savedResponse.get("data") == null || savedResponse.get("data").get(0).get("code") != "SUCCESS")
+    {
+        saveError = savedResponse;
+        if(savedResponse.get("data") != null && savedResponse.get("data").size() > 0) { saveError = savedResponse.get("data").get(0); }
+        diagnostics.put("error",ifnull(saveError.get("code"),"UNKNOWN").toString() + ": " + ifnull(saveError.get("message"),"CRM did not confirm the update").toString());
+        result.put("message","CRM did not save the notes. The booking may have changed in another session. Reopen notes before retrying.");
+        result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+    }
+    result.put("success",true);
+    result.put("saved",true);
+    result.put("notesJson",notesJson);
+    result.put("notificationStatus","skipped_same_user");
+    if(recipientId == actingUserId) { diagnostics.put("phase","skipped_same_user"); result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString(); }
+    result.put("notificationStatus","failed");
+    diagnostics.put("phase","render_email");
+    change = changed.get(0);
+    reference = ifnull(booking.get("MFSP_Reference"),bookingId).toString();
+    bookingName = ifnull(booking.get("Deal_Name"),"").toString();
+    noteBody = change.get("note").get("body").toString().htmlEncode().replaceAll("\n","<br>");
+    // Only the Owner receives the Bookings Manager link. Keep GR emails free of native CRM links.
+    bookingLinkHtml = "";
+    if(recipientId == ownerId)
+    {
+        bookingLink = "https://crm.zoho.eu/crm/org20093299576/tab/WebTab3?widgetparams=%7B%22bookingId%22%3A%22" + bookingId + "%22%2C%22view%22%3A%22review-notes%22%7D";
+        bookingLinkHtml = "<p style='margin:24px 0;'><a href='" + bookingLink.htmlEncode() + "' style='color:#1454a0;font-weight:bold;'>Open Review Notes in Bookings Manager &rarr;</a></p>";
+    }
+    // Same palette and typography as email_dailyReconfirmation; table layout for Outlook.
+    html = "<!doctype html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;padding:20px;background:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#20344b;'><table role='presentation' width='100%' cellspacing='0' cellpadding='0'><tr><td align='center'><table role='presentation' width='640' cellspacing='0' cellpadding='0' style='width:100%;max-width:640px;background:#ffffff;'><tr><td bgcolor='#102f52' style='padding:26px;color:#ffffff;'><div style='font-size:12px;letter-spacing:2px;color:#a9cfff;'>MADE FOR SPAIN AND PORTUGAL</div><h1 style='margin:10px 0;font-size:28px;'>Review Notes updated</h1><p style='margin:0;'>" + reference.htmlEncode() + "</p></td></tr><tr><td style='padding:24px;'><p>Hello " + recipientName.htmlEncode() + ",</p><p><strong>" + actorName.htmlEncode() + "</strong> " + change.get("action") + " a review note.</p><table role='presentation' width='100%' cellspacing='0' cellpadding='16'><tr><td bgcolor='#e7f1ff' style='color:#1454a0;'><strong>" + bookingName.htmlEncode() + "</strong><br>" + reference.htmlEncode() + "</td></tr></table><h2 style='font-size:16px;color:#173654;'>" + if(change.get("action") == "deleted","Deleted note","Review note") + "</h2><table role='presentation' width='100%' cellspacing='0' cellpadding='16'><tr><td bgcolor='#f4f7fa' style='font-size:14px;line-height:1.6;word-break:break-word;'>" + noteBody + "</td></tr></table>" + bookingLinkHtml + "<p style='padding-top:16px;border-top:1px solid #dce4ed;font-size:12px;color:#61758b;'>Continue the conversation in Review Notes so that both teams can follow its history.</p></td></tr></table></td></tr></table></body></html>";
+    diagnostics.put("phase","send_email");
+    info "Review Notes notification: " + diagnostics.toString();
+    sendmail
+    [
+        from :"crmadmin@madeforspainandportugal.com"
+        to :recipientEmail
+        reply to :actorEmail
+        subject :"Review Notes | " + reference + " | " + actorName
+        message :html
+    ];
+    diagnostics.put("phase","sendmail_completed");
+    result.put("notificationStatus","sent");
+}
+catch(error)
+{
+    diagnostics.put("error",error.toString());
+    if(result.get("saved") == true)
+    {
+        result.put("notificationWarning","Notes saved, but the email could not be confirmed. Please contact the other representative; do not repeat the edit.");
+        result.put("notificationStatus","failed");
+    }
+    else { result.put("message","Review Notes could not be saved. Reopen the booking and check the CRM function configuration."); }
+    info "reviewNotes_saveAndNotify: " + error.toString();
+}
+result.put("diagnostics",diagnostics); info "Review Notes notification: " + diagnostics.toString(); return result.toString();
+}

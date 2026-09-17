@@ -1,0 +1,35 @@
+.booking-tags-slot { display:block; min-width:0; margin-top:5px; }
+.booking-tags-slot[data-tags-compact="true"] { display:flex; align-items:center; gap:4px; width:100%; }
+.booking-tags-slot[data-tags-compact="true"] .booking-tags-trigger { flex:1; min-width:0; flex-wrap:nowrap; overflow:hidden; }
+.booking-tags-slot[data-tags-compact="true"] .booking-tags-trigger > span { flex-shrink:0; }
+.booking-tag-chip[hidden], .booking-tags-more[hidden] { display:none; }
+.booking-tags-more { flex-shrink:0; padding:3px 5px; border:1px solid #cbd5e1; border-radius:999px; background:#f2f4f7; color:#344054; font:600 11px/1.4 var(--font-body); cursor:pointer; }
+.booking-tags-more:hover { background:#eaf6f1; border-color:#15805f; }
+.booking-tags-more:active { transform:scale(.96); }
+.booking-tags-more:focus-visible { outline:2px solid #15805f; outline-offset:2px; }
+.booking-tags-preview-list { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
+.booking-tags-preview-list .booking-tag-chip { max-width:100%; box-sizing:border-box; white-space:normal; overflow-wrap:anywhere; }
+.booking-tags-trigger { display:flex; align-items:center; flex-wrap:wrap; gap:4px; max-width:100%; padding:2px 0; border:0; background:transparent; color:#667085; font:500 11px var(--font-body); cursor:pointer; text-align:left; }
+.booking-tag-chip { display:inline-block; max-width:180px; padding:3px 7px; border-radius:999px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 11px/1.4 var(--font-body); }
+.booking-tags-add { padding:3px 6px; border:1px dashed #cbd5e1; border-radius:999px; white-space:nowrap; }
+.booking-tags-trigger:hover .booking-tags-add { color:#126750; border-color:#15805f; }
+.booking-tags-trigger:focus-visible { outline:2px solid #15805f; outline-offset:3px; border-radius:5px; }
+.booking-personal-tags { margin:0 12px; }
+.booking-personal-tags:empty { display:none; }
+.booking-tags-dialog { width:min(640px, calc(100vw - 28px)); max-height:calc(100dvh - 40px); box-sizing:border-box; padding:20px; border:1px solid #e4e7ec; border-radius:12px; color:#344054; background:#fff; box-shadow:0 18px 50px rgba(16,24,40,.25); overflow:auto; }
+.booking-tags-dialog::backdrop { background:rgba(16,24,40,.32); }
+.booking-tags-dialog header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+.booking-tags-dialog h3 { margin:0; font-size:17px; }
+.booking-tags-dialog header p { margin:5px 0; font-size:12px; }
+.booking-tags-help { color:#667085; font-size:12px; line-height:1.5; }
+.booking-tags-feedback { color:#475467; font-size:12px; line-height:1.5; }
+.booking-tags-feedback:empty { display:none; }
+.booking-tags-dialog[aria-busy="true"] .booking-tags-feedback::before { content:""; display:inline-block; width:11px; height:11px; margin-right:7px; border:2px solid #98a2b3; border-right-color:transparent; border-radius:50%; animation:mail-spin .8s linear infinite; }
+.booking-tags-list { display:grid; gap:8px; margin:14px 0; }
+.booking-tag-editor-row { display:grid; grid-template-columns:18px minmax(100px,1fr) 34px auto auto; gap:7px; align-items:center; }
+.booking-tags-dialog input[type="text"] { box-sizing:border-box; min-width:0; width:100%; padding:7px 9px; border:1px solid #d0d5dd; border-radius:6px; font:12px var(--font-body); }
+.booking-tags-dialog input[type="color"] { width:34px; height:32px; padding:2px; border:1px solid #d0d5dd; border-radius:6px; cursor:pointer; }
+.booking-tag-create { display:grid; grid-template-columns:minmax(100px,1fr) 34px auto; gap:7px; margin:16px 0 10px; }
+.booking-tags-dialog footer { display:flex; justify-content:flex-end; gap:8px; padding-top:18px; margin-top:14px; border-top:1px solid #eaecf0; }
+.booking-tags-dialog :disabled { opacity:.55; cursor:wait; }
+@media (max-width:520px) { .booking-tag-editor-row { grid-template-columns:18px minmax(90px,1fr) 34px; }.booking-tag-editor-row button { grid-row:2; }.booking-tag-editor-row button[data-tag-save] { grid-column:2; }.booking-tag-editor-row button[data-tag-delete] { grid-column:3; justify-self:end; width:max-content; } }

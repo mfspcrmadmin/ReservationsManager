@@ -1,4 +1,7 @@
+import { showFeedback, clearFeedback } from "./app-feedback.js";
 import { SERVICE_TABLE_COLUMNS, STATUS_OPTIONS } from "./constants.js";
+import { configureServiceColumnWidths } from "./service-column-resizing.js";
+import { renderCommunicationAttachmentsButton } from "./communication-attachments.js";
 import {
   escapeHtml,
   formatCurrency,
@@ -12,11 +15,30 @@ import {
   getStepInternalName
 } from "./utils.js";
 
-let noticeDismissTimer = null;
-let noticeExitTimer = null;
-let errorExitTimer = null;
-const NOTICE_DISMISS_DELAY_MS = 5000;
-const FLOATING_MESSAGE_EXIT_MS = 160;
+const COMMUNICATION_SENDER_EMAILS = [
+  "crmadmin@madeforspainandportugal.com",
+  "reservations@madeforspainandportugal.com",
+  "srodriguez@madeforspainandportugal.com",
+  "alba@madeforspainandportugal.com",
+  "patricia@madeforspainandportugal.com",
+  "s.martin@madeforspainandportugal.com",
+  "silvia@madeforspainandportugal.com",
+  "s.menendez@madeforspainandportugal.com",
+  "rebeca@madeforspainandportugal.com",
+  "inmaculada@madeforspainandportugal.com",
+  "l.fuentes@madeforspainandportugal.com",
+  "sandra@madeforspainandportugal.com",
+  "yaiza@madeforspainandportugal.com",
+  "daniel@madeforspainandportugal.com",
+  "erika@madeforspainandportugal.com",
+  "azahara@madeforspainandportugal.com",
+  "julia@madeforspainandportugal.com",
+  "teo@madeforspainandportugal.com",
+  "garcia@madeforspainandportugal.com",
+  "gema@madeforspainandportugal.com",
+  "marta@madeforspainandportugal.com",
+  "p.gonzalo@madeforspainandportugal.com"
+];
 
 export function hideSearchResults(elements) {
   elements.searchResultsCard.hidden = true;
@@ -64,67 +86,17 @@ export function renderSearchResults(options) {
 
 export function setNotice(elements, message, options) {
   const settings = options || {};
-  if (noticeDismissTimer) {
-    window.clearTimeout(noticeDismissTimer);
-    noticeDismissTimer = null;
+  if (!message || settings.silent) {
+    clearFeedback("loading");
+    clearFeedback("info");
+    return;
   }
-
-  if (message) {
-    if (noticeExitTimer) {
-      window.clearTimeout(noticeExitTimer);
-      noticeExitTimer = null;
-    }
-    elements.notice.classList.remove("is-dismissing");
-    elements.notice.hidden = false;
-    elements.noticeText.textContent = message;
-  } else {
-    dismissFloatingMessage(elements.notice, elements.noticeText, function (timer) {
-      noticeExitTimer = timer;
-    });
-  }
-  elements.notice.classList.toggle("is-loading", Boolean(message) && Boolean(settings.loading));
-
-  if (message && !settings.loading) {
-    noticeDismissTimer = window.setTimeout(function () {
-      setNotice(elements, "");
-      noticeDismissTimer = null;
-    }, NOTICE_DISMISS_DELAY_MS);
-  }
+  showFeedback(message, settings.loading ? "loading" : "info");
 }
 
 export function setError(elements, message) {
-  if (message) {
-    setNotice(elements, "");
-  }
-  if (message) {
-    if (errorExitTimer) {
-      window.clearTimeout(errorExitTimer);
-      errorExitTimer = null;
-    }
-    elements.error.classList.remove("is-dismissing");
-    elements.error.hidden = false;
-    elements.errorText.textContent = message;
-  } else {
-    dismissFloatingMessage(elements.error, elements.errorText, function (timer) {
-      errorExitTimer = timer;
-    });
-  }
-}
-
-function dismissFloatingMessage(element, textElement, setTimer) {
-  if (element.hidden) {
-    textElement.textContent = "";
-    return;
-  }
-
-  element.classList.remove("is-loading");
-  element.classList.add("is-dismissing");
-  setTimer(window.setTimeout(function () {
-    element.hidden = true;
-    element.classList.remove("is-dismissing");
-    textElement.textContent = "";
-    setTimer(null);
-  }, FLOATING_MESSAGE_EXIT_MS));
+  if (message) showFeedback(message, "error");
+  else clearFeedback("error");
 }
 
 export function renderActiveTab(elements, state) {
@@ -134,7 +106,7 @@ export function renderActiveTab(elements, state) {
   const isEmailsTab = activeTab === "emails";
   const isPaymentsTab = activeTab === "payments";
   const isReportsTab = activeTab === "reports";
-  const isDeskTab = activeTab === "desk";
+  const isCommunicationTab = activeTab === "communication";
   const isTravelersTab = activeTab === "travelers";
 
   if (elements.tabBooking) {
@@ -149,16 +121,16 @@ export function renderActiveTab(elements, state) {
   if (elements.tabReports) {
     elements.tabReports.classList.toggle("active", isReportsTab);
   }
-  if (elements.summaryViewDesk) {
-    elements.summaryViewDesk.classList.toggle("active", isDeskTab);
+  if (elements.summaryViewCommunication) {
+    elements.summaryViewCommunication.classList.toggle("active", isCommunicationTab);
   }
   if (elements.tabTravelers) {
     elements.tabTravelers.classList.toggle("active", isTravelersTab);
   }
 
   if (elements.manageBookingPanel) {
-    elements.manageBookingPanel.hidden = !isBookingTab && !isDeskTab;
-    elements.manageBookingPanel.classList.toggle("is-desk-view", isDeskTab);
+    elements.manageBookingPanel.hidden = !isBookingTab && !isCommunicationTab;
+    elements.manageBookingPanel.classList.toggle("is-communication-view", isCommunicationTab);
   }
 
   elements.manageServicesPanel.hidden = !isServicesTab;
@@ -176,6 +148,7 @@ export function renderActiveTab(elements, state) {
 
 export function setButtonsDisabled(elements, state, disabled) {
   const hasSelectedServices = Object.keys(state.selectedServiceIds).length > 0;
+  if (elements.bulkRequestPrepayment) elements.bulkRequestPrepayment.disabled = disabled || !hasSelectedServices;
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
   elements.loadBooking.disabled = disabled;
   elements.bookingSearch.disabled = disabled;
@@ -213,12 +186,12 @@ export function setButtonsDisabled(elements, state, disabled) {
     }
   });
   elements.openBookingReportDialog.disabled = disabled || !state.selectedBooking;
-  elements.createPaymentRequest.disabled = disabled || !state.selectedBooking || !state.currentUserIsAdministrator;
+  elements.createPaymentRequest.disabled = disabled || !state.selectedBooking;
   elements.saveService.disabled = disabled || !state.selectedService;
   elements.fieldStatusEzus.disabled = disabled || !state.selectedService;
   elements.updateServiceNotes.disabled = disabled || !state.selectedService;
   if (elements.serviceActionPrepayment) {
-    elements.serviceActionPrepayment.disabled = disabled || !state.selectedService || !state.currentUserIsAdministrator;
+    elements.serviceActionPrepayment.disabled = disabled || !state.selectedService;
   }
   if (elements.serviceActionCardPurchase) {
     elements.serviceActionCardPurchase.disabled = disabled || !state.selectedService;
@@ -226,7 +199,6 @@ export function setButtonsDisabled(elements, state, disabled) {
   if (elements.serviceActionRenfe) {
     elements.serviceActionRenfe.disabled = disabled || !state.selectedService;
   }
-  elements.toggleServiceColumns.disabled = disabled;
   elements.resetServiceColumns.disabled = disabled;
   elements.bulkStatusToggle.disabled = disabled || !hasSelectedServices;
   elements.bulkDraftsToggle.disabled = disabled || !hasSelectedServices;
@@ -235,10 +207,19 @@ export function setButtonsDisabled(elements, state, disabled) {
   elements.bulkStatusEzus.disabled = disabled || !hasSelectedServices;
   elements.createAvailabilityDraft.disabled = disabled || !hasSelectedServices;
   elements.createReservationsDraft.disabled = disabled || !hasSelectedServices;
-  elements.mailEditDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen;
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditSubjectButton, elements.mailEditContentButton].forEach(function (button) {
+    button.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen;
+  });
+
+  if (elements.mailSendDraft) {
+    elements.mailSendDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  }
 
   if (elements.mailDeleteDraft) {
-    elements.mailDeleteDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailDeleteDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
+  }
+  if (elements.mailRegenerateDraft) {
+    elements.mailRegenerateDraft.disabled = disabled || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
   }
 
   if (elements.serviceSelectAll) {
@@ -255,7 +236,7 @@ export function showLoading(elements, state, message) {
 }
 
 export function clearLoading(elements, state) {
-  elements.notice.classList.remove("is-loading");
+  clearFeedback("loading");
   setButtonsDisabled(elements, state, false);
 }
 
@@ -286,10 +267,7 @@ export function renderBookingSummary(elements, state) {
   const summaryView = state.summaryView || "basic";
   const switchButtons = {
     basic: elements.summaryViewBasic,
-    financial: elements.summaryViewFinancial,
-    contact: elements.summaryViewContact,
-    analytics: elements.summaryViewAnalytics,
-    team: elements.summaryViewTeam
+    financial: elements.summaryViewFinancial
   };
 
   Object.keys(switchButtons).forEach(function (viewKey) {
@@ -1168,6 +1146,9 @@ function renderServiceFilterControls(elements, state) {
 function renderServiceMultiFilter(toggleElement, menuElement, options, selectedValues, isOpen, emptyLabel) {
   const selected = Array.isArray(selectedValues) ? selectedValues : [];
   const hasOptions = options.length > 0;
+  const allSelected = hasOptions && options.every(function (optionValue) {
+    return selected.indexOf(optionValue) !== -1;
+  });
 
   toggleElement.textContent = hasOptions
     ? getServiceMultiFilterLabel(options, selected, emptyLabel)
@@ -1176,7 +1157,12 @@ function renderServiceMultiFilter(toggleElement, menuElement, options, selectedV
   toggleElement.setAttribute("aria-expanded", isOpen ? "true" : "false");
 
   menuElement.innerHTML = hasOptions
-    ? options.map(function (optionValue) {
+    ? [
+      '<label class="service-multi-filter-option service-multi-filter-option--all">',
+      '  <input type="checkbox" data-service-filter-toggle-all' + (allSelected ? " checked" : "") + '>',
+      '  <span>Select / deselect all</span>',
+      "</label>"
+    ].concat(options.map(function (optionValue) {
       const isSelected = selected.indexOf(optionValue) !== -1;
       return [
         '<label class="service-multi-filter-option">',
@@ -1184,7 +1170,7 @@ function renderServiceMultiFilter(toggleElement, menuElement, options, selectedV
         '  <span>' + escapeHtml(optionValue) + "</span>",
         "</label>"
       ].join("");
-    }).join("")
+    })).join("")
     : '<div class="service-multi-filter-empty">No options available.</div>';
   menuElement.hidden = !isOpen || !hasOptions;
   menuElement.setAttribute("aria-hidden", isOpen && hasOptions ? "false" : "true");
@@ -1427,14 +1413,18 @@ export function renderServicesTable(options) {
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
 
   renderServiceFilterControls(elements, state);
-  elements.serviceCount.textContent = state.services.length + (state.services.length === 1 ? " service" : " services") +
-    (selectedCount ? " | " + selectedCount + " selected" : "");
-  elements.bulkActions.hidden = !hasServicesWorkspace || selectedCount === 0;
+  if (elements.servicesTitleCount) {
+    elements.servicesTitleCount.textContent = state.filteredServices.length + " shown · " + state.services.length + " total";
+    if (selectedCount) {
+      elements.servicesTitleCount.textContent += " | " + selectedCount + " selected";
+    }
+  }
+  elements.bulkActions.hidden = !hasServicesWorkspace;
   elements.serviceColumnsPanel.hidden = !state.serviceColumnsPanelOpen;
-  elements.bulkSelectionCopy.textContent = selectedCount + (selectedCount === 1 ? " service selected" : " services selected");
   elements.applyBulkStatus.textContent = "Apply to " + selectedCount + (selectedCount === 1 ? " service" : " services");
   elements.bulkStatusToggle.disabled = selectedCount === 0;
   elements.bulkDraftsToggle.disabled = selectedCount === 0;
+  if (elements.bulkRequestPrepayment) elements.bulkRequestPrepayment.disabled = selectedCount === 0;
   elements.bulkStatusCancel.disabled = selectedCount === 0;
   elements.applyBulkStatus.disabled = selectedCount === 0 || !hasBulkStatusSelection;
   elements.bulkStatusEzus.disabled = selectedCount === 0;
@@ -1452,61 +1442,105 @@ export function renderServicesTable(options) {
   renderFlatServicesTable(options);
 }
 
-export function renderEmailsPanel(elements, state) {
-  const activeRecords = state.emailDrafts;
-  const activeCountLabel = activeRecords.length + (activeRecords.length === 1 ? " draft" : " drafts");
-
-  state.activeMailTab = "drafts";
-
-  if (elements.emailsSummaryCount) {
-    elements.emailsSummaryCount.textContent = activeCountLabel;
+export function renderEmailsPanel(elements, state, options) {
+  if (elements.mailAttachmentsButton) elements.mailAttachmentsButton.hidden = true;
+  const settings = options || {};
+  const contentOnly = Boolean(settings.contentOnly);
+  const selectedStatus = state.emailStatusFilter || "Draft";
+  const activeRecords = state.emailDrafts.filter(function (record) {
+    return String(record && record.communication_status || "Draft").toLowerCase() === selectedStatus.toLowerCase();
+  }).sort(compareMailRecordsByMostRecent);
+  const activeCount = activeRecords.length;
+  if (state.draftSelectionBookingId !== String(state.selectedBookingId || "")) {
+    state.draftSelectionBookingId = String(state.selectedBookingId || "");
+    state.selectedDraftIds = {};
   }
-  if (elements.draftsListCount) {
-    elements.draftsListCount.textContent = activeCountLabel;
+  state.selectedDraftIds ||= {};
+  const selectableIds = state.emailDrafts.filter(record => String(record.communication_status || "Draft").toLowerCase() === "draft").map((record, index) => getMailRecordId(record, index, "drafts"));
+  for (const id of Object.keys(state.selectedDraftIds)) if (!selectableIds.includes(id)) delete state.selectedDraftIds[id];
+  const selectedDraftCount = Object.keys(state.selectedDraftIds).length;
+  const selectionBusy = state.draftEditorSaving || state.draftBatchSending || state.draftEditorOpen || state.communicationContentEditorOpen || state.emailsLoading || state.draftDeleteConfirmOpen;
+  if (elements.mailBulkDraftActions) {
+    elements.mailBulkDraftActions.hidden = selectedStatus !== "Draft" || !state.selectedBooking || !activeCount;
+    elements.mailSendSelected.disabled = !selectedDraftCount || Boolean(selectionBusy);
+    elements.mailSendSelected.textContent = "Send (" + selectedDraftCount + ")";
+    elements.mailDeleteSelected.disabled = !selectedDraftCount || Boolean(selectionBusy);
+    elements.mailDeleteSelected.textContent = "Delete (" + selectedDraftCount + ")";
+    elements.mailSelectAllDrafts.disabled = Boolean(selectionBusy);
+    elements.mailSelectAllDrafts.checked = selectableIds.length > 0 && selectedDraftCount === selectableIds.length;
+    elements.mailSelectAllDrafts.indeterminate = selectedDraftCount > 0 && selectedDraftCount < selectableIds.length;
   }
-  if (elements.refreshBookingMails) {
-    elements.refreshBookingMails.disabled = !state.selectedBooking || state.emailsLoading || state.draftEditorSaving;
-    elements.refreshBookingMails.classList.toggle("is-loading", state.emailsLoading);
+
+  if (!contentOnly) {
+    state.activeMailTab = "drafts";
+    elements.mailFilterDraft.classList.toggle("active", selectedStatus === "Draft");
+    elements.mailFilterSent.classList.toggle("active", selectedStatus === "Sent");
+
+    if (elements.emailsSummaryCount) {
+      elements.emailsSummaryCount.textContent = String(activeCount);
+    }
+    if (elements.draftsListCount) {
+      elements.draftsListCount.textContent = String(activeCount);
+    }
+    if (elements.refreshBookingMails) {
+      elements.refreshBookingMails.disabled = !state.selectedBooking || state.emailsLoading || state.draftEditorSaving;
+      elements.refreshBookingMails.classList.toggle("is-loading", state.emailsLoading);
+    }
   }
 
   if (!state.selectedBooking) {
-    elements.emailsEmptyState.hidden = false;
-    elements.emailsEmptyState.textContent = "Load a booking to see related email drafts.";
-    elements.emailsContentPanel.hidden = true;
+    if (!contentOnly) {
+      elements.emailsEmptyState.hidden = false;
+      elements.emailsEmptyState.textContent = "Load a booking to see related communications.";
+      elements.emailsContentPanel.hidden = true;
+    }
     return;
   }
 
   if (state.emailsLoading) {
-    elements.emailsEmptyState.hidden = false;
-    elements.emailsEmptyState.textContent = "Loading related email drafts...";
-    elements.emailsContentPanel.hidden = true;
-    return;
+    if (!contentOnly) {
+      elements.emailsEmptyState.hidden = false;
+      elements.emailsEmptyState.innerHTML = '<span class="table-loading-indicator" aria-hidden="true"></span> Loading related communications...';
+      elements.emailsContentPanel.hidden = true;
+      return;
+    }
   }
 
   if (state.draftEmailsError && !state.emailDrafts.length) {
-    elements.emailsEmptyState.hidden = false;
-    elements.emailsEmptyState.textContent = state.draftEmailsError;
-    elements.emailsContentPanel.hidden = true;
+    if (!contentOnly) {
+      elements.emailsEmptyState.hidden = false;
+      elements.emailsEmptyState.textContent = state.draftEmailsError;
+      elements.emailsContentPanel.hidden = true;
+    }
     return;
   }
 
-  elements.emailsEmptyState.hidden = true;
-  elements.emailsContentPanel.hidden = false;
-  elements.mailListHeading.textContent = "Drafts";
-  elements.activeMailListCount.textContent = activeCountLabel;
+  if (!contentOnly) {
+    elements.emailsEmptyState.hidden = true;
+    elements.emailsContentPanel.hidden = false;
+    elements.mailListHeading.textContent = "Emails (" + activeCount + ")";
+  }
 
-  const emptyMessage = state.draftEmailsError || "No related draft emails found.";
+  const emptyMessage = state.draftEmailsError || "No related communications found.";
   const selectedRecordId = getValidatedSelectedMailRecordId(state, activeRecords);
   const selectedRecord = getMailRecordById(activeRecords, "drafts", selectedRecordId);
   const selectedCacheKey = selectedRecordId ? buildMailCacheKey("drafts", selectedRecordId) : "";
   const selectedContentRecord = selectedCacheKey ? state.mailContentByKey[selectedCacheKey] || null : null;
 
-  elements.activeMailList.innerHTML = renderMailList(
-    activeRecords,
-    "drafts",
-    selectedRecordId,
-    emptyMessage
-  );
+  if (!contentOnly) {
+    elements.activeMailList.innerHTML = renderMailList(
+      activeRecords,
+      "drafts",
+      selectedRecordId,
+      emptyMessage,
+      state.selectedDraftIds,
+      selectionBusy
+    );
+  }
+
+  if (elements.mailServicesIncluded) {
+    elements.mailServicesIncluded.hidden = true;
+  }
 
   if (!selectedRecord) {
     elements.mailViewerEmpty.hidden = false;
@@ -1547,7 +1581,11 @@ export function renderEmailsPanel(elements, state) {
   }
 
   const viewerRecord = selectedContentRecord || selectedRecord;
+  const isCommunicationDraft = Boolean(viewerRecord && viewerRecord.communication_id);
+  const isSentCommunication = String(viewerRecord && viewerRecord.communication_status || "").toLowerCase() === "sent";
+  renderCommunicationAttachmentsButton(elements.mailAttachmentsButton, viewerRecord, state.draftSending || state.draftEditorSaving || state.outlookConfirmOpen);
   const subject = getMailSubject(viewerRecord);
+  const fromValue = formatMailValue(getMailField(viewerRecord, ["from", "From", "sender_email", "Sender_Email"])) || "-";
   const toValue = formatMailValue(getMailField(viewerRecord, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"])) || "-";
   const ccValue = formatMailValue(getMailField(viewerRecord, ["cc", "CC", "cc_address", "Cc_Address", "carbon_copy", "Carbon_Copy"])) || "-";
   const timeValue = getMailField(viewerRecord, [
@@ -1568,44 +1606,94 @@ export function renderEmailsPanel(elements, state) {
 
   elements.mailViewerEmpty.hidden = true;
   elements.mailViewerContent.hidden = false;
-  elements.mailViewerKind.textContent = "Draft";
+  const deliveryAction = String(viewerRecord && viewerRecord.delivery_action || "Original").toLowerCase();
+  elements.mailViewerKind.textContent = isSentCommunication
+    ? "Sent"
+    : deliveryAction === "resend"
+      ? "Resend draft"
+      : deliveryAction === "forward"
+        ? "Forward draft"
+        : "Draft";
   elements.mailViewerSubject.textContent = subject;
   elements.mailViewerPreview.textContent = "";
   elements.mailViewerPreview.hidden = true;
+  elements.mailViewerFrom.textContent = fromValue;
   elements.mailViewerTo.textContent = toValue;
   elements.mailViewerCc.textContent = ccValue;
   elements.mailViewerTime.textContent = timeValue ? formatDateTime(timeValue) : "-";
-  elements.mailViewerActions.hidden = false;
-  if (elements.mailOpenOutlook) {
-    elements.mailOpenOutlook.disabled = state.draftEditorSaving || state.outlookConfirmOpen;
+  renderCommunicationServices(elements.mailServicesIncluded, viewerRecord, state);
+  elements.mailViewerActions.hidden = Boolean(state.draftEditorOpen);
+  elements.mailFollowUpActions.hidden = !isSentCommunication;
+  elements.mailResend.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  elements.mailResendEdit.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  elements.mailForward.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  if (elements.mailSendDraft) {
+    elements.mailSendDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailSendDraft.hidden = isSentCommunication;
+    elements.mailSendDraft.textContent = state.draftSending ? "Sending..." : "Send";
   }
-  if (elements.mailCopyFormattedBody) {
-    elements.mailCopyFormattedBody.disabled = state.draftEditorSaving || state.outlookConfirmOpen;
-  }
-  elements.mailEditDraft.disabled = state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditSubjectButton, elements.mailEditContentButton].forEach(function (button) {
+    button.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    button.title = "Edit";
+  });
   if (elements.mailDeleteDraft) {
-    elements.mailDeleteDraft.disabled = state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailDeleteDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
+    elements.mailDeleteDraft.hidden = isSentCommunication;
+    elements.mailDeleteDraft.title = isSentCommunication ? "Sent communications cannot be deleted." : "";
+  }
+  if (elements.mailRegenerateDraft) {
+    elements.mailRegenerateDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen || state.draftDeleteConfirmOpen;
+    elements.mailRegenerateDraft.hidden = isSentCommunication;
+    elements.mailRegenerateDraft.textContent = state.draftEditorSaving ? "Regenerating..." : "Regenerate Draft";
+    elements.mailRegenerateDraft.title = isSentCommunication ? "Sent communications cannot have their draft regenerated." : "";
   }
   elements.mailDraftEditor.hidden = !state.draftEditorOpen;
+  const editorTarget = "content";
+  elements.mailEditFromField.hidden = !state.draftEditorOpen;
+  elements.mailEditToField.hidden = !state.draftEditorOpen;
+  elements.mailEditCcField.hidden = !state.draftEditorOpen;
+  elements.mailEditContentField.hidden = !state.draftEditorOpen;
+  elements.mailEditorModeSwitch.hidden = !state.draftEditorOpen;
+  if (state.draftEditorOpen) {
+    const hosts = { from: elements.mailViewerFrom.parentElement, to: elements.mailViewerTo.parentElement, cc: elements.mailViewerCc.parentElement };
+    if (editorTarget === "content") {
+      elements.mailContentToolbar.insertAdjacentElement("afterend", elements.mailDraftEditor);
+    } else {
+      hosts[editorTarget].appendChild(elements.mailDraftEditor);
+      const valueElements = { from: elements.mailViewerFrom, to: elements.mailViewerTo, cc: elements.mailViewerCc };
+      const editButtons = { from: elements.mailEditFromButton, to: elements.mailEditToButton, cc: elements.mailEditCcButton };
+      valueElements[editorTarget].hidden = true;
+      editButtons[editorTarget].hidden = true;
+    }
+  } else {
+    [elements.mailViewerFrom, elements.mailViewerTo, elements.mailViewerCc, elements.mailViewerSubject, elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditSubjectButton, elements.mailEditContentButton].forEach(function (element) {
+      element.hidden = false;
+    });
+  }
   elements.mailSaveDraft.disabled = state.draftEditorSaving;
   elements.mailCancelDraftEdit.disabled = state.draftEditorSaving;
   elements.mailViewerSubject.hidden = state.draftEditorOpen;
+  elements.mailEditSubjectButton.hidden = state.draftEditorOpen;
   elements.mailViewerMeta.hidden = state.draftEditorOpen;
   elements.mailViewerBody.hidden = state.draftEditorOpen;
   elements.mailDraftDebugId.hidden = !selectedRecordId;
   elements.mailDraftDebugId.textContent = selectedRecordId ? "Draft ID: " + selectedRecordId : "";
 
   const editorFields = state.draftEditorFields || {
+    email_from: getMailEditorValue(getMailField(viewerRecord, ["from", "From", "sender_email", "Sender_Email"])),
     email_to: getMailEditorValue(getMailField(viewerRecord, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"])),
     email_cc: getMailEditorValue(getMailField(viewerRecord, ["cc", "CC", "cc_address", "Cc_Address", "carbon_copy", "Carbon_Copy"])),
     email_subject: subject,
     email_content: htmlContent
   };
+  elements.mailEditFrom.value = editorFields.email_from || "";
   elements.mailEditTo.value = editorFields.email_to || "";
   elements.mailEditCc.value = editorFields.email_cc || "";
   elements.mailEditSubject.value = editorFields.email_subject || "";
   elements.mailEditContent.value = editorFields.email_content || "";
   elements.mailEditVisual.innerHTML = editorFields.email_content || "<p></p>";
+  renderInlineCommunicationEditors(elements, state, editorFields);
+  renderCommunicationServiceEditor(elements, state);
   elements.mailEditorModeVisual.classList.toggle("active", state.draftEditorMode === "visual");
   elements.mailEditorModeHtml.classList.toggle("active", state.draftEditorMode === "html");
   elements.mailEditorModeVisual.setAttribute("aria-selected", state.draftEditorMode === "visual" ? "true" : "false");
@@ -1614,26 +1702,96 @@ export function renderEmailsPanel(elements, state) {
   elements.mailEditVisual.hidden = state.draftEditorMode !== "visual";
   elements.mailEditContent.hidden = state.draftEditorMode !== "html";
   elements.mailSaveDraft.textContent = state.draftEditorSaving ? "Saving..." : "Save draft";
-  if (elements.mailOutlookConfirm) {
-    elements.mailOutlookConfirm.hidden = !state.outlookConfirmOpen;
-  }
-  if (elements.mailOutlookConfirmMessage) {
-    elements.mailOutlookConfirmMessage.textContent = state.draftEditorSaving
-      ? "Removing this draft from this view..."
-      : "If you choose Yes, this draft will be removed from this view.";
-  }
-  if (elements.mailOutlookConfirmYes) {
-    elements.mailOutlookConfirmYes.disabled = state.draftEditorSaving;
-    elements.mailOutlookConfirmYes.textContent = state.draftEditorSaving ? "Removing..." : "Yes";
-  }
-  if (elements.mailOutlookConfirmNo) {
-    elements.mailOutlookConfirmNo.disabled = state.draftEditorSaving;
-  }
 
   elements.mailViewerBody.innerHTML = buildMailViewerMarkup(htmlContent);
 }
 
-function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
+export function renderSelectedMailContent(elements, state) {
+  renderEmailsPanel(elements, state, { contentOnly: true });
+}
+
+function renderInlineCommunicationEditors(elements, state, fields) {
+  const active = state.communicationInlineEdit || "";
+  const editors = { from: elements.mailInlineFrom, to: elements.mailInlineTo, cc: elements.mailInlineCc, subject: elements.mailInlineSubject };
+  Object.keys(editors).forEach(function (field) {
+    editors[field].hidden = active !== field;
+  });
+  const values = { from: elements.mailViewerFrom, to: elements.mailViewerTo, cc: elements.mailViewerCc, subject: elements.mailViewerSubject };
+  Object.keys(values).forEach(function (field) { values[field].hidden = active === field; });
+  elements.mailViewerSubjectBlock.hidden = state.draftEditorOpen;
+  [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditSubjectButton].forEach(function (button) { button.hidden = Boolean(active); });
+  if (active === "subject") {
+    elements.mailInlineSubjectInput.value = fields.email_subject || "";
+  }
+  if (active === "from") {
+    const selected = COMMUNICATION_SENDER_EMAILS.indexOf(fields.email_from) !== -1
+      ? fields.email_from
+      : COMMUNICATION_SENDER_EMAILS[0];
+    elements.mailInlineFromSelect.innerHTML = COMMUNICATION_SENDER_EMAILS.map(function (email) { return '<option value="' + escapeHtml(email) + '"' + (email === selected ? " selected" : "") + ">" + escapeHtml(email) + "</option>"; }).join("");
+  }
+  ["to", "cc"].forEach(function (field) {
+    if (active !== field) return;
+    const container = field === "to" ? elements.mailInlineToChips : elements.mailInlineCcChips;
+    const values = state.communicationInlineEmails[field] || [];
+    container.innerHTML = values.map(function (email) {
+      return '<span class="mail-email-chip">' + escapeHtml(email) + '<button type="button" data-remove-email="' + escapeHtml(email) + '" data-email-field="' + field + '" aria-label="Remove ' + escapeHtml(email) + '">×</button></span>';
+    }).join("");
+  });
+}
+
+function renderCommunicationServiceEditor(elements, state) {
+  if (!elements.mailEditServices) return;
+  elements.mailEditServices.hidden = !state.draftEditorOpen;
+  const ids = state.draftEditorServiceIds || [];
+  const selected = (state.services || []).filter(function (service) { return ids.indexOf(String(service.id)) !== -1; });
+  elements.mailEditServicesList.innerHTML = selected.length ? selected.map(function (service) {
+    return '<div class="mail-edit-service-row"><span>' + escapeHtml(service.Name || service.Product_Description || "Service") + '</span><button type="button" data-remove-communication-service="' + escapeHtml(String(service.id)) + '" aria-label="Remove service">×</button></div>';
+  }).join("") : '<p class="mail-services-empty">No services associated with this communication.</p>';
+  elements.mailEditServiceOptions.innerHTML = (state.services || []).filter(function (service) { return ids.indexOf(String(service.id)) === -1; }).map(function (service) {
+    return '<option value="' + escapeHtml(String(service.id)) + ' | ' + escapeHtml(service.Name || service.Product_Description || "Service") + ' | ' + escapeHtml(service.Supplier_Name || "") + '"></option>';
+  }).join("");
+}
+
+function renderCommunicationServices(element, record, state) {
+  if (!element) {
+    return;
+  }
+
+  const recordId = String(record && (record.draft_id || record.id || record.communication_id) || "");
+  if (element.dataset.recordId !== recordId) {
+    element.open = false;
+    element.dataset.recordId = recordId;
+  }
+
+  const linked = Array.isArray(record && record.services) ? record.services : [];
+  const ids = Array.isArray(record && record.service_ids) ? record.service_ids.map(String) : [];
+  const services = linked.length ? linked : (state.services || []).filter(function (service) {
+    return ids.indexOf(String(service && service.id || "")) !== -1;
+  });
+  element.hidden = false;
+  if (!services.length) {
+    element.innerHTML = [
+      '<summary class="mail-services-summary">',
+      '  <span><strong>Services included <em>· 0</em></strong><small>Read-only</small></span>',
+      '</summary>',
+      '<div class="mail-services-content"><p class="mail-services-empty">No services associated with this communication.</p></div>'
+    ].join("");
+    return;
+  }
+  element.innerHTML = [
+    '<summary class="mail-services-summary">',
+    '  <span><strong>Services included <em>· ' + services.length + '</em></strong><small>Read-only</small></span>',
+    '</summary>',
+    '<div class="mail-services-content"><div class="mail-services-table"><div class="mail-services-head"><span>Date</span><span>Service</span><span>Supplier</span><span>Status</span></div>',
+    services.map(function (service) {
+      const dateValue = service.Service_Date || service.service_date || service.Date || "";
+      return '<div class="mail-services-row"><span>' + escapeHtml(dateValue ? formatDateTime(dateValue) : "-") + '</span><strong>' + escapeHtml(service.Product_Description || service.product_description || service.Name || service.name || "-") + '</strong><span>' + escapeHtml(service.Supplier_Name || service.supplier_name || service.Supplier && service.Supplier.name || "-") + '</span><span>' + escapeHtml(service.Status_EZUS || service.status || "-") + '</span></div>';
+    }).join(""),
+    '</div></div>'
+  ].join("");
+}
+
+function renderMailList(records, tabName, selectedRecordId, emptyMessage, selectedDraftIds = {}, selectionBusy = false) {
   if (!records.length) {
     return '<div class="table-empty">' + escapeHtml(emptyMessage) + "</div>";
   }
@@ -1642,30 +1800,45 @@ function renderMailList(records, tabName, selectedRecordId, emptyMessage) {
     const recordId = getMailRecordId(record, index, tabName);
     const subject = getMailSubject(record);
     const toValue = formatMailValue(getMailField(record, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"]));
-    const timeValue = getMailField(record, [
-      "time",
-      "Time",
-      "sent_time",
-      "Sent_Time",
-      "message_time",
-      "Message_Time",
-      "Created_Time",
-      "created_time",
-      "scheduled_time",
-      "Scheduled_Time",
-      "Modified_Time",
-      "modified_time"
-    ]);
+    const timeValue = getMailRecordTimeValue(record);
     const selectedClass = recordId === selectedRecordId ? " active" : "";
+    const selectable = String(record.communication_status || "Draft").toLowerCase() === "draft";
 
     return [
-      '<article class="mail-list-item' + selectedClass + '" data-mail-tab="' + escapeHtml(tabName) + '" data-mail-record-id="' + escapeHtml(recordId) + '">',
+      '<article class="mail-list-item' + selectedClass + (selectable ? ' has-draft-selection' : '') + '" data-mail-tab="' + escapeHtml(tabName) + '" data-mail-record-id="' + escapeHtml(recordId) + '">',
+      selectable ? '<input type="checkbox" class="draft-select-checkbox" data-draft-select="' + escapeHtml(recordId) + '" aria-label="Select draft: ' + escapeHtml(subject) + '"' + (selectedDraftIds[recordId] ? ' checked' : '') + (selectionBusy ? ' disabled' : '') + '>' : '',
       '  <div class="mail-list-item-time">' + escapeHtml(timeValue ? formatDateTime(timeValue) : "-") + "</div>",
       '  <strong class="mail-list-item-subject">' + escapeHtml(subject) + "</strong>",
       renderMailRow("To", toValue || "-"),
       "</article>"
     ].join("");
   }).join("");
+}
+
+function compareMailRecordsByMostRecent(left, right) {
+  return getMailRecordTimestamp(right) - getMailRecordTimestamp(left);
+}
+
+function getMailRecordTimestamp(record) {
+  const timestamp = Date.parse(getMailRecordTimeValue(record));
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getMailRecordTimeValue(record) {
+  return getMailField(record, [
+    "time",
+    "Time",
+    "sent_time",
+    "Sent_Time",
+    "message_time",
+    "Message_Time",
+    "Created_Time",
+    "created_time",
+    "scheduled_time",
+    "Scheduled_Time",
+    "Modified_Time",
+    "modified_time"
+  ]);
 }
 
 function renderMailRow(label, value) {
@@ -1864,7 +2037,7 @@ function renderGroupedServicesTable(options) {
       rows.push(
         '<tr class="day-row">' +
         '<td colspan="' + columnCount + '" class="day-cell">' +
-        '<span class="day-chip">' + escapeHtml(formatGroupedDayLabel(group.dayKey)) + "</span>" +
+        '<span class="day-chip">' + escapeHtml(formatGroupedDayLabel(group.dayKey, state.selectedBooking?.Arrival_Date)) + "</span>" +
         "</td>" +
         "</tr>"
       );
@@ -2014,11 +2187,13 @@ function renderServiceTableHead(elements, state, visibleColumns) {
   elements.servicesHeadRow.innerHTML = [
     '<th class="select-column"><input id="services-select-all" class="table-checkbox" type="checkbox" aria-label="Select all visible services"></th>',
     visibleColumns.map(function (column) {
-      return '<th class="' + escapeHtml(getServiceColumnClassName(column.key)) + '">' + escapeHtml(column.label) + "</th>";
-    }).join("")
+      return '<th class="' + escapeHtml(getServiceColumnClassName(column.key)) + '" data-service-column-key="' + escapeHtml(column.key) + '">' + escapeHtml(column.label) + "</th>";
+    }).join(""),
+    '<th class="service-columns-control"><button class="service-columns-button" type="button" data-toggle-service-columns aria-label="Configure visible columns" title="Configure visible columns"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="m19.4 13.5 1.4 1.1-2 3.5-1.7-.7a7.7 7.7 0 0 1-2.1 1.2L14.7 20h-4l-.3-1.9a7.7 7.7 0 0 1-2.1-1.2l-1.7.7-2-3.5 1.4-1.1a7.8 7.8 0 0 1 0-2.4L4.6 9.5l2-3.5 1.7.7a7.7 7.7 0 0 1 2.1-1.2l.3-1.9h4l.3 1.9a7.7 7.7 0 0 1 2.1 1.2l1.7-.7 2 3.5-1.4 1.1a7.8 7.8 0 0 1 0 2.4Z"/></svg></button></th>'
   ].join("");
 
   elements.serviceSelectAll = document.getElementById("services-select-all");
+  configureServiceColumnWidths(elements.servicesHeadRow);
 }
 
 function getVisibleServiceColumns(state) {
@@ -2169,6 +2344,19 @@ function renderStatusPill(status) {
   return '<span class="' + escapeHtml(classes.join(" ")) + '">' + escapeHtml(status || "-") + "</span>";
 }
 
+function renderPaymentStatusPill(status) {
+  const modifiers = {
+    "to be paid": "pending",
+    "prepayment requested": "requested",
+    "partially paid": "partial",
+    "fully paid": "paid",
+    "partially refunded": "partial-refund",
+    "refunded": "refunded"
+  };
+  const modifier = modifiers[normalizeStatusValue(status)] || "neutral";
+  return '<span class="status-pill payment-status-pill--' + modifier + '">' + escapeHtml(status && status !== "-None-" ? status : "-") + '</span>';
+}
+
 function renderStatusOption(status) {
   const theme = getStatusTheme(status);
   const inlineStyle = [
@@ -2217,6 +2405,8 @@ function renderServiceTableCell(column, service, state) {
       return renderServiceCell(column.key, escapeHtml(service.Supplier_Name || "-"));
     case "status":
       return renderServiceCell(column.key, renderStatusPill(service.Status_EZUS));
+    case "paymentStatus":
+      return renderServiceCell(column.key, renderPaymentStatusPill(service.Payment_Status));
     case "sales":
       return renderServiceCell(column.key, escapeHtml(formatCurrency(service.Total_Sales_Price)));
     case "purchase":
@@ -2275,7 +2465,7 @@ function renderSelectedService(elements, state) {
   elements.fieldStatusEzus.value = selectedStatus;
   applyStatusSelectAppearance(elements.fieldStatusEzus, selectedStatus);
   elements.fieldServiceNotes.value = service.Service_Notes || "";
-  elements.serviceActionPrepayment.disabled = !state.currentUserIsAdministrator;
+  elements.serviceActionPrepayment.disabled = false;
   elements.serviceActionCardPurchase.disabled = false;
   elements.serviceActionRenfe.hidden = !showRenfeAction;
   elements.serviceActionRenfe.disabled = !showRenfeAction;
@@ -2575,7 +2765,7 @@ function formatStepTimeRange(startValue, endValue) {
   return startTime && endTime && endTime !== startTime ? startTime + "–" + endTime : startTime;
 }
 
-function formatGroupedDayLabel(dayKey) {
+function formatGroupedDayLabel(dayKey, arrivalDate) {
   if (!dayKey) {
     return "No day assigned";
   }
@@ -2586,7 +2776,10 @@ function formatGroupedDayLabel(dayKey) {
     return dayKey;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  const arrivalKey = String(arrivalDate || "").slice(0, 10);
+  const tripDay = Math.round((Date.parse(dayKey + "T00:00:00Z") - Date.parse(arrivalKey + "T00:00:00Z")) / 86400000) + 1;
+  const prefix = Number.isFinite(tripDay) && tripDay > 0 ? "DAY " + tripDay + " | " : "";
+  return prefix + new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "short",
     day: "numeric",

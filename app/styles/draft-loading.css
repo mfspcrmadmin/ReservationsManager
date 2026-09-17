@@ -1,0 +1,17 @@
+.has-draft-animation .mail-send-modal-card { width: min(390px, calc(100vw - 32px)); min-width: 0; }
+.draft-loading-scene { margin: -6px 0 16px; }
+.draft-loading-illustration { display: block; width: 230px; max-width: 100%; height: 158px; margin: 0 auto; }
+.draft-loading-phrase { min-height: 44px; margin: 8px auto 0; max-width: 300px; color: #597267; font-size: 13px; line-height: 1.6; text-wrap: balance; }
+.draft-courier { animation: draft-courier-bob 1.4s ease-in-out infinite; }
+.draft-umbrella { transform-origin: 143px 94px; animation: draft-umbrella-sway 2.8s ease-in-out infinite; }
+.draft-envelope { animation: draft-envelope-float 2.2s ease-in-out infinite; }
+.draft-leaf { transform-origin: 60px 106px; animation: draft-leaf-drift 3.6s ease-in-out infinite; }
+.draft-rain { animation: draft-rain-fall 1.2s linear infinite; }
+@keyframes draft-courier-bob { 50% { transform: translateY(-3px); } }
+@keyframes draft-umbrella-sway { 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes draft-envelope-float { 50% { transform: translate(-5px, -7px) rotate(-2deg); } }
+@keyframes draft-leaf-drift { 50% { transform: translate(13px, -9px) rotate(35deg); } }
+@keyframes draft-rain-fall { from { transform: translate(0, -5px); opacity: 0; } 40% { opacity: .8; } to { transform: translate(-4px, 10px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .draft-loading-illustration * { animation: none; }
+}
