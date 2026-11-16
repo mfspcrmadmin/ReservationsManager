@@ -5,7 +5,8 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const source = fs.readFileSync(path.join(__dirname, "../app/js/booking-tags-data.js"), "utf8");
 const context = vm.createContext({});
-vm.runInContext(source.replace(/^export /gm, ""), context);
+require("./helpers/widget-permissions.cjs").load(context);
+vm.runInContext(source.replace(/^import .*;\r?\n/gm, "").replace(/^export /gm, ""), context);
 
 test("blank fields start empty and malformed JSON is never silently discarded", () => {
   assert.equal(context.parseTagCatalog(null).tags.length, 0);

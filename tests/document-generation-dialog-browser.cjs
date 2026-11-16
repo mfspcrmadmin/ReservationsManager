@@ -1,0 +1,65 @@
+// Isolated dialog checks: no CRM requests or generated documents.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const fs=require('node:fs');
+const path=require('node:path');
+const os=require('node:os');
+const assert=require('node:assert/strict');
+(async()=>{
+  const browser=await chromium.launch({headless:true,channel:'msedge'});
+  try {
+    const page=await browser.newPage({viewport:{width:1100,height:760}});
+    await page.setContent('<dialog class="document-studio"><button id="generate">Generate</button></dialog>');
+    for(const file of ['widget.css','booking-shell.css','booking-documents.css'])await page.addStyleTag({content:fs.readFileSync(path.join(__dirname,'../app/styles',file),'utf8')});
+    await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../app/js/document-generation-dialog.js'),'utf8').replace(/^export /gm,'')});
+    await page.evaluate(()=>{
+      const studio=document.querySelector('.document-studio');studio.showModal();
+      window.openTest=()=>{window.generation=openGenerationDialog({studio,onClose:()=>document.querySelector('#generate').focus()});};
+      document.querySelector('#generate').onclick=window.openTest;
+    });
+    await page.click('#generate');
+    const modal=page.locator('.document-generation-dialog'),bar=modal.getByRole('progressbar');
+    assert.equal(await page.locator('[data-generation-close]').isVisible(),false);
+    assert.equal(await bar.getAttribute('aria-valuenow'),null);
+    assert.equal(await page.locator('h2:focus').count(),1);
+    await page.keyboard.press('Escape');assert.ok(await modal.isVisible());
+    const initial=await modal.boundingBox();assert.equal(initial.width,460);assert.ok(initial.height<250);
+    await page.evaluate(()=>generation.progress({label:'Loading booking data',completed:2,total:46}));
+    assert.equal(await bar.getAttribute('aria-valuenow'),'2');
+    assert.equal(await page.locator('[data-generation-count]').innerText(),'2 / 46');
+    await page.screenshot({path:path.join(os.tmpdir(),'document-generation-loading.png')});
+    await page.evaluate(()=>generation.progress({label:'Loading booking data for the selected booking and its additional services',completed:45,total:46}));
+    assert.equal((await modal.boundingBox()).height,initial.height);
+    await page.screenshot({path:path.join(os.tmpdir(),'document-generation-long.png')});
+    await page.evaluate(()=>generation.progress({label:'Loading supplier contacts',phase:'contacts',completed:1,total:0}));
+    assert.equal(await page.locator('[data-generation-count]').innerText(),'1 supplier loaded');
+    assert.equal(await bar.getAttribute('aria-valuenow'),null);
+    assert.equal((await modal.boundingBox()).height,initial.height);
+    await page.evaluate(()=>generation.progress({label:'Loading supplier contacts',phase:'contacts',completed:3,total:0}));
+    assert.equal(await page.locator('[data-generation-count]').innerText(),'3 suppliers loaded');
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await bar.locator('span').evaluate(el=>getComputedStyle(el).animationName),'none');
+    await page.setViewportSize({width:360,height:640});
+    assert.ok(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth&&el.getBoundingClientRect().right<=innerWidth));
+    await page.evaluate(()=>generation.progress({label:'Loading supplier contacts',phase:'contacts',completed:3,total:12}));
+    assert.equal(await page.locator('[data-generation-count]').innerText(),'3 / 12 suppliers');
+    assert.equal(await bar.getAttribute('aria-valuenow'),'3');
+    assert.equal(await bar.getAttribute('aria-valuemax'),'12');
+    assert.equal(await bar.getAttribute('aria-valuetext'),'3 of 12 suppliers loaded');
+    assert.ok(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth));
+    await page.evaluate(()=>generation.progress('Refreshing Studio...'));
+    assert.equal(await page.locator('[data-generation-count]').innerText(),'');
+    assert.equal(await bar.getAttribute('aria-valuenow'),null);
+    await page.evaluate(()=>generation.finish({url:'https://example.com/preview'}));
+    assert.equal(await bar.isVisible(),false);assert.ok(await page.locator('[data-generation-preview]').isVisible());
+    await page.screenshot({path:path.join(os.tmpdir(),'document-generation-success.png')});
+    await page.click('[data-generation-close]');assert.equal(await page.locator('#generate:focus').count(),1);
+    await page.click('#generate');
+    await page.evaluate(()=>generation.finish({error:'The connection was interrupted while saving the preview. Reopen the document before retrying.',previousPreview:true}));
+    assert.ok(await modal.innerText().then(text=>text.includes('Your previous generated preview is preserved.')));
+    assert.equal(await page.locator('[data-generation-preview]').isVisible(),false);
+    assert.ok(await modal.evaluate(el=>el.scrollWidth<=el.clientWidth));
+    await page.screenshot({path:path.join(os.tmpdir(),'document-generation-error.png')});
+    await page.keyboard.press('Escape');assert.equal(await modal.count(),0);
+    console.log('Generation dialog: loading, phase counters, long text, reduced motion, mobile, success, error and focus passed.');
+  } finally {await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

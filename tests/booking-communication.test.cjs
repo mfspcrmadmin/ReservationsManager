@@ -84,3 +84,56 @@ test("Review Notes from reconfirmationManager retain undated legacy notes", () =
   const saved = context.changeCommunicationNote(raw, note, undefined, false, 'Review_Notes');
   assert.deepEqual(JSON.parse(saved).notes[0], legacy);
 });
+
+test("Accounting Notes precede Review and 24h tabs and the active panel follows the switch", () => {
+  const booking = { Accounting_Notes: "", Review_Notes: "" };
+  for (const active of ["Accounting_Notes", "Review_Notes"]) {
+    const html = context.renderBookingCommunication(booking, active);
+    assert.ok(html.indexOf('id="communication-switch-Accounting_Notes"') < html.indexOf('id="communication-switch-Review_Notes"'));
+    assert.ok(html.indexOf('id="communication-switch-Review_Notes"') < html.indexOf('id="communication-switch-h_Notes"'));
+    assert.match(html, /id="communication-switch-Review_Notes"[^>]*aria-selected="true"/);
+    assert.match(html, /id="communication-switch-Accounting_Notes"[^>]*aria-disabled="true"[^>]*disabled/);
+    assert.doesNotMatch(html, /data-communication-(edit|switch)="Accounting_Notes"/);
+  }
+});
+
+test("Accounting Notes preserve legacy text, rich formatting and unrelated notes across add/edit/delete", () => {
+  const saved = context.changeCommunicationNote("Existing accounting notes", note, undefined, false, "Accounting_Notes");
+  const other = { ...note, id: "other", author: "Maria" };
+  const added = context.changeCommunicationNote(saved, other, undefined, false, "Accounting_Notes");
+  const edited = { ...note, body: "Accounting update", formatting: [] };
+  const updated = context.changeCommunicationNote(added, edited, note, false, "Accounting_Notes");
+  assert.throws(() => context.changeCommunicationNote(updated, note, note, false, "Accounting_Notes"), /another session/);
+  const removed = JSON.parse(context.changeCommunicationNote(updated, edited, edited, true, "Accounting_Notes"));
+  assert.equal(removed.legacyText, "Existing accounting notes");
+  assert.deepEqual(removed.notes, [other]);
+  const html = context.renderBookingCommunication({ Accounting_Notes: saved });
+  assert.match(html, /Previous accounting notes/);
+  assert.match(html, /<u><strong>Hello<\/strong><\/u>/);
+});
+
+test("Accounting Notes uses its dedicated save and notification function", async () => {
+  let request;
+  const saveContext = vm.createContext({ Intl, MODULES: { bookings: "Deals" },
+    crmUpdateRecord: async () => assert.fail("Must not bypass the notification function"),
+    crmExecuteFunction() {},
+    window: { AccountingNotesSave: { save: async args => { request = args; return { notesJson: args.notes }; } }, ReviewNotesSave: { save: () => assert.fail("Accounting Notes must not use Review Notes notifications") } }
+  });
+  vm.runInContext(source.replace(/^import .*;\r?\n/gm, "").replace(/^export /gm, ""), saveContext);
+  const raw = JSON.stringify({ version: 1, notes: [note] });
+  const result = await saveContext.saveCommunicationNotes("Accounting_Notes", "booking", raw, "", "user");
+  assert.equal(result.notesJson, raw);
+  assert.equal(request.bookingId, "booking");
+  assert.equal(request.currentUserId, "user");
+  assert.equal(request.expectedNotes, "");
+});
+
+test("Review Notes keeps its existing notification save flow", async () => {
+  let request;
+  const saveContext = vm.createContext({ Intl, crmExecuteFunction() {}, window: { ReviewNotesSave: { save: async args => { request = args; return { notesJson: args.notes }; } } } });
+  vm.runInContext(source.replace(/^import .*;\r?\n/gm, "").replace(/^export /gm, ""), saveContext);
+  await saveContext.saveCommunicationNotes("Review_Notes", "booking", "new", "previous", "user");
+  assert.equal(request.expectedNotes, "previous");
+  assert.equal(request.notes, "new");
+  assert.equal(request.currentUserId, "user");
+});

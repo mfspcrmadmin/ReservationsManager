@@ -6,12 +6,12 @@ const { test } = require("node:test");
 const source = fs.readFileSync(path.join(__dirname, "../app/js/communication-attachments.js"), "utf8")
   .replace(/^import .*;\r?\n/gm, "").replace(/export /g, "");
 const transportSource = fs.readFileSync(path.join(__dirname, "../app/js/communication-attachments-api.js"), "utf8")
-  .replace(/export /g, "");
+  .replace(/^import .*;\r?\n/gm, "").replace(/export /g, "");
 
 function setup() {
   const fixture = { record: { id: "comm1", Communication_Status: "Draft", Email_Attachments: [] }, uploads: [], writes: [], logs: [], failWrite: false, failReadback: false };
   const uploaded = new Map();
-  const context = vm.createContext({
+  const context = vm.createContext({ recordEditLocks: require("./helpers/record-edit-locks.cjs"),
     setTimeout: callback => callback(),
     console: {
       info: message => { fixture.logs.push(JSON.parse(message.slice("[Communication attachments] ".length))); },
@@ -52,8 +52,9 @@ function setup() {
     } } } } }
   });
   fixture.requests = [];
-  context.window.ZOHO.CRM.CONNECTION = { invoke: async (name, request) => {
-    assert.equal(name, "crm_oauth_connection");
+  context.invokeWidgetRecordRequest = async (module, recordId, request) => {
+    assert.equal(module, "Communications");
+    assert.equal(recordId, "comm1");
     assert.equal(request.url, "https://www.zohoapis.eu/crm/v8/Communications/comm1");
     fixture.requests.push(structuredClone(request));
     if (fixture.connectionResponse) return fixture.connectionResponse;
@@ -67,7 +68,7 @@ function setup() {
       result = await context.crmGetRecord();
     }
     return { code: "SUCCESS", details: { statusCode: 200, statusMessage: JSON.stringify({ data: [result] }) } };
-  } };
+  };
   context.window.ZOHO.CRM.API.updateRecord = async () => { throw new Error("Unversioned SDK writes must not be used for file fields"); };
   vm.runInContext(transportSource + "\n" + source, context);
   return { context, fixture };
@@ -147,7 +148,7 @@ test("links uploaded files using the documented file field key even when CRM sil
 test("connection errors stop before uploading or writing", async () => {
   const { context, fixture } = setup();
   fixture.connectionResponse = { code: "INVALID_CONNECTION", status: "error", message: "Connection unavailable" };
-  await assert.rejects(context.saveCommunicationAttachments("comm1", [entry("one.pdf")], new Set(), progress), /crm_oauth_connection.*INVALID_CONNECTION/);
+  await assert.rejects(context.saveCommunicationAttachments("comm1", [entry("one.pdf")], new Set(), progress), /authenticated widget record endpoint.*INVALID_CONNECTION/);
   assert.equal(fixture.uploads.length, 0);
   assert.equal(fixture.writes.length, 0);
 });
@@ -253,6 +254,31 @@ test("a lost readback after a successful update does not duplicate files on retr
   assert.equal(fixture.uploads.length, 1);
   assert.equal(fixture.writes.length, 1);
   assert.equal(fixture.record.Email_Attachments.length, 1);
+});
+
+test("stale CRM reads on retry never repeat an uncertain attachment write", async () => {
+  const { context, fixture } = setup();
+  fixture.readLag = 100;
+  const pending = [entry("one.pdf")];
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await assert.rejects(context.saveCommunicationAttachments("comm1", pending, new Set(), progress), /could not be verified/);
+  }
+  assert.equal(fixture.writes.length, 1);
+  assert.equal(fixture.record.Email_Attachments.length, 1);
+  fixture.staleReads = 0;
+  await context.saveCommunicationAttachments("comm1", pending, new Set(), progress);
+  assert.equal(fixture.writes.length, 1);
+});
+
+test("changing pending files after an uncertain write cannot silently discard the original operation", async () => {
+  const { context, fixture } = setup();
+  fixture.failReadback = true;
+  const pending = [entry("one.pdf")];
+  await assert.rejects(context.saveCommunicationAttachments("comm1", pending, new Set(), progress), /Readback/);
+  pending.splice(0, 1, entry("two.pdf"));
+  await assert.rejects(context.saveCommunicationAttachments("comm1", pending, new Set(), progress), /Close and reopen/);
+  assert.equal(fixture.uploads.length, 1);
+  assert.equal(fixture.writes.length, 1);
 });
 
 test("partial upload failure keeps successfully uploaded IDs and leaves the record unchanged", async () => {

@@ -1,11 +1,22 @@
 node_modules/
-_local/
+_local/*
 dist/
 cert.pem
 key.pem
 *.log
-docs/debug_result
-docs/crm_response
-docs/response_*
+_local/data/debug-responses/debug_result
+_local/data/debug-responses/crm_response
+_local/data/debug-responses/response_*
 .DS_Store
 Thumbs.db
+
+# Preserve already-versioned documentation after moving local support files.
+!_local/documentation/
+_local/documentation/*
+!_local/documentation/blueprint-flow-review.md
+!_local/documentation/booking-tags.md
+!_local/documentation/card-purchase-notifications.md
+!_local/documentation/communication-attachments.md
+!_local/documentation/gr-review-pending.md
+!_local/documentation/review-notes-email-preview.html
+!_local/documentation/review-notes-notifications.md

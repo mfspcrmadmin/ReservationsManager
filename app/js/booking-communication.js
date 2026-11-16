@@ -1,7 +1,9 @@
+import { recordEditLocks } from "./record-edit-locks.js";
 import { noteEditor } from "./communication-note-editor.js";
 import { escapeHtml } from "./utils.js";
 import { crmGetRecord, crmUpdateRecord, crmExecuteFunction } from "./api.js";
 import { MODULES } from "./constants.js";
+import { renderAccountingNoteContext } from "./accounting-note-context.js";
 
 const fields = [
   ["Warnings_OP_GE", "Warnings OP GE", 32000],
@@ -9,6 +11,7 @@ const fields = [
   ["Important_changes_logistic_explanation", "Important changes & logistic explanation", 32000],
   ["Information_for_admin", "Information for admin", 32000]
 ];
+const noteFields = [["Accounting_Notes", "Accounting Notes"], ["Review_Notes", "Review Notes"]];
 const dateFormat = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Madrid" });
 
 export function parseCommunicationNotes(raw) {
@@ -26,19 +29,53 @@ export function parseCommunicationNotes(raw) {
       for (const span of note.formatting) {
         if (!span || !Number.isInteger(span.start) || !Number.isInteger(span.end) || span.start < end || span.end <= span.start || span.end > note.body.length || (span.bold !== undefined && typeof span.bold !== "boolean") || (span.underline !== undefined && typeof span.underline !== "boolean")) throw new Error("Invalid note formatting.");
         end = span.end;
+        for (const key of ["color", "backgroundColor"]) {
+          if (span[key] !== undefined && !/^#[0-9a-f]{6}$/i.test(span[key])) throw new Error("Invalid note color.");
+        }
       }
     }
   }
   return doc;
 }
 
+// Imported CRM rich text is kept intact in storage. Convert only its display and
+// editor value; keep the original note for concurrency comparisons on save.
+export function importedNoteForDisplay(note) {
+  if (!/^imported-review-note-*$/.test(note.id || "") || note.formatting?.length) return note;
+  const source = note.body.replace(/\\(?=<\/?[a-z])/gi, "");
+  if (!/<\/?(?:br|span|div|p|b|strong|i|em|u|ul|ol|li|a|table|tr|td|blockquote)\b/i.test(source)) return note;
+  // Template content is inert and never attached to the page. Extract text only.
+  const template = document.createElement("template");
+  template.innerHTML = source;
+  let body = "";
+  const walk = node => {
+    if (node.nodeType === 3) { body += node.textContent; return; }
+    if (node.nodeType !== 1) return;
+    if (["SCRIPT", "STYLE", "IFRAME", "OBJECT", "TEMPLATE"].includes(node.tagName)) return;
+    if (node.tagName === "BR") { body += "\n"; return; }
+    const block = ["DIV", "P", "LI", "UL", "OL", "TR", "BLOCKQUOTE", "H1", "H2", "H3"].includes(node.tagName);
+    if (block && body && !body.endsWith("\n")) body += "\n";
+    node.childNodes.forEach(walk);
+    if (block && body && !body.endsWith("\n")) body += "\n";
+    if (["TD", "TH"].includes(node.tagName)) body += "\t";
+  };
+  template.content.childNodes.forEach(walk);
+  body = body.replace(/\u00a0/g, " ").replace(/^(?:[ \t\r\n]*(?:\\)?-{3,}[ \t]*(?:\r?\n|$))+/, "").trim();
+  return { ...note, body, formatting: [] };
+}
+
 export function renderCommunicationNote(note) {
+  note = importedNoteForDisplay(note);
   let end = 0, html = "";
   for (const span of note.formatting || []) {
     html += escapeHtml(note.body.slice(end, span.start));
     let text = escapeHtml(note.body.slice(span.start, span.end));
     if (span.bold) text = "<strong>" + text + "</strong>";
     if (span.underline) text = "<u>" + text + "</u>";
+    const colors = [["color", span.color], ["background-color", span.backgroundColor]]
+      .filter(([, value]) => /^#[0-9a-f]{6}$/i.test(value || ""))
+      .map(([property, value]) => property + ":" + value).join(";");
+    if (colors) text = '<span style="' + colors + '">' + text + '</span>';
     html += text;
     end = span.end;
   }
@@ -46,11 +83,69 @@ export function renderCommunicationNote(note) {
 }
 
 export function parseNotesField(raw, field) {
+  if (field === "Review_Notes") {
+    const recovered = recoverReviewNotes(raw);
+    if (recovered) return recovered.doc;
+  }
   // Older Review Notes are free text. Preserve them without inventing an author or date.
-  if (field === "Review_Notes" && typeof raw === "string" && raw.trim() && !/^[{\[]/.test(raw.trim())) {
+  if (noteFields.some(item => item[0] === field) && typeof raw === "string" && raw.trim() && !/^[{\[]/.test(raw.trim())) {
     return { version: 1, notes: [], legacyText: raw };
   }
   return parseCommunicationNotes(raw);
+}
+
+// Only recover text AFTER a complete, valid document. Braces inside strings
+// (including escaped quotes/backslashes) must never terminate the JSON prefix.
+export function recoverReviewNotes(raw) {
+  if (typeof raw !== "string" || !raw.trimStart().startsWith("{")) return null;
+  let depth = 0, quoted = false, escaped = false;
+  for (let i = 0; i < raw.length; i++) {
+    const char = raw[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
+      continue;
+    }
+    if (char === '"') quoted = true;
+    else if (char === "{") depth++;
+    else if (char === "}" && --depth === 0) {
+      const jsonPrefix = raw.slice(0, i + 1);
+      const tail = raw.slice(i + 1);
+      if (!tail.trim()) return null;
+      const doc = parseCommunicationNotes(jsonPrefix);
+      // Strip leading separator-only lines, preserving all text and inner lines.
+      const body = tail.replace(/^(?:[ \t\r\n]*(?:\\)?-{3,}[ \t]*(?:\r?\n|$))+/, "").trim();
+      if (body) {
+        let id = "imported-review-note";
+        while (doc.notes.some(note => note.id === id)) id += "-";
+        doc.notes.push({ id, body, formatting: [], author: "Imported text", at: "" });
+      }
+      return { jsonPrefix, doc };
+    }
+  }
+  return null;
+}
+
+export async function repairReviewNotes(raw, bookingId, currentUserId) {
+  const recovered = recoverReviewNotes(raw);
+  if (!recovered) return raw;
+  if (!currentUserId) throw new Error("The signed-in user is unavailable. Reload the widget.");
+  if (JSON.stringify(recovered.doc).length > 30000) throw new Error("The notes field is full. Imported text could not be saved.");
+  const response = await crmExecuteFunction("reviewnotes_repair", {
+    bookingId: String(bookingId), actingUserId: String(currentUserId),
+    expectedNotes: raw, jsonPrefix: recovered.jsonPrefix
+  });
+  let result = (Array.isArray(response) ? response[0] : response);
+  result = result?.details?.output ?? result;
+  if (typeof result === "string") {
+    try { result = JSON.parse(result); } catch (_) { throw new Error("CRM returned an unreadable repair response. Reopen notes before retrying."); }
+  }
+  if (result?.success !== true || result?.saved !== true || typeof result.notesJson !== "string") {
+    throw new Error(result?.message || "Imported notes could not be saved. Check the reviewnotes_repair CRM function and reopen notes.");
+  }
+  parseCommunicationNotes(result.notesJson);
+  return result.notesJson;
 }
 
 export function changeCommunicationNote(raw, note, original, remove = false, field = "h_Notes") {
@@ -71,11 +166,12 @@ export function appendCommunicationNote(raw, note) {
 }
 
 function renderNoteCard(note) {
-  return '<article class="communication-note"><strong>' + escapeHtml(note.author) + '</strong><time>' + (note.at ? escapeHtml(dateFormat.format(new Date(note.at))) : '') + '</time><div class="communication-text">' + renderCommunicationNote(note) + '</div>' + (note.editedAt && Number.isFinite(Date.parse(note.editedAt)) ? '<small>Edited ' + escapeHtml(dateFormat.format(new Date(note.editedAt))) + '</small>' : '') + '</article>';
+  return '<article class="communication-note"><strong>' + escapeHtml(note.author) + '</strong><time>' + (note.at ? escapeHtml(dateFormat.format(new Date(note.at))) : '') + '</time>' + (note.context ? renderAccountingNoteContext(note.context) : '') + '<div class="communication-text">' + renderCommunicationNote(note) + '</div>' + (note.editedAt && Number.isFinite(Date.parse(note.editedAt)) ? '<small>Edited ' + escapeHtml(dateFormat.format(new Date(note.editedAt))) + (note.editedBy ? ' by ' + escapeHtml(note.editedBy) : '') + '</small>' : '') + '</article>';
 }
 
-function legacyNotes(doc) {
-  return typeof doc.legacyText === "string" && doc.legacyText ? '<article class="communication-note"><strong>Previous review notes</strong><div class="communication-text">' + escapeHtml(doc.legacyText) + '</div></article>' : '';
+function legacyNotes(doc, field = "Review_Notes") {
+  const label = field === "Accounting_Notes" ? "Previous accounting notes" : "Previous review notes";
+  return typeof doc.legacyText === "string" && doc.legacyText ? '<article class="communication-note"><strong>' + label + '</strong><div class="communication-text">' + escapeHtml(doc.legacyText) + '</div></article>' : '';
 }
 
 const pencilIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5-12 12-6 1 1-6L16 3Zm-2 2 5 5"/></svg>';
@@ -85,25 +181,25 @@ const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" strok
 const confirmDeleteIcon = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg>';
 
 export function renderBookingCommunication(booking, activeNotes = "Review_Notes") {
-  activeNotes = "Review_Notes";
+  if (activeNotes !== "Review_Notes") activeNotes = "Review_Notes";
   const button = (field, label) => '<button type="button" class="button tertiary compact' + (label === "Edit" ? ' communication-edit-icon' : ' communication-add-button') + '" data-communication-edit="' + field + '"' + (label === "Edit" ? ' aria-label="Edit" title="Edit"' : '') + '>' + (label === "Edit" ? pencilIcon : label) + '</button>';
-  const histories = [["Review_Notes", "Review Notes"]].map(([field, label]) => {
+  const histories = noteFields.map(([field, label]) => {
     let notes, manage = "";
     try {
       const doc = parseNotesField(booking[field], field);
-      notes = legacyNotes(doc) + doc.notes.map(renderNoteCard).join("");
+      notes = legacyNotes(doc, field) + doc.notes.map(renderNoteCard).join("");
       notes = notes || '<p class="muted">No notes yet.</p>';
-      manage = button(field, "Add / Manage notes");
+      manage = field === "Accounting_Notes" ? "" : button(field, "Add / Manage notes");
     } catch (error) { notes = '<p role="status">' + escapeHtml(error.message) + '</p>'; }
     return '<section id="communication-history-' + field + '" class="communication-history" role="tabpanel" aria-labelledby="communication-switch-' + field + '"' + (field === activeNotes ? '' : ' hidden') + '><div class="communication-history-scroll">' + notes + '</div><div class="communication-history-footer">' + manage + '</div></section>';
   }).join("");
-  const switcher = '<div class="communication-notes-tabs"><div class="segmented-control" role="tablist" aria-label="Internal notes"><button type="button" id="communication-switch-Review_Notes" class="segmented-control-button is-active" role="tab" aria-selected="true" aria-controls="communication-history-Review_Notes" data-communication-switch="Review_Notes">Review Notes</button><button type="button" id="communication-switch-h_Notes" class="segmented-control-button" role="tab" aria-selected="false" aria-disabled="true" disabled>24h Notes</button></div><span class="communication-coming-soon" tabindex="0" role="img" aria-label="24h Notes: future functionality, currently unavailable." aria-describedby="communication-24h-tooltip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v2"/></svg><span class="communication-coming-soon-tooltip" id="communication-24h-tooltip" role="tooltip">24h Notes is a future feature and is not available yet.</span></span></div>';
+  const switcher = '<div class="communication-notes-tabs"><div class="segmented-control" role="tablist" aria-label="Internal notes">' + noteFields.map(([field, label]) => field === 'Accounting_Notes' ? '<button type="button" id="communication-switch-Accounting_Notes" class="segmented-control-button" role="tab" aria-selected="false" aria-disabled="true" title="Accounting Notes is currently unavailable." disabled>Accounting Notes</button>' : '<button type="button" id="communication-switch-' + field + '" class="segmented-control-button' + (field === activeNotes ? ' is-active' : '') + '" role="tab" aria-selected="' + (field === activeNotes) + '" aria-controls="communication-history-' + field + '" data-communication-switch="' + field + '">' + label + '</button>').join('') + '<button type="button" id="communication-switch-h_Notes" class="segmented-control-button" role="tab" aria-selected="false" aria-disabled="true" disabled>24h Notes</button></div><span class="communication-coming-soon" tabindex="0" role="img" aria-label="24h Notes: future functionality, currently unavailable." aria-describedby="communication-24h-tooltip"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v2"/></svg><span class="communication-coming-soon-tooltip" id="communication-24h-tooltip" role="tooltip">24h Notes is a future feature and is not available yet.</span></span></div>';
   return '<div class="communication-layout"><div class="communication-fields">' + fields.map(([field, label]) => '<section class="summary-section"><div class="summary-section-header"><h2>' + escapeHtml(label) + '</h2>' + (booking[field] !== undefined ? button(field, "Edit") : '') + '</div><div class="communication-text">' + escapeHtml(booking[field] === undefined ? "Field unavailable." : booking[field] || "No notes yet.") + '</div></section>').join("") + '</div><div class="communication-notes-workspace">' + switcher + '<div class="summary-section communication-history-container">' + histories + '</div></div></div>';
 }
 
 export async function openBookingCommunicationEditor(state, field, onSaved) {
-  if (field === "h_Notes") return;
-  if (field === "Review_Notes") return openNotesDialog(state, field, onSaved);
+  if (field === "h_Notes" || field === "Accounting_Notes") return;
+  if (noteFields.some(item => item[0] === field)) return openNotesDialog(state, field, onSaved);
   const config = fields.find(item => item[0] === field);
   if (!config) return;
   const id = String(state.selectedBooking.id);
@@ -117,9 +213,11 @@ export async function openBookingCommunicationEditor(state, field, onSaved) {
   input.maxLength = config[2];
   dialog.querySelector('[type="button"]').onclick = () => { if (!busy) dialog.close(); };
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.addEventListener("close", () => { void recordEditLocks.release(MODULES.bookings, id).catch(() => {}); dialog.remove(); }, { once: true });
   dialog.showModal();
   try {
+    await recordEditLocks.begin(MODULES.bookings, id);
+    if (!dialog.isConnected) { await recordEditLocks.release(MODULES.bookings, id); return; }
     const fresh = await crmGetRecord(MODULES.bookings, id);
     if (!dialog.isConnected) return;
     if (!fresh || fresh[field] === undefined) throw new Error("This field is unavailable. Check field permissions.");
@@ -136,11 +234,12 @@ export async function openBookingCommunicationEditor(state, field, onSaved) {
     input.disabled = save.disabled = true;
     status.textContent = "Saving…";
     try {
+      await recordEditLocks.check(MODULES.bookings, id);
       const latest = await crmGetRecord(MODULES.bookings, id);
       if (!latest || latest[field] === undefined) throw new Error("This field is unavailable.");
       const value = input.value;
       if ((latest[field] || "") !== initial) throw new Error("This field changed in another session. Copy your text, then reopen the editor.");
-      const result = await crmUpdateRecord(MODULES.bookings, { id, [field]: value });
+      const result = await crmUpdateRecord(MODULES.bookings, { id, [field]: value }, { expectedRecord: latest });
       if (result.code !== "SUCCESS") throw new Error(result.message || "CRM could not save this note.");
       if (String(state.selectedBooking?.id) === id) state.selectedBooking[field] = value;
       for (const booking of state.bookings || []) if (String(booking.id) === id) booking[field] = value;
@@ -151,14 +250,46 @@ export async function openBookingCommunicationEditor(state, field, onSaved) {
   };
 }
 
+export async function saveCommunicationNotes(field, bookingId, notes, expectedNotes, currentUserId) {
+  if (field === "Review_Notes") {
+    return window.ReviewNotesSave.save({ executeFunction: crmExecuteFunction, bookingId,
+      currentUserId, expectedNotes: expectedNotes ?? '', notes });
+  }
+  if (field !== "Accounting_Notes") throw new Error("Unsupported notes field.");
+  parseCommunicationNotes(notes);
+  return window.AccountingNotesSave.save({ executeFunction: crmExecuteFunction, bookingId,
+    currentUserId, expectedNotes: expectedNotes ?? '', notes });
+}
+
 async function openNotesDialog(state, field, onSaved) {
   const id = String(state.selectedBooking.id);
-  const label = field === "Review_Notes" ? "Review Notes" : "24h Notes";
+  const label = noteFields.find(item => item[0] === field)[1];
   const dialog = document.createElement("dialog");
   dialog.className = "communication-editor communication-notes-dialog";
   dialog.setAttribute("aria-label", label);
   dialog.innerHTML = '<header class="summary-section-header"><h2>' + label + '</h2><button type="button" class="button tertiary communication-edit-icon" data-close aria-label="Close" title="Close">' + closeIcon + '</button></header><p role="status"></p><div data-notes-body></div>';
   const body = dialog.querySelector("[data-notes-body]"), feedback = dialog.querySelector('[role="status"]');
+  const expand = document.createElement("button");
+  expand.type = "button";
+  expand.className = "button tertiary communication-edit-icon";
+  const resizeIcon = expanded => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="' + (expanded
+    ? 'M9 3v6H3M3 3l6 6M15 3v6h6M21 3l-6 6M9 21v-6H3M3 21l6-6M15 21v-6h6M21 21l-6-6'
+    : 'M8 3H3v5M3 3l6 6M16 3h5v5M21 3l-6 6M8 21H3v-5M3 21l6-6M16 21h5v-5M21 21l-6-6') + '"/></svg>';
+  expand.innerHTML = resizeIcon(false);
+  expand.title = "Expand";
+  expand.setAttribute("aria-label", "Expand Review Notes");
+  expand.setAttribute("aria-expanded", "false");
+  expand.onclick = () => {
+    const expanded = dialog.classList.toggle("is-expanded");
+    expand.innerHTML = resizeIcon(expanded);
+    expand.title = expanded ? "Reduce" : "Expand";
+    expand.setAttribute("aria-label", expanded ? "Reduce Review Notes" : "Expand Review Notes");
+    expand.setAttribute("aria-expanded", String(expanded));
+  };
+  const headerActions = document.createElement("div");
+  headerActions.className = "communication-notes-header-actions";
+  headerActions.append(expand, dialog.querySelector("[data-close]"));
+  dialog.querySelector("header").append(headerActions);
   let busy = false, fresh;
   const button = (label, action) => {
     const node = document.createElement("button");
@@ -168,12 +299,12 @@ async function openNotesDialog(state, field, onSaved) {
   };
   const setBusy = value => {
     busy = value;
-    dialog.querySelectorAll("button").forEach(node => { node.disabled = value; });
+    dialog.querySelectorAll("button, input").forEach(node => { node.disabled = value; });
     dialog.querySelectorAll(".note-rich-input").forEach(node => { node.contentEditable = String(!value); node.setAttribute("aria-disabled", String(value)); });
   };
   dialog.querySelector("[data-close]").onclick = () => { if (!busy) dialog.close(); };
   dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener("close", () => dialog.remove(), { once: true });
+  dialog.addEventListener("close", () => { void recordEditLocks.release(MODULES.bookings, id).catch(() => {}); dialog.remove(); }, { once: true });
   document.body.append(dialog);
   dialog.showModal();
 
@@ -181,16 +312,24 @@ async function openNotesDialog(state, field, onSaved) {
     if (busy) return;
     setBusy(true); feedback.textContent = "Saving…";
     try {
+      await recordEditLocks.check(MODULES.bookings, id);
       const latest = await crmGetRecord(MODULES.bookings, id);
+      if (field === "Review_Notes") {
+        const repaired = await repairReviewNotes(latest?.[field], id, state.currentUserId);
+        if (repaired !== latest?.[field]) publish(repaired);
+        if (latest) latest[field] = repaired;
+      }
       const value = changeCommunicationNote(latest?.[field], note, original, remove, field);
-      const result = await window.ReviewNotesSave.save({ executeFunction: crmExecuteFunction, bookingId: id,
-        currentUserId: state.currentUserId, expectedNotes: latest[field] ?? '', notes: value });
-      fresh = result.notesJson;
-      if (String(state.selectedBooking?.id) === id) state.selectedBooking[field] = fresh;
-      for (const booking of state.bookings || []) if (String(booking.id) === id) booking[field] = fresh;
-      onSaved(); draw(); feedback.textContent = result.notificationWarning || result.notificationMessage || "Saved";
+      const result = await saveCommunicationNotes(field, id, value, latest[field], state.currentUserId);
+      publish(result.notesJson); draw(); feedback.textContent = result.notificationWarning || result.notificationMessage || "Saved";
     } catch (error) { feedback.textContent = error.message; }
     finally { setBusy(false); }
+  };
+  const publish = value => {
+    fresh = value;
+    if (String(state.selectedBooking?.id) === id) state.selectedBooking[field] = value;
+    for (const booking of state.bookings || []) if (String(booking.id) === id) booking[field] = value;
+    onSaved();
   };
   const draw = () => {
     const doc = parseNotesField(fresh, field);
@@ -198,7 +337,7 @@ async function openNotesDialog(state, field, onSaved) {
     list.className = "communication-notes-list";
     list.setAttribute("aria-label", label + " history");
     list.tabIndex = 0;
-    list.innerHTML = legacyNotes(doc);
+    list.innerHTML = legacyNotes(doc, field);
     body.replaceChildren(list);
     if (!doc.notes.length && !doc.legacyText) list.innerHTML = '<p class="muted">No notes yet.</p>';
     for (const note of doc.notes) {
@@ -207,7 +346,7 @@ async function openNotesDialog(state, field, onSaved) {
       const card = wrapper.firstElementChild;
       const actions = document.createElement("div"); actions.className = "communication-editor-actions";
       actions.append(button("Edit", () => {
-        const editor = noteEditor("Edit note", note);
+        const editor = noteEditor("Edit note", importedNoteForDisplay(note));
         const controls = document.createElement("div"); controls.className = "communication-editor-actions";
         controls.append(button("Cancel", draw), button("Save", () => {
           try {
@@ -228,6 +367,12 @@ async function openNotesDialog(state, field, onSaved) {
       head.append(card.querySelector("strong"), actions); card.prepend(head); list.append(card);
     }
     const composer = document.createElement("form"), editor = noteEditor("New note");
+    const context = field === "Accounting_Notes" ? state.accountingNoteContext : null;
+    if (context) {
+      const preview = document.createElement("div");
+      preview.innerHTML = renderAccountingNoteContext(context);
+      editor.node.insertBefore(preview, editor.input);
+    }
     composer.className = "communication-note-composer";
     const add = button("Add note", null); add.type = "submit"; add.className = "button primary communication-add-button";
     composer.append(editor.node, add);
@@ -239,18 +384,27 @@ async function openNotesDialog(state, field, onSaved) {
         const value = editor.read();
         if (!value.body) throw new Error("Enter a note.");
         if (!state.currentUserId || !state.currentUserName) throw new Error("Current user is unavailable. Reload before adding a note.");
-        if (!pending || pending.body !== value.body || JSON.stringify(pending.formatting) !== JSON.stringify(value.formatting)) pending = { id: crypto.randomUUID(), ...value, author: state.currentUserName, authorId: state.currentUserId, at: new Date().toISOString() };
+        if (!pending || pending.body !== value.body || JSON.stringify(pending.formatting) !== JSON.stringify(value.formatting)) pending = { id: crypto.randomUUID(), ...value, author: state.currentUserName, authorId: state.currentUserId, at: new Date().toISOString(), ...(context ? { context } : {}) };
         void save(pending);
       } catch (error) { feedback.textContent = error.message; }
     };
     body.append(composer);
   };
+  let editLeaseReady = false;
   const load = async () => {
     setBusy(true); feedback.textContent = "Loading…"; body.replaceChildren();
     try {
+      if (!editLeaseReady) { await recordEditLocks.begin(MODULES.bookings, id); editLeaseReady = true; }
+      if (!dialog.isConnected) { await recordEditLocks.release(MODULES.bookings, id); return; }
+      await recordEditLocks.check(MODULES.bookings, id);
       const record = await crmGetRecord(MODULES.bookings, id);
       if (!dialog.isConnected) return;
-      fresh = record?.[field]; draw(); feedback.textContent = "";
+      fresh = record?.[field];
+      const repaired = field === "Review_Notes" ? await repairReviewNotes(fresh, id, state.currentUserId) : fresh;
+      const imported = repaired !== fresh;
+      if (imported) publish(repaired);
+      if (!dialog.isConnected) return;
+      draw(); feedback.textContent = imported ? "Text outside the JSON was imported and saved. No email was sent." : "";
     } catch (error) {
       feedback.textContent = error.message;
       body.append(button("Retry", () => void load()));

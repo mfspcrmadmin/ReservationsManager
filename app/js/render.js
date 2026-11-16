@@ -1,4 +1,6 @@
+import { syncServiceStatusDropdown } from "./service-status-dropdown.js";
 import { showFeedback, clearFeedback } from "./app-feedback.js";
+import { sortTableRows, serviceSortValue, sortableHeader, bindTableSort, nextTableSort } from "./table-sorting.js";
 import { SERVICE_TABLE_COLUMNS, STATUS_OPTIONS } from "./constants.js";
 import { configureServiceColumnWidths } from "./service-column-resizing.js";
 import { renderCommunicationAttachmentsButton } from "./communication-attachments.js";
@@ -10,6 +12,7 @@ import {
   getBookingOwnerInfo,
   getBookingStageValue,
   getLookupName,
+  getServiceSupplierName,
   normalizeComparableText,
   getStepDisplayName,
   getStepInternalName
@@ -103,7 +106,18 @@ export function renderActiveTab(elements, state) {
   const activeTab = state.activeTab || "services";
   const isBookingTab = activeTab === "booking";
   const isServicesTab = activeTab === "services";
+  const isDocumentsTab = activeTab === "documents";
+  if (elements.tabDocuments) elements.tabDocuments.classList.toggle("active", isDocumentsTab);
+  if (elements.manageDocumentsPanel) elements.manageDocumentsPanel.hidden = !isDocumentsTab;
+  if (elements.manageAutomaticPanel) elements.manageAutomaticPanel.hidden = activeTab !== "automatic";
+  if (elements.tabAutomatic) elements.tabAutomatic.setAttribute("aria-expanded", String(activeTab === "automatic"));
   const isEmailsTab = activeTab === "emails";
+  const isTasksTab = activeTab === "tasks";
+  if (elements.tabTasks) {
+    elements.tabTasks.classList.toggle("active", isTasksTab);
+    elements.tabTasks.setAttribute("aria-current", isTasksTab ? "page" : "false");
+  }
+  if (elements.manageTasksPanel) elements.manageTasksPanel.hidden = !isTasksTab;
   const isPaymentsTab = activeTab === "payments";
   const isReportsTab = activeTab === "reports";
   const isCommunicationTab = activeTab === "communication";
@@ -114,7 +128,7 @@ export function renderActiveTab(elements, state) {
   }
 
   elements.tabServices.classList.toggle("active", isServicesTab);
-  elements.tabEmails.classList.toggle("active", isEmailsTab);
+  elements.tabEmails.classList.toggle("active", isEmailsTab || activeTab === "automatic");
   if (elements.tabPayments) {
     elements.tabPayments.classList.toggle("active", isPaymentsTab);
   }
@@ -147,9 +161,11 @@ export function renderActiveTab(elements, state) {
 }
 
 export function setButtonsDisabled(elements, state, disabled) {
+  if (elements.refreshServices) elements.refreshServices.disabled = disabled || !state.selectedBookingId || Boolean(state.servicesRefreshing);
   const hasSelectedServices = Object.keys(state.selectedServiceIds).length > 0;
   if (elements.bulkRequestPrepayment) elements.bulkRequestPrepayment.disabled = disabled || !hasSelectedServices;
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
+
   elements.loadBooking.disabled = disabled;
   elements.bookingSearch.disabled = disabled;
   if (elements.bookingBrowserOwner) {
@@ -170,7 +186,7 @@ export function setButtonsDisabled(elements, state, disabled) {
   if (elements.bookingBrowserRailToggle) {
     elements.bookingBrowserRailToggle.disabled = disabled;
   }
-  [elements.tabBooking, elements.tabServices, elements.tabEmails, elements.tabTravelers].forEach(function (tab) {
+  [elements.tabAutomatic, elements.tabBooking, elements.tabServices, elements.tabEmails, elements.tabTasks, elements.tabTravelers].forEach(function (tab) {
     if (tab) {
       tab.disabled = disabled;
     }
@@ -189,6 +205,7 @@ export function setButtonsDisabled(elements, state, disabled) {
   elements.createPaymentRequest.disabled = disabled || !state.selectedBooking;
   elements.saveService.disabled = disabled || !state.selectedService;
   elements.fieldStatusEzus.disabled = disabled || !state.selectedService;
+  if (elements.fieldPaymentStatus) elements.fieldPaymentStatus.disabled = disabled || !state.selectedService || !state.servicePaymentStatusOptions?.length;
   elements.updateServiceNotes.disabled = disabled || !state.selectedService;
   if (elements.serviceActionPrepayment) {
     elements.serviceActionPrepayment.disabled = disabled || !state.selectedService;
@@ -258,8 +275,33 @@ export function applyStatusSelectAppearance(selectElement, status) {
     return;
   }
 
+  if (selectElement.id === "field-status-ezus") {
+    syncServiceStatusDropdown(selectElement);
+    return;
+  }
   const statusSelectModifier = getStatusSelectModifier(status);
   selectElement.className = ["service-status-select", statusSelectModifier].filter(Boolean).join(" ");
+}
+
+export function renderServicePaymentStatus(elements, state) {
+  const select = elements.fieldPaymentStatus;
+  if (!select) return;
+  const options = state.servicePaymentStatusOptions || [];
+  const value = state.selectedService?.Payment_Status ?? "";
+  const available = options.slice();
+  // Display a saved/empty value even when CRM does not offer it for selection.
+  if (!available.some(option => option.value === value)) {
+    available.unshift({ value, label: value || "Not set", disabled: true });
+  }
+  select.innerHTML = options.length
+    ? available.map(option => '<option value="' + escapeHtml(option.value) + '"' + (option.disabled ? ' disabled' : '') + '>' + escapeHtml(option.label === "-None-" ? "Not set" : option.label) + '</option>').join("")
+    : '<option value="">' + (state.servicePaymentStatusError ? 'Payment statuses unavailable' : 'Loading payment statuses?') + '</option>';
+  select.value = value;
+  select.disabled = Boolean(state.servicePaymentStatusSaving) || !state.selectedService || !options.length;
+  select.title = state.servicePaymentStatusError || (state.servicePaymentStatusSaving ? "Saving payment status?" : "Change payment status");
+  select.dataset.saving = String(Boolean(state.servicePaymentStatusSaving));
+  syncServiceStatusDropdown(select);
+
 }
 
 export function renderBookingSummary(elements, state) {
@@ -323,7 +365,7 @@ export function renderBookingWorkspace(elements, state) {
   elements.createAxus.disabled = false;
   elements.syncEzus.disabled = state.syncingEzus;
   elements.openBookingReportDialog.disabled = false;
-  elements.createPaymentRequest.disabled = !state.currentUserIsAdministrator;
+  elements.createPaymentRequest.disabled = false;
 }
 
 export function renderTravelersPanel(options) {
@@ -382,7 +424,7 @@ export function renderTravelersPanel(options) {
   }
 
   elements.travelersBody.innerHTML = travelers.map(function (traveler) {
-    var isLeadTraveler = getLeadPaxLabel(traveler.Lead_Pax !== undefined ? traveler.Lead_Pax : traveler.Lead !== undefined ? traveler.Lead : traveler.lead) === "Yes";
+    var isLeadTraveler = getLeadPaxLabel(traveler.Lead_Passenger !== undefined && traveler.Lead_Passenger !== null ? traveler.Lead_Passenger : traveler.Lead_Pax !== undefined ? traveler.Lead_Pax : traveler.Lead !== undefined ? traveler.Lead : traveler.lead) === "Yes";
     var email = getTravelerFieldText(traveler, ["Email", "email"]);
     var phone = getTravelerFieldText(traveler, travelerPhoneFields.concat(["phone"]));
     var age = getTravelerFieldText(traveler, travelerAgeFields.concat(["age"]));
@@ -428,7 +470,7 @@ export function renderTravelersPanel(options) {
   elements.travelerInfoList.innerHTML = [
     buildCompactDetailRow("Forename", getTravelerFieldText(selectedTraveler, ["Forename"])),
     buildCompactDetailRow("Surname", getTravelerFieldText(selectedTraveler, ["Name"])),
-    buildCompactDetailRow("Lead Pax", getLeadPaxLabel(selectedTraveler.Lead_Pax)),
+    buildCompactDetailRow("Lead Pax", getLeadPaxLabel(selectedTraveler.Lead_Passenger !== undefined && selectedTraveler.Lead_Passenger !== null ? selectedTraveler.Lead_Passenger : selectedTraveler.Lead_Pax)),
     buildCompactDetailRow("Email", getTravelerFieldText(selectedTraveler, ["Email"])),
     buildCompactDetailRow("Phone", getTravelerFieldText(selectedTraveler, travelerPhoneFields)),
     buildCompactDetailRow("Age", getTravelerFieldText(selectedTraveler, travelerAgeFields)),
@@ -443,6 +485,7 @@ export function renderTravelersPanel(options) {
   elements.travelerProfileList.innerHTML = [
     buildTravelerProfileRow("Traveler motivation", getTravelerFieldText(selectedTraveler, ["Traveller_Motivation", "Traveler_Motivation"])),
     buildTravelerProfileRow("Special requests", getTravelerFieldText(selectedTraveler, ["Special_Requests"])),
+    buildTravelerProfileRow("Booking notes", getTravelerFieldText(selectedTraveler, ["Booking_Notes"])),
     buildTravelerProfileRow("Size/Weight", getTravelerFieldText(selectedTraveler, ["Size_Weight"])),
     buildTravelerProfileRow("Mobility needs", getTravelerFieldText(selectedTraveler, ["Mobility_Needs"]), "traveler-profile-row--warning"),
     buildTravelerProfileRow("Allergies/Dietary Restrictions", getTravelerFieldText(selectedTraveler, ["Allergies_Dietary_Restrictions"]), "traveler-profile-row--alert")
@@ -510,6 +553,12 @@ export function renderBookingBrowser(options) {
       '  </td>',
       '</tr>'
     ].join("");
+    return;
+  }
+
+  if (state.bookingBrowserError) {
+    elements.bookingBrowserCount.textContent = "Search failed";
+    elements.bookingBrowserBody.innerHTML = '<tr><td colspan="4" class="table-empty" role="alert">' + escapeHtml(state.bookingBrowserError) + '</td></tr>';
     return;
   }
 
@@ -754,7 +803,7 @@ function renderBookingBlueprintPanel(state) {
     '      <span class="label">Next actions</span>',
       '      <span class="badge subtle">' + escapeHtml(String(transitions.length)) + (transitions.length === 1 ? " action" : " actions") + "</span>",
     "    </div>",
-    transitions.length ? renderBookingBlueprintTransitions(transitions) : '<div class="summary-blueprint-empty">No transitions are currently available for this booking.</div>',
+    transitions.length ? renderBookingBlueprintTransitions(transitions) : '<div class="summary-blueprint-empty">No workflow actions are available for your user at this stage.</div>',
     "  </div>",
     "</aside>"
   ].join("");
@@ -868,7 +917,7 @@ function renderFinancialSummaryView(booking) {
   const rightColumn = [
     buildSummaryMetricRow("Balance Amount", formatCurrency(booking.Balance_Amount)),
     buildSummaryMetricRow("Total Requested Amount", formatCurrency(getBookingRawValue(booking, ["Total_Requested_Amount"]))),
-    buildSummaryMetricRow("Total Paid Amount", formatCurrency(getBookingRawValue(booking, ["Total_Paid_Amount"]))),
+    buildSummaryMetricRow("Total Paid Amount", formatCurrency(getBookingRawValue(booking, ["Paid_Amount"]))),
     buildSummaryMetricRow("Total Refund Amount", formatCurrency(getBookingRawValue(booking, ["Total_Refund_Amount"])))
   ];
 
@@ -1104,6 +1153,7 @@ function renderServiceFilterControls(elements, state) {
     supplier: "",
     category: [],
     subcategory: [],
+    serviceDate: [],
     subdestination: []
   };
   const options = buildServiceFilterOptions(state.services);
@@ -1140,6 +1190,14 @@ function renderServiceFilterControls(elements, state) {
     filters.subdestination,
     state.serviceFilterMenuOpen === "subdestination",
     "All subdestinations"
+  );
+  renderServiceMultiFilter(
+    elements.serviceFilterDateToggle,
+    elements.serviceFilterDateMenu,
+    options.serviceDate,
+    filters.serviceDate,
+    state.serviceFilterMenuOpen === "serviceDate",
+    "All service dates"
   );
 }
 
@@ -1200,13 +1258,16 @@ function buildServiceFilterOptions(services) {
       return service.Status_EZUS || "";
     }, STATUS_OPTIONS),
     supplier: getServiceFilterOptionList(services, function (service) {
-      return service.Supplier_Name || "";
+      return getServiceSupplierName(service);
     }),
     category: getServiceFilterOptionList(services, function (service) {
       return service.Category || "";
     }),
     subcategory: getServiceFilterOptionList(services, function (service) {
       return service.Subcategory || "";
+    }),
+    serviceDate: getServiceFilterOptionList(services, function (service) {
+      return String(service.Service_Date || "").slice(0, 10);
     }),
     subdestination: getServiceFilterOptionList(services, function (service) {
       return service.Subdestination || "";
@@ -1412,6 +1473,23 @@ export function renderServicesTable(options) {
   const visibleColumns = getVisibleServiceColumns(state);
   const hasBulkStatusSelection = Boolean(elements.bulkStatusEzus.value);
 
+  const groupActions = elements.servicesBody.closest?.(".table-panel")?.querySelector("#service-group-actions");
+  if (groupActions) {
+    groupActions.hidden = state.serviceView !== "grouped";
+    for (const collapse of [false, true]) {
+      const button = groupActions.querySelector(collapse ? "[data-collapse-steps]" : "[data-expand-steps]");
+      button.disabled = !state.groupedRows.some(group => Boolean(state.collapsedStepIds[group.stepId]) !== collapse);
+      button.onclick = () => {
+        state.groupedRows.forEach(group => {
+          if (collapse) state.collapsedStepIds[group.stepId] = true;
+          else delete state.collapsedStepIds[group.stepId];
+        });
+        renderServicesTable(options);
+      };
+    }
+  }
+  elements.viewFlat.setAttribute("aria-pressed", String(state.serviceView === "flat"));
+  elements.viewGrouped.setAttribute("aria-pressed", String(state.serviceView === "grouped"));
   renderServiceFilterControls(elements, state);
   if (elements.servicesTitleCount) {
     elements.servicesTitleCount.textContent = state.filteredServices.length + " shown · " + state.services.length + " total";
@@ -1431,9 +1509,16 @@ export function renderServicesTable(options) {
   elements.createAvailabilityDraft.disabled = selectedCount === 0;
   elements.createReservationsDraft.disabled = selectedCount === 0;
   elements.viewFlat.classList.toggle("active", state.serviceView === "flat");
+  if (elements.refreshServices) elements.refreshServices.disabled = !state.selectedBookingId || Boolean(elements.loadBooking?.disabled || state.servicesRefreshing);
   elements.viewGrouped.classList.toggle("active", state.serviceView === "grouped");
   renderServiceColumnsEditor(elements, state);
   renderServiceTableHead(elements, state, visibleColumns);
+  bindTableSort(elements.servicesHeadRow, key => {
+    state.serviceTableSort = nextTableSort(state.serviceTableSort, key);
+    renderServicesTable(options);
+    options.onSortChanged?.();
+    elements.servicesHeadRow.querySelector('[data-table-sort="' + key + '"]')?.focus();
+  });
   if (state.serviceView === "grouped") {
     renderGroupedServicesTable(options);
     return;
@@ -1456,7 +1541,7 @@ export function renderEmailsPanel(elements, state, options) {
     state.selectedDraftIds = {};
   }
   state.selectedDraftIds ||= {};
-  const selectableIds = state.emailDrafts.filter(record => String(record.communication_status || "Draft").toLowerCase() === "draft").map((record, index) => getMailRecordId(record, index, "drafts"));
+  const selectableIds = state.emailDrafts.filter(record => String(record.communication_status || "Draft").toLowerCase() === "draft" && record.service_links_valid !== false && !record.send_blocked).map((record, index) => getMailRecordId(record, index, "drafts"));
   for (const id of Object.keys(state.selectedDraftIds)) if (!selectableIds.includes(id)) delete state.selectedDraftIds[id];
   const selectedDraftCount = Object.keys(state.selectedDraftIds).length;
   const selectionBusy = state.draftEditorSaving || state.draftBatchSending || state.draftEditorOpen || state.communicationContentEditorOpen || state.emailsLoading || state.draftDeleteConfirmOpen;
@@ -1581,6 +1666,10 @@ export function renderEmailsPanel(elements, state, options) {
   }
 
   const viewerRecord = selectedContentRecord || selectedRecord;
+  if (elements.mailToContactsButton) {
+    elements.mailToContactsButton.hidden = false;
+    elements.mailToContactsButton.disabled = !viewerRecord?.communication_id || state.draftEditorSaving || state.draftSending || state.draftEditorOpen || state.outlookConfirmOpen || Boolean(state.communicationInlineEdit && state.communicationInlineEdit !== "to");
+  }
   const isCommunicationDraft = Boolean(viewerRecord && viewerRecord.communication_id);
   const isSentCommunication = String(viewerRecord && viewerRecord.communication_status || "").toLowerCase() === "sent";
   renderCommunicationAttachmentsButton(elements.mailAttachmentsButton, viewerRecord, state.draftSending || state.draftEditorSaving || state.outlookConfirmOpen);
@@ -1618,22 +1707,30 @@ export function renderEmailsPanel(elements, state, options) {
   elements.mailViewerPreview.textContent = "";
   elements.mailViewerPreview.hidden = true;
   elements.mailViewerFrom.textContent = fromValue;
+  if (elements.mailToContactsButton && isSentCommunication) {
+    elements.mailToContactsButton.hidden = true;
+    elements.mailToContactsButton.disabled = true;
+  }
   elements.mailViewerTo.textContent = toValue;
   elements.mailViewerCc.textContent = ccValue;
   elements.mailViewerTime.textContent = timeValue ? formatDateTime(timeValue) : "-";
   renderCommunicationServices(elements.mailServicesIncluded, viewerRecord, state);
   elements.mailViewerActions.hidden = Boolean(state.draftEditorOpen);
   elements.mailFollowUpActions.hidden = !isSentCommunication;
+  if (elements.mailRecoverCrm) {
+    elements.mailRecoverCrm.hidden = !isSentCommunication && !state.communicationCrmRecovery?.[viewerRecord.communication_id];
+    elements.mailRecoverCrm.disabled = Boolean(state.communicationCrmRecoveryBusy || state.draftEditorSaving || state.draftEditorOpen || state.draftSending);
+  }
   elements.mailResend.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
   elements.mailResendEdit.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
   elements.mailForward.disabled = !isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
   if (elements.mailSendDraft) {
-    elements.mailSendDraft.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    elements.mailSendDraft.disabled = isSentCommunication || viewerRecord.service_links_valid === false || Boolean(viewerRecord.send_blocked) || Boolean(state.communicationEditRecoveries?.[viewerRecord.communication_id]) || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
     elements.mailSendDraft.hidden = isSentCommunication;
     elements.mailSendDraft.textContent = state.draftSending ? "Sending..." : "Send";
   }
   [elements.mailEditFromButton, elements.mailEditToButton, elements.mailEditCcButton, elements.mailEditSubjectButton, elements.mailEditContentButton].forEach(function (button) {
-    button.disabled = isSentCommunication || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
+    button.disabled = isSentCommunication || Boolean(state.communicationEditRecoveries?.[viewerRecord.communication_id]) || state.draftEditorSaving || state.draftEditorOpen || state.outlookConfirmOpen;
     button.title = "Edit";
   });
   if (elements.mailDeleteDraft) {
@@ -1701,7 +1798,15 @@ export function renderEmailsPanel(elements, state, options) {
   elements.mailEditContentLabel.textContent = state.draftEditorMode === "visual" ? "Content (visual)" : "Content (HTML)";
   elements.mailEditVisual.hidden = state.draftEditorMode !== "visual";
   elements.mailEditContent.hidden = state.draftEditorMode !== "html";
-  elements.mailSaveDraft.textContent = state.draftEditorSaving ? "Saving..." : "Save draft";
+  const editRecovery = state.communicationEditRecoveries?.[viewerRecord.communication_id];
+  if (elements.mailEditRecoveryStatus) {
+    elements.mailEditRecoveryStatus.hidden = !editRecovery;
+    elements.mailEditRecoveryStatus.textContent = editRecovery ? "Email content saved; service links are not confirmed. Review the selected services and retry service links. The email content will not be saved again. Recovery is kept while this widget remains open." : "";
+  }
+  [elements.mailEditFrom, elements.mailEditTo, elements.mailEditCc, elements.mailEditSubject, elements.mailEditContent].forEach(input => { input.disabled = state.draftEditorSaving || Boolean(editRecovery); });
+  elements.mailEditVisual.contentEditable = state.draftEditorSaving || editRecovery ? "false" : "true";
+  elements.mailSaveDraft.textContent = state.draftEditorSaving ? "Saving..." : editRecovery ? "Retry service links" : "Save draft";
+  elements.mailCancelDraftEdit.textContent = editRecovery ? "Close" : "Cancel";
 
   elements.mailViewerBody.innerHTML = buildMailViewerMarkup(htmlContent);
 }
@@ -1748,7 +1853,7 @@ function renderCommunicationServiceEditor(elements, state) {
     return '<div class="mail-edit-service-row"><span>' + escapeHtml(service.Name || service.Product_Description || "Service") + '</span><button type="button" data-remove-communication-service="' + escapeHtml(String(service.id)) + '" aria-label="Remove service">×</button></div>';
   }).join("") : '<p class="mail-services-empty">No services associated with this communication.</p>';
   elements.mailEditServiceOptions.innerHTML = (state.services || []).filter(function (service) { return ids.indexOf(String(service.id)) === -1; }).map(function (service) {
-    return '<option value="' + escapeHtml(String(service.id)) + ' | ' + escapeHtml(service.Name || service.Product_Description || "Service") + ' | ' + escapeHtml(service.Supplier_Name || "") + '"></option>';
+    return '<option value="' + escapeHtml(String(service.id)) + ' | ' + escapeHtml(service.Name || service.Product_Description || "Service") + ' | ' + escapeHtml(getServiceSupplierName(service)) + '"></option>';
   }).join("");
 }
 
@@ -1756,6 +1861,8 @@ function renderCommunicationServices(element, record, state) {
   if (!element) {
     return;
   }
+  const issues = Array.isArray(record?.service_link_errors) ? record.service_link_errors : [];
+  const warning = record?.service_links_valid === false ? '<p class="mail-services-empty" role="alert">Service links need review. ' + escapeHtml(issues.join(" ")) + '</p>' : "";
 
   const recordId = String(record && (record.draft_id || record.id || record.communication_id) || "");
   if (element.dataset.recordId !== recordId) {
@@ -1774,6 +1881,7 @@ function renderCommunicationServices(element, record, state) {
       '<summary class="mail-services-summary">',
       '  <span><strong>Services included <em>· 0</em></strong><small>Read-only</small></span>',
       '</summary>',
+    warning,
       '<div class="mail-services-content"><p class="mail-services-empty">No services associated with this communication.</p></div>'
     ].join("");
     return;
@@ -1782,10 +1890,11 @@ function renderCommunicationServices(element, record, state) {
     '<summary class="mail-services-summary">',
     '  <span><strong>Services included <em>· ' + services.length + '</em></strong><small>Read-only</small></span>',
     '</summary>',
+    warning,
     '<div class="mail-services-content"><div class="mail-services-table"><div class="mail-services-head"><span>Date</span><span>Service</span><span>Supplier</span><span>Status</span></div>',
     services.map(function (service) {
       const dateValue = service.Service_Date || service.service_date || service.Date || "";
-      return '<div class="mail-services-row"><span>' + escapeHtml(dateValue ? formatDateTime(dateValue) : "-") + '</span><strong>' + escapeHtml(service.Product_Description || service.product_description || service.Name || service.name || "-") + '</strong><span>' + escapeHtml(service.Supplier_Name || service.supplier_name || service.Supplier && service.Supplier.name || "-") + '</span><span>' + escapeHtml(service.Status_EZUS || service.status || "-") + '</span></div>';
+      return '<div class="mail-services-row"><span>' + escapeHtml(dateValue ? formatDateTime(dateValue) : "-") + '</span><strong>' + escapeHtml(service.Product_Description || service.product_description || service.Name || service.name || "-") + '</strong><span>' + renderServiceSupplierName(service) + '</span><span>' + escapeHtml(service.Status_EZUS || service.status || "-") + '</span></div>';
     }).join(""),
     '</div></div>'
   ].join("");
@@ -1802,7 +1911,7 @@ function renderMailList(records, tabName, selectedRecordId, emptyMessage, select
     const toValue = formatMailValue(getMailField(record, ["to", "To", "to_address", "To_Address", "recipient", "Recipient"]));
     const timeValue = getMailRecordTimeValue(record);
     const selectedClass = recordId === selectedRecordId ? " active" : "";
-    const selectable = String(record.communication_status || "Draft").toLowerCase() === "draft";
+    const selectable = String(record.communication_status || "Draft").toLowerCase() === "draft" && record.service_links_valid !== false && !record.send_blocked;
 
     return [
       '<article class="mail-list-item' + selectedClass + (selectable ? ' has-draft-selection' : '') + '" data-mail-tab="' + escapeHtml(tabName) + '" data-mail-record-id="' + escapeHtml(recordId) + '">',
@@ -1972,14 +2081,14 @@ function renderFlatServicesTable(options) {
   const onSelectService = options.onSelectService;
   const onToggleServiceSelection = options.onToggleServiceSelection;
   const visibleColumns = getVisibleServiceColumns(state);
-  const columnCount = visibleColumns.length + 1;
+  const columnCount = visibleColumns.length + 2;
 
   if (!state.filteredServices.length) {
     elements.servicesBody.innerHTML = '<tr><td colspan="' + columnCount + '" class="table-empty">No services match the current filter.</td></tr>';
     return;
   }
 
-  elements.servicesBody.innerHTML = state.filteredServices.map(function (service) {
+  elements.servicesBody.innerHTML = sortTableRows(state.filteredServices, state.serviceTableSort, (service, key) => serviceSortValue(service, key, state)).map(function (service) {
     const activeClass = service.id === state.selectedServiceId ? "active" : "";
     const selectedClass = state.selectedServiceIds[service.id] ? "is-selected" : "";
     return [
@@ -2021,7 +2130,7 @@ function renderGroupedServicesTable(options) {
   const onToggleGroupSelection = options.onToggleGroupSelection;
   const onToggleStepCollapsed = options.onToggleStepCollapsed;
   const visibleColumns = getVisibleServiceColumns(state);
-  const columnCount = visibleColumns.length + 1;
+  const columnCount = visibleColumns.length + 2;
 
   if (!state.groupedRows.length) {
     elements.servicesBody.innerHTML = '<tr><td colspan="' + columnCount + '" class="table-empty">No services match the current filter.</td></tr>';
@@ -2055,28 +2164,19 @@ function renderGroupedServicesTable(options) {
 
     rows.push(
       '<tr class="step-row ' + stepActive + (isCollapsed ? " is-collapsed" : "") + '" data-step-id="' + escapeHtml(group.stepId) + '">' +
-      '<td colspan="' + columnCount + '" class="step-cell">' +
-      '<div class="step-card">' +
-      '<div class="step-card-top">' +
+      '<td colspan="' + columnCount + '" class="step-cell"><div class="step-card">' +
       '<div class="step-card-title-wrap">' +
-      '<button class="step-collapse-toggle" type="button" data-step-collapse-id="' + escapeHtml(group.stepId) + '" aria-label="' + (isCollapsed ? "Expand step" : "Collapse step") + '" aria-expanded="' + (!isCollapsed ? "true" : "false") + '">' + (isCollapsed ? "›" : "⌄") + '</button>' +
-      '<input class="table-checkbox group-select-checkbox" type="checkbox" data-group-step-id="' + escapeHtml(group.stepId) + '"' + (groupSelection.checked ? " checked" : "") + ' aria-label="Select all services in this step" title="Select all services in this step">' +
-      '<div class="step-card-labels">' +
-      '<span class="step-card-title">' + escapeHtml(stepName) + '</span>' +
-      '<div class="step-card-meta">' + escapeHtml(stepClassification) + '</div>' +
-      '</div>' +
-      '</div>' +
-      '<div class="step-card-top-meta">' + (stepSchedule ? '<span class="step-time">' + escapeHtml(stepSchedule) + '</span>' : "") + '<span class="step-service-count">' + escapeHtml(group.services.length + (group.services.length === 1 ? " service" : " services")) + '</span>' + renderStatusPill(stepStatus) + '</div>' +
-      '</div>' +
-      '<div class="step-card-financial"><span>Sales <strong>' + escapeHtml(formatCurrency(group.totalSales)) + '</strong></span><span>Purchase <strong>' + escapeHtml(formatCurrency(group.totalPurchase)) + '</strong></span></div>' +
-      '</div>' +
-      '</div>' +
-      '</td>' +
-      '</tr>'
+      '<button class="step-collapse-toggle" type="button" data-step-collapse-id="' + escapeHtml(group.stepId) + '" aria-label="' + (isCollapsed ? "Expand step" : "Collapse step") + '" aria-expanded="' + !isCollapsed + '"></button>' +
+      '<input class="table-checkbox group-select-checkbox" type="checkbox" data-group-step-id="' + escapeHtml(group.stepId) + '"' + (groupSelection.checked ? " checked" : "") + ' aria-label="Select visible services in this step" title="Select visible services in this step">' +
+      '<div class="step-card-labels"><span class="step-card-title">' + escapeHtml(stepName) + '</span>' +
+      '<div class="step-card-meta">' + escapeHtml(stepClassification) + ' &#183; ' + group.services.length + (group.services.length === 1 ? ' visible service' : ' visible services') + (stepSchedule ? ' &#183; ' + escapeHtml(stepSchedule) : '') + '</div></div></div>' +
+      '<div class="step-card-summary">' + renderStatusPill(stepStatus) +
+      '<div class="step-card-financial" title="Totals for visible services" aria-label="Totals for visible services"><span>Sales <strong>' + escapeHtml(formatCurrency(group.totalSales)) + '</strong></span><span>Purchase <strong>' + escapeHtml(formatCurrency(group.totalPurchase)) + '</strong></span></div></div>' +
+      '</div></td></tr>'
     );
 
     if (!isCollapsed) {
-      group.services.forEach(function (service) {
+      sortTableRows(group.services, state.serviceTableSort, (service, key) => serviceSortValue(service, key, state)).forEach(function (service) {
       const activeClass = state.selectedItemType === "service" && state.selectedServiceId === service.id ? "active" : "";
       const selectedClass = state.selectedServiceIds[service.id] ? "is-selected" : "";
       rows.push(
@@ -2134,17 +2234,23 @@ function renderGroupedServicesTable(options) {
     });
 
     checkbox.addEventListener("change", function () {
+      const stepId = checkbox.getAttribute("data-group-step-id");
       onToggleGroupSelection(
-        checkbox.getAttribute("data-group-step-id"),
+        stepId,
         checkbox.checked
       );
+      Array.from(elements.servicesBody.querySelectorAll("input[data-group-step-id]"))
+        .find(input => input.getAttribute("data-group-step-id") === stepId)?.focus();
     });
   });
 
   Array.prototype.forEach.call(elements.servicesBody.querySelectorAll("button[data-step-collapse-id]"), function (button) {
     button.addEventListener("click", function (event) {
       event.stopPropagation();
-      onToggleStepCollapsed(button.getAttribute("data-step-collapse-id"));
+      const stepId = button.getAttribute("data-step-collapse-id");
+      onToggleStepCollapsed(stepId);
+      Array.from(elements.servicesBody.querySelectorAll("button[data-step-collapse-id]"))
+        .find(control => control.getAttribute("data-step-collapse-id") === stepId)?.focus();
     });
   });
 }
@@ -2187,7 +2293,7 @@ function renderServiceTableHead(elements, state, visibleColumns) {
   elements.servicesHeadRow.innerHTML = [
     '<th class="select-column"><input id="services-select-all" class="table-checkbox" type="checkbox" aria-label="Select all visible services"></th>',
     visibleColumns.map(function (column) {
-      return '<th class="' + escapeHtml(getServiceColumnClassName(column.key)) + '" data-service-column-key="' + escapeHtml(column.key) + '">' + escapeHtml(column.label) + "</th>";
+      return sortableHeader(column, state.serviceTableSort, getServiceColumnClassName(column.key));
     }).join(""),
     '<th class="service-columns-control"><button class="service-columns-button" type="button" data-toggle-service-columns aria-label="Configure visible columns" title="Configure visible columns"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/><path d="m19.4 13.5 1.4 1.1-2 3.5-1.7-.7a7.7 7.7 0 0 1-2.1 1.2L14.7 20h-4l-.3-1.9a7.7 7.7 0 0 1-2.1-1.2l-1.7.7-2-3.5 1.4-1.1a7.8 7.8 0 0 1 0-2.4L4.6 9.5l2-3.5 1.7.7a7.7 7.7 0 0 1 2.1-1.2l.3-1.9h4l.3 1.9a7.7 7.7 0 0 1 2.1 1.2l1.7-.7 2 3.5-1.4 1.1a7.8 7.8 0 0 1 0 2.4Z"/></svg></button></th>'
   ].join("");
@@ -2344,7 +2450,7 @@ function renderStatusPill(status) {
   return '<span class="' + escapeHtml(classes.join(" ")) + '">' + escapeHtml(status || "-") + "</span>";
 }
 
-function renderPaymentStatusPill(status) {
+function getPaymentStatusTheme(status) {
   const modifiers = {
     "to be paid": "pending",
     "prepayment requested": "requested",
@@ -2354,7 +2460,14 @@ function renderPaymentStatusPill(status) {
     "refunded": "refunded"
   };
   const modifier = modifiers[normalizeStatusValue(status)] || "neutral";
-  return '<span class="status-pill payment-status-pill--' + modifier + '">' + escapeHtml(status && status !== "-None-" ? status : "-") + '</span>';
+  const backgrounds = { pending: "#a86138", requested: "#a56b4b", partial: "#91732d", paid: "#4e805f", "partial-refund": "#8b669e", refunded: "#77588d", neutral: "#737e8b" };
+  return { modifier, background: backgrounds[modifier], color: "#fff" };
+}
+
+function renderPaymentStatusPill(status) {
+  if (!status || status === "-None-") return '<span class="service-missing-value" aria-label="No payment status">—</span>';
+  const theme = getPaymentStatusTheme(status);
+  return '<span class="status-pill payment-status-pill--' + theme.modifier + '" style="background-color:' + theme.background + ';color:' + theme.color + ';border-color:' + theme.background + '">' + escapeHtml(status && status !== "-None-" ? status : "-") + '</span>';
 }
 
 function renderStatusOption(status) {
@@ -2402,11 +2515,13 @@ function renderServiceTableCell(column, service, state) {
     case "subcategory":
       return renderServiceCell(column.key, escapeHtml(service.Subcategory || "-"));
     case "supplier":
-      return renderServiceCell(column.key, escapeHtml(service.Supplier_Name || "-"));
+      return renderServiceCell(column.key, renderServiceSupplierName(service));
     case "status":
       return renderServiceCell(column.key, renderStatusPill(service.Status_EZUS));
     case "paymentStatus":
       return renderServiceCell(column.key, renderPaymentStatusPill(service.Payment_Status));
+    case "paymentMethod":
+      return renderServiceCell(column.key, escapeHtml(getServiceFieldDisplayValue(service.Payment_Method)));
     case "sales":
       return renderServiceCell(column.key, escapeHtml(formatCurrency(service.Total_Sales_Price)));
     case "purchase":
@@ -2462,8 +2577,16 @@ function renderSelectedService(elements, state) {
   elements.detailName.textContent = service.Name || "-";
   elements.detailDescription.textContent = service.Product_Description || "-";
   elements.detailDate.textContent = formatDate(service.Service_Date);
+  elements.fieldStatusEzus.querySelectorAll('[data-saved-status]').forEach(option => option.remove());
+  if (!Array.from(elements.fieldStatusEzus.options).some(option => option.value === selectedStatus)) {
+    const option = new Option(selectedStatus, selectedStatus);
+    option.disabled = true;
+    option.dataset.savedStatus = "true";
+    elements.fieldStatusEzus.add(option);
+  }
   elements.fieldStatusEzus.value = selectedStatus;
   applyStatusSelectAppearance(elements.fieldStatusEzus, selectedStatus);
+  renderServicePaymentStatus(elements, state);
   elements.fieldServiceNotes.value = service.Service_Notes || "";
   elements.serviceActionPrepayment.disabled = false;
   elements.serviceActionCardPurchase.disabled = false;
@@ -2488,6 +2611,7 @@ function renderEmptyServiceState(elements, state) {
   elements.servicePanel.hidden = true;
   elements.saveService.disabled = true;
   elements.fieldStatusEzus.disabled = true;
+  if (elements.fieldPaymentStatus) elements.fieldPaymentStatus.disabled = true;
   elements.updateServiceNotes.disabled = true;
   elements.serviceActionPrepayment.disabled = true;
   elements.serviceActionCardPurchase.disabled = true;
@@ -2542,7 +2666,7 @@ function buildSelectedServiceTabMarkup(service, step, activeTab, state) {
   const basicRows = [
     buildCompactDetailRow("Service date", formatDate(service.Service_Date)),
     buildCompactDetailRow("PAX number", getServiceFieldText(service, ["Number_of_Pax", "PAX_Number"])),
-    buildCompactDetailRow("Supplier", getServiceFieldText(service, ["Supplier_Name", "Supplier"])),
+    buildCompactDetailRow("Supplier", getServiceSupplierName(service), getServiceSupplierName(service) === "No supplier linked" ? "supplier-unlinked" : ""),
     buildCompactDetailRow("Step name", getStepDisplayName(step) || "No step linked")
   ];
   const financialRows = [
@@ -2573,11 +2697,16 @@ function buildSelectedServiceTabMarkup(service, step, activeTab, state) {
   return '<div class="detail-list compact-detail-list">' + (tabs[activeTab] || tabs.basic).join("") + "</div>";
 }
 
-function buildCompactDetailRow(label, value) {
+function renderServiceSupplierName(service) {
+  const name = getServiceSupplierName(service);
+  return '<span' + (name === "No supplier linked" ? ' class="supplier-unlinked"' : '') + '>' + escapeHtml(name) + '</span>';
+}
+
+function buildCompactDetailRow(label, value, valueClass = "") {
   return [
     '<div class="detail-list-row compact-detail-row">',
     '  <span class="label">' + escapeHtml(label) + "</span>",
-    '  <strong>' + escapeHtml(value !== null && value !== undefined && value !== "" ? String(value) : "-") + "</strong>",
+    '  <strong' + (valueClass ? ' class="' + escapeHtml(valueClass) + '"' : '') + '>' + escapeHtml(value !== null && value !== undefined && value !== "" ? String(value) : "-") + "</strong>",
     "</div>"
   ].join("");
 }

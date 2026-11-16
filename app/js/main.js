@@ -1,10 +1,13 @@
 import { init } from "./booking-controller.js";
+import { initInterfaceSystem } from "./interface-system.js";
+import { initQueueDropdowns } from "./queue-dropdowns.js";
 import { initFloatingLayer } from "./floating-layer.js";
 import { initMailFormatting } from "./mail-formatting.js";
 import { onToggleServiceColumnsPanel } from "./services-controller.js";
+import { initServiceTravelers } from "./service-travelers.js";
 
 function addDialogCloseButton(panel) {
-  if (!panel || panel.querySelector("[data-dialog-dismiss]")) {
+  if (!panel || panel.querySelector("[data-dialog-dismiss], [data-dismiss]")) {
     return;
   }
 
@@ -35,7 +38,7 @@ function addDialogCloseButtons(root) {
 }
 
 function closeDialogFromDismissButton(button) {
-  const dialog = button.closest(".booking-action-dialog");
+  const dialog = button.closest(".booking-action-dialog, dialog");
   const columnsPanel = button.closest(".columns-panel");
   const outlookConfirm = button.closest("#mail-outlook-confirm");
 
@@ -56,7 +59,9 @@ function closeDialogFromDismissButton(button) {
       return;
     }
 
-    if (dialog.parentElement === document.body) {
+    if (dialog.tagName === "DIALOG") {
+      dialog.close();
+    } else if (dialog.parentElement === document.body) {
       dialog.remove();
     } else {
       dialog.hidden = true;
@@ -80,4 +85,7 @@ new MutationObserver(function (records) {
 }).observe(document.body, { childList: true, subtree: true });
 
 initFloatingLayer();
+initQueueDropdowns();
+initInterfaceSystem();
+initServiceTravelers();
 init();

@@ -1,0 +1,51 @@
+/* Booking detail view only; queue and top-level navigation retain their styles. */
+#manage-booking-panel .booking-details-card { container: booking-details / inline-size; }
+.booking-financial { gap: 12px; color: var(--text); }
+.financial-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.financial-card { min-width: 0; padding: 18px; background: var(--panel-strong); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 1px 2px #14261e04; container: financial-card / inline-size; }
+.financial-card h3 { margin: 0 0 16px; color: var(--accent-strong); font: 700 14px/1.3 var(--font-heading); }
+.financial-card dl { margin: 0; }
+.financial-headline { display: flex; flex-wrap: wrap; align-items: start; gap: 12px 24px; min-height: 76px; }
+.financial-card dt { margin: 0 0 5px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.financial-card dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.financial-metric { min-width: 0; }
+.financial-metric dd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.financial-metric strong { font-size: 17px; line-height: 1.35; font-weight: 650; }
+.financial-metric--primary strong { font-size: 26px; line-height: 1.25; }
+.financial-metric--negative strong { color: var(--danger); }
+.financial-status { display: inline-block; padding: 3px 7px; border-radius: 5px; color: var(--danger); background: var(--danger-bg); font: 600 11px/1.4 var(--font-body); }
+.financial-due-date { padding-top: 2px; }
+.financial-due-date dd { font-size: 14px; font-weight: 600; }
+.financial-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding-top: 16px; }
+.financial-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+#manage-booking-panel .summary-view-controls { margin-top: 8px; margin-bottom: 12px; }
+#manage-booking-panel .summary-view-controls .summary-mode-switch { display: flex; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-start; gap: 4px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+#manage-booking-panel .summary-mode-switch--details .segmented-control-button { flex: 0 0 auto; width: auto; min-height: 34px; padding: 7px 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; color: var(--muted); background: transparent; box-shadow: none; font: 500 13px/1.4 var(--font-body); }
+#manage-booking-panel .summary-mode-switch--details .segmented-control-button:is(.is-active, .active) { color: var(--accent-strong); border-bottom-color: var(--accent); background: var(--info-bg); font-weight: 700; box-shadow: none; }
+#manage-booking-panel .summary-mode-switch--details .segmented-control-button:hover { color: var(--accent-strong); background: var(--info-bg); }
+#manage-booking-panel .summary-mode-switch--details .segmented-control-button:focus-visible,
+#manage-booking-panel .booking-tags-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#manage-booking-panel .booking-personal-tags { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin-bottom: 0; }
+#manage-booking-panel .booking-tag-group { min-width: 0; padding: 8px 0; }
+#manage-booking-panel .booking-tag-group + .booking-tag-group { padding-left: 20px; border-left: 1px solid var(--line); }
+#manage-booking-panel .booking-tag-group > strong { display: block; color: var(--muted); font: 600 12px/1.4 var(--font-body); }
+#manage-booking-panel .booking-tags-slot { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+#manage-booking-panel .booking-tag-chip,
+#manage-booking-panel .booking-tags-add { display: inline-flex; align-items: center; min-height: 25px; max-width: 100%; padding: 4px 8px; font: 600 11px/1.4 var(--font-body); white-space: normal; overflow-wrap: anywhere; }
+#manage-booking-panel .booking-tags-add { border: 1px dashed var(--line); color: var(--accent-strong); }
+#manage-booking-panel .booking-tags-readonly { font-size: 11px; color: var(--muted); }
+@container booking-details (max-width: 760px) {
+  .financial-cards { grid-template-columns: minmax(0, 1fr); }
+  .financial-headline { min-height: 0; }
+}
+@container financial-card (max-width: 390px) {
+  .financial-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+@container financial-card (max-width: 250px) {
+  .financial-details, .financial-pair { grid-template-columns: minmax(0, 1fr); }
+}
+@container booking-details (max-width: 480px) {
+  #manage-booking-panel .booking-personal-tags { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  #manage-booking-panel .booking-tag-group + .booking-tag-group { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; }
+  .financial-card { padding: 16px; }
+}

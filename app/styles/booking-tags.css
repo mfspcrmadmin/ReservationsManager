@@ -33,3 +33,7 @@
 .booking-tags-dialog footer { display:flex; justify-content:flex-end; gap:8px; padding-top:18px; margin-top:14px; border-top:1px solid #eaecf0; }
 .booking-tags-dialog :disabled { opacity:.55; cursor:wait; }
 @media (max-width:520px) { .booking-tag-editor-row { grid-template-columns:18px minmax(90px,1fr) 34px; }.booking-tag-editor-row button { grid-row:2; }.booking-tag-editor-row button[data-tag-save] { grid-column:2; }.booking-tag-editor-row button[data-tag-delete] { grid-column:3; justify-self:end; width:max-content; } }
+
+.booking-personal-tags { display:flex; flex-wrap:wrap; gap:12px; }
+.booking-tag-group > strong { font-size:11px; color:#475467; }
+span.booking-tags-trigger { cursor:default; }

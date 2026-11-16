@@ -18,12 +18,16 @@ function setup() {
     showSendModal: message => messages.push(message),
     crmExecuteFunction: async (_, args) => { calls.push(args.draftId); return { success: true }; },
     extractFunctionPayload: response => response,
-    getFunctionPayloadErrorDetails: payload => payload.error ? { message: payload.error } : null,
+    getFunctionPayloadErrorDetails: payload => payload?.error ? { message: payload.error } : null,
     buildFunctionPayloadError: details => new Error(details.message),
-    ensureBookingEmailsLoaded: async () => {}
+    ensureBookingEmailsLoaded: async () => {},
+    loadBookingServicesForBooking: async () => [{ id: 's1', Status_EZUS: 'On Request' }],
+    applyServiceFilter() {}, renderSelectionPanel() {}, renderBookingSummary() {}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../app/js/draft-batch.js"), "utf8").replace(/^export /gm, ""), context);
   const source = fs.readFileSync(path.join(__dirname, "../app/js/booking-controller.js"), "utf8");
+  const helperStart = source.indexOf("async function sendCommunicationOnce(");
+  vm.runInContext(source.slice(helperStart, source.indexOf("async function onSendDraftClick()", helperStart)), context);
   const start = source.indexOf("async function onSendSelectedDraftsClick()");
   const end = source.indexOf("\nfunction showSendModal", start);
   vm.runInContext(source.slice(start, end), context);
@@ -55,8 +59,9 @@ test("bulk drafts send strictly one at a time and clear confirmed selections", a
   assert.deepEqual(calls, ["d1", "d2", "d3"]);
   assert.equal(Object.keys(f.state.selectedDraftIds).length, 0);
   assert.ok(f.state.emailDrafts.every(record => record.communication_status === "Sent"));
+  assert.equal(f.state.services[0].Status_EZUS, 'On Request');
   assert.equal(f.state.draftBatchSending, false);
-  assert.ok(f.messages.includes("3 of 3 drafts sent."));
+  assert.ok(f.messages.includes("3 of 3 drafts confirmed sent."));
 });
 
 test("failure stops the batch and keeps only unsent drafts selected", async () => {
@@ -68,7 +73,8 @@ test("failure stops the batch and keeps only unsent drafts selected", async () =
   await f.context.onSendSelectedDraftsClick();
   assert.deepEqual(f.calls, ["d1", "d2"]);
   assert.deepEqual(Object.keys(f.state.selectedDraftIds), ["d2", "d3"]);
-  assert.match(f.messages.at(-1), /1 of 3 drafts sent.*Send failed/);
+  assert.match(f.messages.at(-1), /1 of 3 drafts confirmed sent.*Delivery could not be confirmed/);
+  assert.equal(f.state.services[0].Status_EZUS, 'On Request');
   assert.equal(f.state.draftEditorSaving, false);
 });
 
@@ -78,6 +84,20 @@ test("invalid selection prevents any sends", async () => {
   await f.context.onSendSelectedDraftsClick();
   assert.equal(f.calls.length, 0);
   assert.match(f.messages.at(-1), /Sender Email/);
+});
+
+test('uncertain batch stops, preserves remaining selection and never repeats the uncertain send', async () => {
+  const f = setup();
+  f.context.crmExecuteFunction = async (_, args) => {
+    f.calls.push(args.draftId);
+    return args.draftId === 'd2' ? { success: false, delivery_status: 'unknown' } : { success: true, delivery_status: 'sent' };
+  };
+  await f.context.onSendSelectedDraftsClick();
+  assert.deepEqual(f.calls, ['d1', 'd2']);
+  assert.deepEqual(Object.keys(f.state.selectedDraftIds), ['d2', 'd3']);
+  assert.match(f.messages.at(-1), /1 of 3 drafts confirmed sent.*mailbox.*CC copy.*CRM.*No automatic retry/);
+  await f.context.onSendSelectedDraftsClick();
+  assert.deepEqual(f.calls, ['d1', 'd2']);
 });
 
 test("switching bookings stops before sending the next draft", async () => {
@@ -100,7 +120,7 @@ test("empty response is not reported as a successful send", async () => {
     f.context.crmExecuteFunction = async () => response;
     await f.context.onSendSelectedDraftsClick();
     assert.equal(Object.keys(f.state.selectedDraftIds).length, 3);
-    assert.match(f.messages.at(-1), /0 of 3 drafts sent.*did not confirm/);
+    assert.match(f.messages.at(-1), /0 of 3 drafts confirmed sent.*Delivery could not be confirmed/);
   }
 });
 

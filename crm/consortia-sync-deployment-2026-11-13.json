@@ -1,0 +1,207 @@
+{
+  "date": "2026-11-13",
+  "scope": "Consortia historical changes and current projection; widget-ready backend",
+  "remote_publication": "Compiled, saved and published source reread; normalized source matches all submitted functions",
+  "business_functions_executed": false,
+  "existing_business_records_modified": false,
+  "bookings_modified": false,
+  "permissions": "Existing authenticated gateway requires Administrator in User Relationships for this operation. Olga-specific authorization remains pending.",
+  "remote_functions": [
+    {
+      "api_name": "client_consortia_read",
+      "id": "616617000178575001",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_project",
+      "id": "616617000178546010",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_engine",
+      "id": "616617000178577001",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_manage",
+      "id": "616617000178579001",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_versionready",
+      "id": "616617000178564007",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_sweep",
+      "id": "616617000178581001",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "client_consortia_scheduled",
+      "id": "616617000178582001",
+      "state": "active",
+      "rest_api_mode": [
+        "None"
+      ],
+      "category": "Schedule",
+      "source_readback_verified": true
+    },
+    {
+      "api_name": "widget_recordlease",
+      "id": "616617000178011001",
+      "state": "active",
+      "rest_api_mode": [
+        "Oauth"
+      ],
+      "category": "Standalone",
+      "source_readback_verified": true
+    }
+  ],
+  "schema": {
+    "Commercial_Histories": {
+      "Period_Status": {
+        "id": "616617000178572003",
+        "values": [
+          "Current Confirmed",
+          "Historical",
+          "Pending Review",
+          "Scheduled"
+        ]
+      }
+    },
+    "Widget_Record_Leases": {
+      "Consortia_Request_JSON": "616617000178574001",
+      "Consortia_Result_JSON": "616617000178574011"
+    }
+  },
+  "schedule": {
+    "id": "616617000178564002",
+    "name": "Client Consortia Sync",
+    "status": "deactive",
+    "frequency": {
+      "repeating_period": 2,
+      "type": "hourly"
+    },
+    "last_execution_time": null,
+    "scope": "At most 25 history rows per sweep with a persistent ID cursor. Repeated clients are deduplicated within a batch. Failed batches retain their original cursor.",
+    "effective_date_timing": "Dates use Europe/Madrid. Projection changes occur on sweep, not necessarily exactly at midnight. End-to-end lag also depends on full-circuit size.",
+    "activation": "Disabled pending controlled runtime acceptance"
+  },
+  "transport": {
+    "entry": "ZOHO.CRM.FUNCTIONS.execute",
+    "function": "widget_recordlease",
+    "arguments": {
+      "action": "widget_operation",
+      "requestBody": "JSON containing operation=client_consortia_manage and requestBody=JSON request"
+    },
+    "public_helpers": "None; internal functions retain REST None",
+    "actions": [
+      "preview",
+      "apply",
+      "sync",
+      "status",
+      "reconcile"
+    ],
+    "change_actions": [
+      "add",
+      "end",
+      "correct"
+    ],
+    "change_fields": [
+      "consortiaId",
+      "historyId",
+      "validFrom",
+      "validTo",
+      "observedOn",
+      "reason",
+      "startUnknownConfirmed"
+    ],
+    "apply_requires": [
+      "Stable UUID requestId",
+      "Exact reviewed reviewToken",
+      "confirmed=true"
+    ],
+    "reconcile_requires": [
+      "Same clientId and requestId",
+      "expectedOperationVersion from status",
+      "Version at least two seconds old",
+      "A final pending checkpoint; started/recovering operations are never reclaimed solely by elapsed time"
+    ],
+    "operator_review_required": [
+      "Started/recovering execution without final checkpoint",
+      "Historical create outcome cannot be proven",
+      "History differs from the recorded operation"
+    ]
+  },
+  "rules": [
+    "Exclusive Valid_To; inclusive known Valid_From",
+    "No duplicate/overlapping membership for the same client and consortia",
+    "Multiple different consortia allowed",
+    "Unknown starts require explicit acknowledgment and Observed_On, never an invented start",
+    "Current projection only from confirmed periods; uncertain history blocks destructive projection",
+    "Future starts use Scheduled; elapsed starts/end dates update statuses during synchronization",
+    "No history rows are deleted; only obsolete current projection links may be removed",
+    "Exact request replay returns the recorded result without a new historical write",
+    "Projection reconciliation does not replay the historical mutation",
+    "Partial history saves return history_saved=true when confirmed"
+  ],
+  "bounds": {
+    "history_rows_per_client": 200,
+    "current_links_per_client": 200,
+    "projection_changes_per_operation": 50,
+    "journal_character_limit": 31000
+  },
+  "local": {
+    "files": [
+      "app/js/client-consortia-api.js",
+      "tests/client-consortia-api.test.cjs"
+    ],
+    "widget_ui_integrated": false,
+    "widget_published": false,
+    "tests": {
+      "command": "node --test tests/client-consortia-api.test.cjs tests/widget-record-request.test.cjs tests/record-edit-locks.test.cjs",
+      "passed": 19,
+      "failed": 0
+    }
+  },
+  "pending": [
+    "Controlled live widget preview/apply/cancel and persisted checkpoint verification",
+    "Controlled concurrent-session, partial response and recovery acceptance",
+    "Connection scope and linking-record CRUD runtime acceptance",
+    "Calendar sweep full-circuit timing and capacity validation before enabling schedule",
+    "Olga widget UI and final user authorization",
+    "Existing direct CRM edits outside these functions do not participate in the engine lock; permissions and UI policy remain to be finalized"
+  ],
+  "source_policy": "No Deluge source saved locally; only contracts and verified IDs are recorded."
+}

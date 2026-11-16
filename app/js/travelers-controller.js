@@ -14,6 +14,7 @@ export function renderTravelersWorkspace() {
 }
 
 export function resetTravelersState() {
+  state.travelersRequestId = (state.travelersRequestId || 0) + 1;
   state.travelers = [];
   state.selectedTravelerId = "";
   state.selectedTraveler = null;
@@ -48,17 +49,20 @@ export async function ensureBookingTravelersLoaded(forceReload) {
     return;
   }
 
-  if (state.travelersLoading) {
+  if (state.travelersLoading && !forceReload) {
     renderTravelersWorkspace();
     return;
   }
 
+  const requestId = state.travelersRequestId = (state.travelersRequestId || 0) + 1;
+  const isCurrent = () => state.travelersRequestId === requestId && String(state.selectedBookingId || "") === bookingId;
   state.travelersLoading = true;
   state.travelersError = "";
   renderTravelersWorkspace();
 
   try {
     var travelers = (await loadTravelersForBooking(bookingId)).sort(compareTravelers);
+    if (!isCurrent()) return;
     console.debug("[BookingsManager:travelers] travelers parsed", {
       bookingId: bookingId,
       count: travelers.length,
@@ -86,6 +90,7 @@ export async function ensureBookingTravelersLoaded(forceReload) {
       state.selectedTraveler = null;
     }
   } catch (error) {
+    if (!isCurrent()) return;
     console.debug("[BookingsManager:travelers] travelers load failed", {
       bookingId: bookingId,
       error: error
@@ -96,8 +101,10 @@ export async function ensureBookingTravelersLoaded(forceReload) {
     state.travelersLoadedBookingId = "";
     state.travelersError = error && error.message ? error.message : "Could not load travelers for this booking.";
   } finally {
-    state.travelersLoading = false;
-    renderTravelersWorkspace();
+    if (isCurrent()) {
+      state.travelersLoading = false;
+      renderTravelersWorkspace();
+    }
   }
 }
 
@@ -115,7 +122,7 @@ async function loadTravelersForBooking(bookingId) {
     payload: payload
   });
 
-  if (payload && payload.error) {
+  if (payload && (payload.error === true || payload.error === "true")) {
     throw new Error(payload.message || "Could not load travelers for this booking.");
   }
 
@@ -223,7 +230,7 @@ function extractTravelerRecords(payload) {
 }
 
 function isLeadPaxRecord(traveler) {
-  var value = traveler && (traveler.Lead_Pax !== undefined ? traveler.Lead_Pax : traveler.Lead !== undefined ? traveler.Lead : traveler.lead);
+  var value = traveler && (traveler.Lead_Passenger !== undefined && traveler.Lead_Passenger !== null ? traveler.Lead_Passenger : traveler.Lead_Pax !== undefined ? traveler.Lead_Pax : traveler.Lead !== undefined ? traveler.Lead : traveler.lead);
 
   if (typeof value === "boolean") {
     return value;

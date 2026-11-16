@@ -20,6 +20,7 @@ function setup() {
     normalizeComparableText: value => String(value || "").trim().toLowerCase(),
     state: { selectedBooking: { Stage: "Quotation" }, selectedBookingId: "booking-1", selectedServiceIds: { "service-1": true } },
     elements: {},
+    bookingDocuments: {},
     getSelectedServiceIdsForAction: () => ["service-1"],
     closeBulkActionMenus() {}, showLoading() {}, clearLoading() {},
     showCreateDraftModal() {}, closeCreateDraftModal() {}, renderServicesWorkspace() {},
@@ -28,6 +29,7 @@ function setup() {
     extractCrmFunctionResult: response => response,
     setError: (_, message) => { throw new Error(message); }
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../app/js/ezus-sync-guard.js'), 'utf8').replace(/^export /gm, ''), context);
   vm.runInContext(["getBookingRawValue", "buildEzusSyncMessage", "isBookingSyncRequired"]
     .map(name => readFunction("booking-shell.js", name)).join("\n"), context);
   vm.runInContext(readFunction("services-controller.js", "onCreateDraftForSelection"), context);
@@ -91,6 +93,10 @@ test("successful sync from Create draft only closes progress and clears selectio
     assert.equal(options.preserveSelection, false);
     context.state.selectedServiceIds = {};
   };
+  context.state.bookings = [];
+  context.cacheBookingLookup = () => {};
+  context.renderBookingBrowserPanel = () => {};
+  vm.runInContext(readFunction("booking-controller.js", "refreshSelectedBookingAfterSync"), context);
   vm.runInContext(readFunction("booking-controller.js", "onSyncEzusClick"), context);
   await context.onSyncEzusClick({ fromCreateDraft: true });
   assert.equal(notices.length, 1);

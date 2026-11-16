@@ -143,6 +143,9 @@
   border-radius: 18px;
   color: #167b62;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 8px;
   box-shadow: 0 6px 18px rgba(22, 48, 39, 0.1);
 }
@@ -1367,7 +1370,7 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   z-index: 2;
   overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
-  padding-top: 34px;
+  padding-top: 0;
   transform-origin: right top;
   transition: opacity 180ms ease, filter 220ms ease;
   will-change: opacity, transform;
@@ -1391,10 +1394,13 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   border-radius: 18px;
   color: #167b62;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 8px;
   box-shadow: 0 6px 18px rgba(22, 48, 39, 0.1);
 }
-.booking-rail-toggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.booking-rail-toggle svg { display: block; flex: none; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .booking-rail-toggle span { color: currentColor; font: 700 10px/1 var(--font-body); letter-spacing: .07em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
 .booking-rail-toggle:hover { background: #e6f3ee; border-color: #167b62; color: #0d624d; }
 .booking-rail.is-collapsed {
@@ -1443,10 +1449,11 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 .booking-rail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .booking-status-rail-title { margin: 0; color: #1f2937; font: 700 13px/1.2 var(--font-heading); }
 .booking-rail-collapse-toggle {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  right: 0;
+  position: static;
+  flex: 0 0 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   min-width: 28px;
   height: 28px;
@@ -1454,6 +1461,8 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   color: #667085;
 }
 .booking-rail-collapse-toggle:hover { background: #f2f4f7; color: #344054; }
+.booking-rail-toggle.button.compact { padding: 9px 0; }
+.booking-rail-heading .booking-rail-collapse-toggle.button { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; }
 .booking-rail-collapse-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .booking-actions-rail {
   display: grid;
@@ -1473,6 +1482,10 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
   background: #fff;
 }
 .booking-quick-access-rail-title { margin: 0; color: #1f2937; font: 700 13px/1.2 var(--font-heading); }
+.booking-quick-access-group { display: grid; gap: 7px; }
+.booking-quick-access-group-title { margin: 0; color: #64748b; font: 600 11px/1.3 var(--font-heading); }
+.booking-quick-access-group:not([hidden]) + .booking-quick-access-general { padding-top: 10px; border-top: 1px solid #e6e8ec; }
+.booking-quick-access-general .booking-quick-access-link { color: #0f766e; background: #f0fdfa; border-color: #99f6e4; }
 .booking-quick-access-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .booking-quick-access-link { min-width: 0; min-height: 30px; justify-content: center; overflow-wrap: anywhere; text-align: center; text-decoration: none; }
 #quick-access-desk { color: #15803d; }
@@ -1618,16 +1631,56 @@ input, select, textarea { border-color: #dfe3e8; border-radius: 7px; padding: 7p
 
 .prepayment-request-dialog-panel { max-height: calc(100vh - 28px); overflow: auto; }
 .prepayments-summary { display: flex; flex-wrap: wrap; gap: 10px; }
-.prepayments-summary > span { padding: 10px 14px; border: 1px solid #e4e7ec; border-radius: 9px; background: #f8fafc; color: #475467; font-size: 12px; }
+.prepayments-summary > span { color: #667085; font-size: 12px; }
 .prepayments-summary strong { color: #101828; }
 .prepayment-request-card { margin-bottom: 14px; border: 1px solid #e4e7ec; border-radius: 12px; overflow: hidden; background: #fff; }
-.prepayment-request-card > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px 8px; }
+.prepayment-request-card > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 10px 14px 5px; }
 .prepayment-request-card h4 { margin: 0 0 4px; color: #101828; font-size: 14px; }
 .prepayment-request-card header p, .prepayment-request-card header > span { margin: 0; color: #667085; font-size: 12px; }
-.prepayment-request-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 4px 16px 10px; color: #667085; font-size: 11px; }
+.prepayment-request-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 2px 14px 8px; color: #667085; font-size: 11px; overflow-wrap: anywhere; }
 .prepayment-observations { margin: 4px 16px 10px; white-space: pre-wrap; color: #475467; font-size: 12px; }
 .prepayment-request-card .table-wrap { border: 0; border-radius: 0; }
 .prepayment-request-card table { width: 100%; white-space: nowrap; }
+.prepayments-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px 20px; padding-bottom: 10px; }
+.prepayments-section-heading .payments-subpanel-copy { display: flex; flex-direction: row; align-items: baseline; gap: 8px; }
+.prepayments-section-heading h3 { margin: 0; }
+.prepayments-count { color: #667085; font-size: 12px; font-weight: 400; }
+.prepayments-section-heading .prepayments-summary { flex: 1; gap: 6px 18px; }
+.prepayments-summary strong { font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; margin-left: 4px; }
+#refresh-prepayments { margin-left: auto; flex: none; }
+.prepayment-request-identity { min-width: 0; }
+.prepayment-supplier-line { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.prepayment-supplier-line h4 { font-size: 14px; font-weight: 650; margin: 0; overflow-wrap: anywhere; }
+.prepayment-supplier-line > span { color: #667085; font-size: 11px; font-weight: 400; }
+.prepayment-request-card .prepayment-request-reference { font-size: 11px; font-weight: 400; margin-top: 3px; overflow-wrap: anywhere; user-select: text; }
+.prepayment-request-count { flex: none; padding-top: 2px; }
+.prepayment-request-files { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 14px 8px; }
+.prepayment-request-card .prepayment-file-link, .prepayment-request-card .prepayment-file-name { display: inline-flex; align-items: center; max-width: 100%; min-width: 0; gap: 5px; padding: 0; border: 0; background: transparent; font: 400 12px/1.5 var(--font-body, Arial, sans-serif); text-align: left; }
+.prepayment-request-card .prepayment-file-link { color: #126750; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.prepayment-file-link span, .prepayment-file-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prepayment-file-link svg, .prepayment-file-name svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.4; }
+.prepayment-instructions { margin: 0 14px 10px; padding-left: 10px; border-left: 2px solid #dce7e0; color: #475467; font-size: 12px; line-height: 1.5; }
+.prepayment-instructions > strong { display: block; font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.prepayment-instructions-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.prepayment-instructions-text.is-collapsed { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.prepayment-notes-toggle { padding: 2px 0; border: 0; background: transparent; color: #126750; font: 500 12px/1.5 var(--font-body, Arial, sans-serif); cursor: pointer; }
+.prepayment-file-link:focus-visible, .prepayment-notes-toggle:focus-visible, .prepayment-request-card .table-wrap:focus-visible { outline: 2px solid #52856b; outline-offset: -2px; }
+.prepayment-request-card .prepayments-table { table-layout: fixed; min-width: 1160px; }
+.prepayment-row-actions { display: flex; gap: 4px; }
+.prepayment-row-actions svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.prepayment-request-card .prepayments-table th, .prepayment-request-card .prepayments-table td { padding: 8px 10px; border-bottom: 1px solid #edf0f2; vertical-align: middle; white-space: normal; overflow-wrap: anywhere; }
+.prepayment-request-card .prepayments-table th { font-size: 11px; font-weight: 600; color: #596575; }
+.prepayment-request-card .prepayments-table td { font-size: 12px; font-weight: 400; color: #596575; }
+.prepayment-request-card .prepayments-table .prepayment-col-amount, .prepayment-request-card .prepayments-table .prepayment-col-percent { text-align: right; font-variant-numeric: tabular-nums; }
+.prepayment-request-card .prepayments-table td.prepayment-col-amount { color: #243d32; font-weight: 650; font-size: 13px; }
+.prepayment-request-card .prepayments-table .prepayment-col-due, .prepayment-request-card .prepayments-table .prepayment-col-paidDate { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.prepayment-request-card .prepayments-table td.prepayment-col-due { color: #344054; font-weight: 500; }
+.prepayment-request-card .prepayments-table tbody tr:hover { background: #f8fbf9; }
+.prepayment-status-explanation { margin: 8px 0 0; font-size: 12px; color: #667085; }
+@media (max-width: 640px) {
+  .prepayments-section-heading .prepayments-summary { order: 3; flex-basis: 100%; }
+  .prepayment-request-card > header { gap: 8px; }
+}
 .prepayment-form-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
 .prepayment-form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 #new-prepayment-dialog [data-feedback] { color: #475467; white-space: pre-wrap; }
@@ -3265,7 +3318,8 @@ input.draft-select-checkbox:disabled { opacity: .5; cursor: default; }
 #manage-services-panel #services-data-table .service-sequence,
 #manage-services-panel #services-data-table .service-title { gap: 2px; }
 #manage-services-panel #services-data-table .step-card { padding-top: 6px; padding-bottom: 6px; row-gap: 2px; }
-#manage-services-panel #services-data-table .day-cell { padding-top: 6px; padding-bottom: 3px; }
+#manage-services-panel #services-data-table .day-cell { padding-top: 6px; padding-bottom: 3px; text-align: left; }
+#manage-services-panel #services-data-table .day-chip { position: sticky; left: 8px; }
 #manage-services-panel .services-table th { font-size: 13px; }
 #manage-services-panel .services-table td { font-size: 15px; }
 #manage-services-panel .services-table .service-sequence strong,
@@ -3404,8 +3458,41 @@ input.draft-select-checkbox:disabled { opacity: .5; cursor: default; }
 .communication-notes-dialog .note-editor { gap: 0; margin: 0; border: 1px solid #cfdcd3; border-radius: 6px; overflow: hidden; background: #fff; }
 .communication-notes-dialog .note-format-toolbar { gap: 3px; padding: 4px 6px; border-bottom: 1px solid #e0e7e3; }
 .communication-notes-dialog .note-format-toolbar button { border: 0; padding: 3px 8px; background: transparent; font-size: 12px; }
-.communication-notes-dialog .note-rich-input { box-sizing: border-box; height: 100px; min-height: 0; overflow-y: auto; padding: 10px; border: 0; border-radius: 0; font-size: 12px; line-height: 1.5; outline-offset: -3px; }
+.communication-notes-dialog .note-rich-input { box-sizing: border-box; height: 100px; min-height: 72px; max-height: 55dvh; resize: vertical; overflow-y: auto; padding: 10px; border: 0; border-radius: 0; font-size: 12px; line-height: 1.5; outline-offset: -3px; }
+.communication-notes-dialog .note-editor-resize { margin-left: auto; color: var(--accent-strong); }
+.communication-notes-dialog .note-editor-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .communication-notes-dialog .note-rich-input[aria-disabled=true] { opacity: .6; }
+.communication-notes-header-actions { display: flex; align-items: center; gap: 8px; }
+.communication-notes-dialog .note-format-toolbar { flex-wrap: wrap; align-items: center; }
+.communication-notes-dialog .note-color-control { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-size: 12px; }
+.communication-notes-dialog .note-color-control input { box-sizing: border-box; width: 28px; height: 28px; padding: 2px; border: 1px solid #cfdcd3; border-radius: 4px; cursor: pointer; }
+.communication-notes-dialog.is-expanded { width: 94vw; padding: clamp(18px, 3vw, 40px); background: #f7faf8; box-shadow: -16px 0 48px #14261e26; font-size: 15px; }
+.communication-notes-dialog.is-expanded > header { padding-bottom: 16px; border-bottom: 1px solid #dce5df; }
+.communication-notes-dialog.is-expanded h2 { font-size: 24px; }
+.communication-notes-dialog.is-expanded > [role="status"] { font-size: 14px; }
+.communication-notes-dialog.is-expanded .communication-notes-list { gap: 18px; padding: 2px 8px 16px 2px; }
+.communication-notes-dialog.is-expanded .communication-note { padding: 20px 24px; background: #fff; border-color: #cfdcd3; box-shadow: 0 2px 6px #14261e08; }
+.communication-notes-dialog.is-expanded .communication-note-head { font-size: 15px; gap: 8px; }
+.communication-notes-dialog.is-expanded .communication-edit-icon { width: 36px; height: 36px; }
+.communication-notes-dialog.is-expanded .communication-edit-icon svg { width: 20px; height: 20px; }
+.communication-notes-dialog.is-expanded .communication-text { font-size: 16px; line-height: 1.7; margin: 14px 0; }
+.communication-notes-dialog.is-expanded .communication-note time,
+.communication-notes-dialog.is-expanded .communication-note small { font-size: 12px; line-height: 1.6; }
+.communication-notes-dialog.is-expanded .communication-note-composer { gap: 12px; padding-top: 16px; }
+.communication-notes-dialog.is-expanded .note-format-toolbar { padding: 6px 8px; }
+.communication-notes-dialog.is-expanded .note-format-toolbar button,
+.communication-notes-dialog.is-expanded .note-color-control { font-size: 15px; }
+.communication-notes-dialog.is-expanded .note-format-toolbar button { padding: 5px 10px; }
+.communication-notes-dialog.is-expanded .note-rich-input { height: clamp(100px, 18vh, 180px); padding: 14px; font-size: 16px; line-height: 1.6; }
+.communication-notes-dialog.is-expanded .communication-note-composer > .button { justify-self: end; padding: 10px 20px; font-size: 15px; }
+@media (max-width: 600px) {
+  .communication-notes-dialog.is-expanded { width: 100vw; padding: 16px; }
+  .communication-notes-dialog.is-expanded .communication-note { padding: 16px; }
+}
+@media (max-height: 500px) {
+  .communication-notes-dialog > [data-notes-body] { overflow-y: auto; }
+  .communication-notes-dialog .communication-notes-list { flex: 1 0 100px; }
+}
 .communication-add-button.button { background: #254e3d; color: #fff; border: 1px solid #254e3d; transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease; }
 .communication-add-button.button:hover:not(:disabled) { background: #32674f; border-color: #32674f; color: #fff; box-shadow: 0 3px 8px #254e3d26; }
 .communication-add-button.button:active:not(:disabled) { background: #193a2c; border-color: #193a2c; transform: translateY(1px); box-shadow: inset 0 2px 4px #0003; }
@@ -3418,6 +3505,25 @@ input.draft-select-checkbox:disabled { opacity: .5; cursor: default; }
   .communication-notes-dialog .communication-note-head button { min-width: 40px; min-height: 40px; }
   .communication-notes-dialog .note-rich-input { font-size: 16px; }
   .communication-notes-dialog .communication-note-composer > .button { min-height: 44px; }
+}
+@media (max-width: 900px), (max-height: 760px) {
+  .communication-notes-dialog:is([open], .is-expanded) { padding: 12px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .communication-notes-dialog:is([open], .is-expanded) > header { padding-bottom: 8px; }
+  .communication-notes-dialog:is([open], .is-expanded) h2 { font-size: 20px; }
+  .communication-notes-dialog:is([open], .is-expanded) > [data-notes-body] { gap: 10px; margin-top: 8px; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-notes-list { gap: 10px; padding: 0 4px 8px 0; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note { padding: 10px 12px; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note-head { font-size: 12px; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-text { font-size: 13px; line-height: 1.5; margin: 8px 0; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note time,
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note small { font-size: 10px; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note-composer { gap: 6px; padding-top: 8px; }
+  .communication-notes-dialog:is([open], .is-expanded) .note-format-toolbar { padding: 3px 5px; gap: 3px; }
+  .communication-notes-dialog:is([open], .is-expanded) .note-format-toolbar button,
+  .communication-notes-dialog:is([open], .is-expanded) .note-color-control { font-size: 12px; }
+  .communication-notes-dialog:is([open], .is-expanded) .note-format-toolbar button { min-height: 30px; min-width: 30px; padding: 3px 6px; }
+  .communication-notes-dialog:is([open], .is-expanded) .note-rich-input { height: 85px; padding: 8px; font-size: 14px; line-height: 1.5; }
+  .communication-notes-dialog:is([open], .is-expanded) .communication-note-composer > .button { min-height: 34px; padding: 6px 12px; font-size: 13px; }
 }
 @media (max-width: 900px) { .communication-layout { grid-template-columns: minmax(0, 1fr); } }
 
@@ -3799,10 +3905,48 @@ input.draft-select-checkbox:disabled { opacity: .5; cursor: default; }
 .refresh-card-purchases-button { flex: 0 0 auto; }
 .refresh-card-purchases-button.is-loading svg { animation: card-purchases-refresh-spin .8s linear infinite; }
 @keyframes card-purchases-refresh-spin { to { transform: rotate(360deg); } }
+[data-card-purchase-edit][aria-busy="true"],
+#card-purchase-submit[aria-busy="true"],
+.card-purchase-management-dialog button[type="submit"][aria-busy="true"] {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: progress;
+}
+[data-card-purchase-edit][aria-busy="true"] svg { display: none; }
+[data-card-purchase-edit][aria-busy="true"]::before,
+#card-purchase-submit[aria-busy="true"]::before,
+.card-purchase-management-dialog button[type="submit"][aria-busy="true"]::before {
+  content: ""; width: 14px; height: 14px; flex: 0 0 14px; box-sizing: border-box;
+  border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+  animation: card-purchases-refresh-spin .8s linear infinite;
+}
+.card-purchase-management-dialog [data-feedback]:empty { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  [data-card-purchase-edit][aria-busy="true"]::before,
+  #card-purchase-submit[aria-busy="true"]::before,
+  .card-purchase-management-dialog button[type="submit"][aria-busy="true"]::before { animation: none; }
+}
 .payments-card-purchases-table-wrap { width: 100%; max-width: none; max-height: 360px; overflow: auto; border-radius: 8px; }
-.payments-card-purchases-table { width: 100%; min-width: 1680px; }
+.payments-card-purchases-table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: separate; border-spacing: 0; }
 .payments-card-purchases-table thead { position: sticky; top: 0; z-index: 2; background: #fafbfc; }
-.payments-card-purchases-table td:nth-child(9), .payments-card-purchases-table td:nth-child(10) { min-width: 220px; white-space: normal; }
+.payments-card-purchases-table th { position: relative; padding-right: 16px; overflow-wrap: anywhere; }
+.payments-card-purchases-table td { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.payments-card-purchases-table td:nth-child(9), .payments-card-purchases-table td:nth-child(10) { white-space: normal; overflow-wrap: anywhere; }
+.payments-card-purchases-table .card-purchase-col-actions { position: sticky; right: 0; z-index: 1; box-sizing: border-box; width: 120px; min-width: 120px; max-width: 120px; padding: 12px 16px; background: #fff; box-shadow: -4px 0 8px #1018280d; border-left: 1px solid #eaecf0; text-align: center; }
+.payments-card-purchases-table th.card-purchase-col-actions { z-index: 3; background: #fafbfc; white-space: nowrap; }
+.payments-card-purchases-table .card-purchase-col-actions .prepayment-row-actions { justify-content: center; align-items: center; gap: 8px; }
+.payments-card-purchases-table .card-purchase-col-actions .button { flex: 0 0 36px; width: 36px; min-width: 36px; height: 36px; padding: 0; border-radius: 8px; }
+.payments-card-purchases-table .card-purchase-col-actions .button { transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 100ms ease; }
+.payments-card-purchases-table .card-purchase-col-actions .button:hover:not(:disabled) { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; box-shadow: 0 3px 7px #1d4ed81a; transform: translateY(-1px); }
+.payments-card-purchases-table .card-purchase-col-actions .button.danger:hover:not(:disabled) { color: #b42318; background: #fff1f2; border-color: #fda4af; box-shadow: 0 3px 7px #b423181a; }
+.payments-card-purchases-table .card-purchase-col-actions .button:active:not(:disabled) { background: #dbeafe; box-shadow: inset 0 1px 3px #1d4ed826; transform: translateY(1px) scale(.94); }
+.payments-card-purchases-table .card-purchase-col-actions .button.danger:active:not(:disabled) { background: #ffe4e6; box-shadow: inset 0 1px 3px #b4231826; }
+.payments-card-purchases-table .card-purchase-col-actions .button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.payments-card-purchases-table .card-purchase-col-actions .button.danger:focus-visible { outline-color: #e11d48; }
+@media (prefers-reduced-motion: reduce) {
+  .payments-card-purchases-table .card-purchase-col-actions .button { transition: none; }
+  .payments-card-purchases-table .card-purchase-col-actions .button:hover:not(:disabled),
+  .payments-card-purchases-table .card-purchase-col-actions .button:active:not(:disabled) { transform: none; }
+}
+.payments-card-purchases-table .card-purchase-file { max-width: 100%; }
 .card-purchase-status { display: inline-flex; align-items: center; min-height: 22px; padding: 3px 8px; border-radius: 999px; font: 700 10px/1 var(--font-body); white-space: nowrap; }
 .card-purchase-status.is-paid { background: #eaf7ef; color: #177245; }
 .card-purchase-status.is-refund { background: #fff0f2; color: #b4233c; }
@@ -4006,3 +4150,81 @@ input.draft-select-checkbox:disabled { opacity: .5; cursor: default; }
 .prepayment-entry-table input, .prepayment-entry-table select, .prepayment-entry-table [data-remove] { height: 36px; min-height: 36px; box-sizing: border-box; margin: 0; }
 .prepayment-entry-table td { vertical-align: middle; }
 .prepayment-entry-table [data-remove] { display: flex; align-items: center; justify-content: center; width: 100%; padding: 0; font-size: 18px; }
+.itinerary-link-control.is-empty-neutral .itinerary-link-control-open { color: #667085; }
+.accounting-note-context { margin: 8px 0; padding: 10px 12px; border-left: 3px solid #83b49a; border-radius: 5px; background: #f8fcfa; }
+.accounting-note-context > span { display: block; color: #668777; font-size: 9px; letter-spacing: .06em; }
+.accounting-note-context > strong { display: block; color: #305d49; font-size: 12px; }
+.accounting-note-context p { margin: 3px 0; font-size: 11px; }
+.accounting-note-context a { color: #236c4e; font-size: 11px; font-weight: 600; }
+.accounting-note-context a small { display: inline; }
+.booking-prepayment-details { width: min(580px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow: auto; padding: 22px; border: 1px solid #cfdcd3; border-radius: 12px; color: #344f40; background: #fff; }
+.booking-prepayment-details::backdrop { background: #14261e66; }
+.booking-prepayment-details header { display: flex; justify-content: space-between; align-items: center; }
+.booking-prepayment-details h3 { margin: 0; }
+.booking-prepayment-details dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
+.booking-prepayment-details dt { font-size: 11px; color: #75867c; }
+.booking-prepayment-details dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.booking-prepayment-details footer { display: flex; justify-content: flex-end; }
+.booking-prepayment-details.prepayment-management-dialog { box-sizing: border-box; width: min(600px, calc(100vw - 32px)); padding: 0; border-radius: 14px; box-shadow: 0 24px 64px #14261e33; color: #344054; }
+.prepayment-management-dialog form { margin: 0; }
+.prepayment-management-dialog .prepayment-edit-header { align-items: flex-start; gap: 16px; padding: 22px 24px 18px; border-bottom: 1px solid #eaecf0; }
+.prepayment-edit-header > div { min-width: 0; }
+.prepayment-management-dialog h3 { color: #243d32; font-size: 18px; line-height: 1.4; }
+.prepayment-management-dialog .prepayment-edit-reference { margin: 5px 0 0; color: #667085; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.prepayment-management-dialog .prepayment-edit-close { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #667085; font-size: 24px; cursor: pointer; }
+.prepayment-management-dialog .prepayment-edit-close:hover { background: #f2f4f7; }
+.prepayment-management-dialog fieldset { display: grid; min-width: 0; gap: 22px; margin: 0; padding: 22px 24px; border: 0; }
+.prepayment-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.prepayment-management-dialog .field { display: grid; gap: 6px; min-width: 0; margin: 0; }
+.prepayment-management-dialog .field > span { font-size: 12px; font-weight: 600; color: #475467; }
+.prepayment-management-dialog .field input { box-sizing: border-box; width: 100%; min-width: 0; height: 40px; padding: 8px 11px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: #344054; font: 14px/1.4 var(--font-body); }
+.card-purchase-management-dialog .field select, .card-purchase-management-dialog .field textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 8px 11px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: #344054; font: 14px/1.4 var(--font-body); }
+.card-purchase-management-dialog .field textarea { resize: vertical; }
+.card-purchase-management-dialog .field select:focus-visible, .card-purchase-management-dialog .field textarea:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.prepayment-edit-documents h4 { margin: 0 0 6px; font-size: 13px; font-weight: 650; color: #344054; }
+.prepayment-management-dialog .prepayment-edit-hint { margin: 0 0 14px; color: #667085; font-size: 12px; line-height: 1.5; }
+.prepayment-edit-files { display: grid; gap: 8px; }
+.prepayment-management-dialog .prepayment-edit-file { display: flex; align-items: center; gap: 12px; min-width: 0; margin: 0; padding: 12px; border: 1px solid #e4e7ec; border-radius: 8px; background: #fafcfb; cursor: pointer; }
+.prepayment-management-dialog .prepayment-edit-file input[type="checkbox"] { appearance: auto; flex: 0 0 16px; width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; accent-color: #0f766e; box-shadow: none; cursor: pointer; }
+.prepayment-management-dialog svg { flex: 0 0 22px; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; color: #668475; }
+.prepayment-edit-file-info { display: grid; gap: 3px; min-width: 0; }
+.prepayment-edit-file-name { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; color: #344054; }
+.prepayment-file-keep, .prepayment-file-remove { font-size: 11px; color: #667085; }
+.prepayment-file-remove { display: none; color: #b42318; }
+.prepayment-edit-file:has(input:not(:checked)) { background: #fffbfa; border-color: #fecdca; }
+.prepayment-edit-file:has(input:not(:checked)) .prepayment-file-keep { display: none; }
+.prepayment-edit-file:has(input:not(:checked)) .prepayment-file-remove { display: inline; }
+.prepayment-management-dialog .prepayment-edit-upload { position: relative; display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 16px 12px; border: 1px dashed #b8cfc2; border-radius: 8px; background: #f8fbf9; cursor: pointer; }
+.prepayment-management-dialog .prepayment-edit-upload input[type="file"] { position: absolute; inset: 0; box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.prepayment-edit-upload > span:not(.prepayment-upload-browse) { display: grid; gap: 3px; }
+.prepayment-edit-upload strong { color: #344f40; font-size: 12px; font-weight: 600; }
+.prepayment-edit-upload small { color: #667085; font-size: 11px; }
+.prepayment-edit-upload .prepayment-upload-browse { margin-left: auto; padding: 7px 10px; border: 1px solid #d0d5dd; border-radius: 6px; background: #fff; color: #344054; font-size: 12px; white-space: nowrap; }
+.prepayment-edit-upload:hover { background: #eef6f1; }
+.prepayment-edit-upload:focus-within, .prepayment-management-dialog input:focus-visible, .prepayment-management-dialog button:focus-visible { outline: 2px solid #0f766e; outline-offset: 2px; }
+.prepayment-edit-selected { display: grid; gap: 8px; list-style: none; padding: 0; margin: 12px 0 0; }
+.prepayment-edit-selected[hidden] { display: none; }
+.prepayment-edit-selected li { display: flex; gap: 10px; align-items: center; font-size: 12px; }
+.prepayment-edit-selected li > span { min-width: 0; overflow-wrap: anywhere; }
+.prepayment-edit-selected small { margin-left: auto; padding: 2px 6px; border-radius: 4px; color: #067647; background: #ecfdf3; }
+.prepayment-management-dialog [data-feedback] { margin: 0; padding: 0 24px 16px; white-space: pre-wrap; font-size: 12px; line-height: 1.5; }
+.prepayment-management-dialog [data-feedback]:empty { display: none; }
+.prepayment-management-dialog footer { gap: 10px; padding: 16px 24px; border-top: 1px solid #eaecf0; background: #fafbfa; }
+.prepayment-management-dialog footer .button { min-height: 38px; padding: 8px 14px; border: 1px solid #d0d5dd; border-radius: 8px; background: #fff; color: #344054; font: 600 12px/1.4 var(--font-body); box-shadow: none; cursor: pointer; }
+.prepayment-management-dialog footer .prepayment-edit-submit { border-color: #0f766e; background: #0f766e; color: #fff; }
+.prepayment-management-dialog footer .prepayment-edit-submit:hover { background: #115e59; }
+.prepayment-management-dialog footer .button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 480px) {
+  .prepayment-edit-grid { grid-template-columns: 1fr; gap: 12px; }
+  .prepayment-management-dialog .prepayment-edit-header, .prepayment-management-dialog fieldset { padding: 18px; }
+  .prepayment-management-dialog footer { padding: 14px 18px; }
+  .prepayment-edit-upload .prepayment-upload-browse { display: none; }
+}
+
+.payment-settlement-dialog { width: min(480px, calc(100vw - 40px)); box-sizing: border-box; border: 1px solid #dce7e0; border-radius: 14px; padding: 24px; color: #243d32; }
+.payment-settlement-dialog::backdrop { background: rgb(16 24 40 / 45%); }
+.payment-settlement-dialog h3 { margin: 0 0 12px; }
+.payment-settlement-progress { display: flex; align-items: center; gap: 14px; }
+.payment-settlement-progress p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.payment-settlement-progress .booking-browser-sync-spinner { flex: none; width: 22px; height: 22px; }
+.payment-settlement-dialog [hidden] { display: none; }

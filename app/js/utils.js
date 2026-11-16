@@ -11,7 +11,12 @@ export function getLayoutValue(layoutField) {
 }
 
 export function formatDate(value) {
-  return value || "-";
+  if (!value) return "-";
+  const day = String(value).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return String(value);
+  const date = new Date(day + "T00:00:00Z");
+  if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== day) return String(value);
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
 export function formatDateTime(value) {
@@ -25,13 +30,13 @@ export function formatDateTime(value) {
     return value;
   }
 
-  const formatter = new Intl.DateTimeFormat("en-US", {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    hour12: true
+    hour12: false
   });
 
   const parts = formatter.formatToParts(date);
@@ -44,29 +49,29 @@ export function formatDateTime(value) {
   };
 
   return [
+    getPart("day"),
+    " ",
     getPart("month"),
     " ",
-    getPart("day"),
-    ", ",
     getPart("year"),
-    " ",
+    " · ",
     getPart("hour"),
     ":",
-    getPart("minute"),
-    getPart("dayPeriod")
+    getPart("minute")
   ].join("");
 }
 
-export function formatCurrency(value) {
+export function formatCurrency(value, currency = "EUR", options = {}) {
   if (value === null || value === undefined || value === "") {
     return "-";
   }
 
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
-    currency: "EUR",
+    currency,
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
+    ...options
   }).format(Number(value) || 0);
 }
 
@@ -94,6 +99,14 @@ export function getLookupName(value) {
   }
 
   return String(value);
+}
+
+export function getServiceSupplierName(service) {
+  const supplier = service && service.Supplier;
+  if (!supplier || typeof supplier !== "object" || !String(supplier.id || supplier.ID || supplier.value || "").trim()) {
+    return "No supplier linked";
+  }
+  return String(supplier.name || supplier.display_value || supplier.label || "").trim() || "Linked supplier";
 }
 
 export const DRAFT_FROM_ADMIN_VALUE = "crmadmin";
@@ -371,7 +384,8 @@ export function normalizeBookingCandidate(record) {
 
   return {
     id: record.id,
-    Booking_Tags_JSON: record.Booking_Tags_JSON,
+    Sales_Tags_JSON: record.Sales_Tags_JSON,
+    Reservations_Tags_JSON: record.Reservations_Tags_JSON,
     Desk_Ticket_ID: firstNonEmptyText(record.Desk_Ticket_ID, record.Desk_Ticket_Id, record.DeskTicketID, record["Desk Ticket ID"]),
     MFSP_Reference: firstNonEmptyText(record.MFSP_Reference, record.Reference, record.Booking_Reference),
     Deal_Name: firstNonEmptyText(record.Deal_Name, record.Name, record.Booking_Name),

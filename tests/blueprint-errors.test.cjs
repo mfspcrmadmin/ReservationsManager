@@ -9,9 +9,11 @@ function setup(payload, rejection) {
   const logs = [];
   let refreshes = 0;
   const context = vm.createContext({
-    state: { selectedBookingId: "booking-1", bookingBlueprint: { processInfo: { field_value: "All Services Confirmed" } } },
+    state: { currentUserId: "616617000000000001", currentUserEmail: "rep@example.com", currentUserName: "Reservation Rep", selectedBookingId: "booking-1", bookingBlueprint: { processInfo: { field_value: "All Services Confirmed" } } },
+    assertUserBlueprintTransition: async () => context.state.bookingBlueprint, renderBookingSummary() {},
     elements: {}, MODULES: { bookings: "Deals" },
     validateCreateInEzusAgency: async () => {},
+    isCreateEzusTransition: () => false,
     crmExecuteFunction: async () => { if (rejection) throw rejection; return payload; },
     extractFunctionPayload: value => value,
     getFunctionPayloadErrorDetails: value => value?.success === false ? { message: value.message } : null,

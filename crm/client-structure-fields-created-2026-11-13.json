@@ -1,0 +1,3494 @@
+{
+  "date": "2026-11-13",
+  "scope": "Additive custom fields in four user-created CRM modules only",
+  "status": "Created and reread verified",
+  "record_mutations": false,
+  "automations_created": false,
+  "pending": [
+    "Preferences.Preference_Value: controlled values not agreed",
+    "Preferences.Department: department list not agreed",
+    "Commercial History explicit current-period status: pending decision",
+    "Conditional mandatory rules, temporal overlap and cycles validation",
+    "Preference type/key dependency matrix and scope validation",
+    "Final field and record permissions; new custom fields currently Administrator read_write and hidden to other returned profiles",
+    "Accounts, Contacts and Deals field creation outside this four-module step"
+  ],
+  "api_adjustments": [
+    {
+      "proposed": "Consortia",
+      "actual": "Consortias"
+    },
+    {
+      "proposed": "Commercial_History module",
+      "actual": "Commercial_Histories"
+    },
+    {
+      "proposed": "Client_Contact_Notes module",
+      "actual": "Client_and_Contact_Notes"
+    },
+    {
+      "proposed": "Preferences.Notes",
+      "actual": "Preferences.Preference_Notes",
+      "label": "Preference Notes",
+      "reason": "API and label Notes rejected as reserved; only rejected field retried"
+    }
+  ],
+  "modules": [
+    {
+      "api_name": "Consortias",
+      "id": "616617000178459052",
+      "layout_id": "616617000178459051",
+      "verification": {
+        "module": "Consortias",
+        "expected": 5,
+        "verified": 5,
+        "errors": []
+      },
+      "fields": [
+        {
+          "api_name": "Consortia_Code",
+          "id": "616617000178437028",
+          "label": "Consortia Code",
+          "type": "text",
+          "length": 100,
+          "unique": {
+            "case_sensitive": false
+          },
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Status",
+          "id": "616617000178437039",
+          "label": "Status",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Active",
+            "Inactive"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Key",
+          "id": "616617000178437050",
+          "label": "Migration Key",
+          "type": "text",
+          "length": 255,
+          "unique": {
+            "case_sensitive": false
+          },
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Batch",
+          "id": "616617000178437058",
+          "label": "Migration Batch",
+          "type": "text",
+          "length": 100,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Legacy_Source",
+          "id": "616617000178437066",
+          "label": "Legacy Source",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "api_name": "Commercial_Histories",
+      "id": "616617000178459754",
+      "layout_id": "616617000178459753",
+      "verification": {
+        "module": "Commercial_Histories",
+        "expected": 18,
+        "verified": 18,
+        "errors": []
+      },
+      "fields": [
+        {
+          "api_name": "History_Type",
+          "id": "616617000178389022",
+          "label": "History Type",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Agent Affiliation",
+            "Consortia Membership",
+            "IATA Assignment",
+            "Organization Relationship"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Client",
+          "id": "616617000178389036",
+          "label": "Client",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Accounts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Contact",
+          "id": "616617000178389047",
+          "label": "Contact",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Contacts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Related_Client",
+          "id": "616617000178389058",
+          "label": "Related Client",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Accounts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Consortia",
+          "id": "616617000178389069",
+          "label": "Consortia",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Consortias",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "IATA_Code",
+          "id": "616617000178433025",
+          "label": "IATA Code",
+          "type": "text",
+          "length": 100,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "IATA_Holder",
+          "id": "616617000178433034",
+          "label": "IATA Holder",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Accounts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Relationship_Subtype",
+          "id": "616617000178433046",
+          "label": "Relationship Subtype",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Branch Of",
+            "Part Of Group"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Primary_Relationship",
+          "id": "616617000178433056",
+          "label": "Primary Relationship",
+          "type": "boolean",
+          "length": 5,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_From",
+          "id": "616617000178433064",
+          "label": "Valid From",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_To",
+          "id": "616617000178423035",
+          "label": "Valid To",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Observed_On",
+          "id": "616617000178423043",
+          "label": "Observed On",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Data_Quality",
+          "id": "616617000178423052",
+          "label": "Data Quality",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Confirmed",
+            "Estimated",
+            "Pending Review"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Change_Reason",
+          "id": "616617000178423063",
+          "label": "Change Reason",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Source",
+          "id": "616617000178423071",
+          "label": "Source",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Key",
+          "id": "616617000178411026",
+          "label": "Migration Key",
+          "type": "text",
+          "length": 255,
+          "unique": {
+            "case_sensitive": false
+          },
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Batch",
+          "id": "616617000178411034",
+          "label": "Migration Batch",
+          "type": "text",
+          "length": 100,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Legacy_Source",
+          "id": "616617000178411042",
+          "label": "Legacy Source",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "api_name": "Preferences",
+      "id": "616617000178511456",
+      "layout_id": "616617000178511455",
+      "verification": {
+        "module": "Preferences",
+        "expected": 17,
+        "verified": 17,
+        "errors": []
+      },
+      "fields": [
+        {
+          "api_name": "Preference_Type",
+          "id": "616617000178466018",
+          "label": "Preference Type",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Commercial",
+            "Team Assignment",
+            "Operational",
+            "Communication"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Preference_Key",
+          "id": "616617000178466033",
+          "label": "Preference Key",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Price Presentation",
+            "Payment Method",
+            "Preferred Staff",
+            "Avoid Staff",
+            "Preferred Channel"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Client",
+          "id": "616617000178466046",
+          "label": "Client",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Accounts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Contact",
+          "id": "616617000178466057",
+          "label": "Contact",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Contacts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Vendor",
+          "id": "616617000178466068",
+          "label": "Vendor",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Vendors",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Commercial_History",
+          "id": "616617000178466079",
+          "label": "Commercial History",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Commercial_Histories",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Booking",
+          "id": "616617000178466090",
+          "label": "Booking",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Deals",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Scope",
+          "id": "616617000178466102",
+          "label": "Scope",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "General",
+            "Specific Affiliation",
+            "Booking Only"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Team_Member",
+          "id": "616617000178466113",
+          "label": "Team Member",
+          "type": "userlookup",
+          "length": 50,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Strength",
+          "id": "616617000178466124",
+          "label": "Strength",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Preference",
+            "Restriction"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_From",
+          "id": "616617000178422022",
+          "label": "Valid From",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_To",
+          "id": "616617000178422030",
+          "label": "Valid To",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Status",
+          "id": "616617000178422039",
+          "label": "Status",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Active",
+            "Archived"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Preference_Notes",
+          "id": "616617000178366032",
+          "label": "Preference Notes",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Key",
+          "id": "616617000178422049",
+          "label": "Migration Key",
+          "type": "text",
+          "length": 255,
+          "unique": {
+            "case_sensitive": false
+          },
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Batch",
+          "id": "616617000178422057",
+          "label": "Migration Batch",
+          "type": "text",
+          "length": 100,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Legacy_Source",
+          "id": "616617000178422065",
+          "label": "Legacy Source",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "api_name": "Client_and_Contact_Notes",
+      "id": "616617000178512161",
+      "layout_id": "616617000178512160",
+      "verification": {
+        "module": "Client_and_Contact_Notes",
+        "expected": 14,
+        "verified": 14,
+        "errors": []
+      },
+      "fields": [
+        {
+          "api_name": "Content",
+          "id": "616617000178437074",
+          "label": "Content",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Category",
+          "id": "616617000178437085",
+          "label": "Category",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Commercial",
+            "Operational",
+            "Pricing",
+            "Payments",
+            "Assignment"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Client",
+          "id": "616617000178437098",
+          "label": "Client",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Accounts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Contact",
+          "id": "616617000178437109",
+          "label": "Contact",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Contacts",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Vendor",
+          "id": "616617000178437120",
+          "label": "Vendor",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Vendors",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Commercial_History",
+          "id": "616617000178444019",
+          "label": "Commercial History",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Commercial_Histories",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Booking",
+          "id": "616617000178444030",
+          "label": "Booking",
+          "type": "lookup",
+          "length": 120,
+          "unique": {},
+          "lookup_module": "Deals",
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Scope",
+          "id": "616617000178444042",
+          "label": "Scope",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "General",
+            "Specific Affiliation",
+            "Booking Only"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_From",
+          "id": "616617000178444053",
+          "label": "Valid From",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Valid_To",
+          "id": "616617000178444061",
+          "label": "Valid To",
+          "type": "date",
+          "length": 20,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Status",
+          "id": "616617000178411051",
+          "label": "Status",
+          "type": "picklist",
+          "length": 120,
+          "unique": {},
+          "picklist_values": [
+            "-None-",
+            "Active",
+            "Archived"
+          ],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Key",
+          "id": "616617000178411061",
+          "label": "Migration Key",
+          "type": "text",
+          "length": 255,
+          "unique": {
+            "case_sensitive": false
+          },
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Migration_Batch",
+          "id": "616617000178411069",
+          "label": "Migration Batch",
+          "type": "text",
+          "length": 100,
+          "unique": {},
+          "picklist_values": [],
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        },
+        {
+          "api_name": "Legacy_Source",
+          "id": "616617000178411077",
+          "label": "Legacy Source",
+          "type": "textarea",
+          "length": 32000,
+          "unique": {},
+          "picklist_values": [],
+          "textarea": {
+            "type": "large"
+          },
+          "profiles": [
+            {
+              "id": "616617000000026972",
+              "name": "Administrator",
+              "permission": "read_write"
+            },
+            {
+              "id": "616617000000026974",
+              "name": "Standard",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000001538235",
+              "name": "Management",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782001",
+              "name": "Booking Handling Team",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782087",
+              "name": "Product",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000003782177",
+              "name": "Finance And Administration",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000126951208",
+              "name": "Booking Handling Team - Admin",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000154042112",
+              "name": "IT",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000163274109",
+              "name": "Marketing",
+              "permission": "hidden"
+            },
+            {
+              "id": "616617000165994117",
+              "name": "Booking Handing Team-Product",
+              "permission": "hidden"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

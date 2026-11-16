@@ -16,6 +16,7 @@ for (const mode of ["pending", "rejected"]) {
     const context = vm.createContext({
       state: {}, elements: {}, ZOHO, window: { ZOHO }, console: { warn: noop },
       createReviewNotesNavigation: () => ({ receive: noop, start: async () => {} }), registerZohoEmbeddedAppListeners: noop,
+      parsePrepaymentTarget: noop, parseBookingTarget: noop,
       configureServicesController: noop, loadBookingWorkspace: noop, onSyncEzusClick: noop,
       initializeServiceTableColumns: noop, bindEvents: noop, populateStatusOptions: noop,
       initServiceTextSize: noop, loadServiceTextSizeForUser: noop,

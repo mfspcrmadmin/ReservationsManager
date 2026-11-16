@@ -1,0 +1,72 @@
+/* Shared Queue controls; colors and type follow the service dropdowns. */
+.booking-browser .booking-browser-filters { --booking-filter-control-height: 34px; grid-template-columns: minmax(155px, 1fr) minmax(0, 1fr); }
+.booking-browser .booking-browser-owner-field { grid-column: 2; }
+.booking-browser .booking-browser-filter-field > span { color: var(--muted, #667085); font-size: 10px; font-weight: 650; }
+.booking-browser .queue-dropdown-trigger {
+  box-sizing: border-box; position: relative; display: block; width: 100%; min-width: 0;
+  height: 34px; min-height: 34px; padding: 0 34px 0 10px; border: 1px solid #d5dcd8;
+  border-radius: 6px; background: #fff; color: #34443c; font: 400 12px/1.4 var(--font-body, sans-serif);
+  text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;
+  box-shadow: none; transition: background 140ms, border-color 140ms, box-shadow 140ms;
+}
+.booking-browser .queue-dropdown-trigger::after {
+  content: ""; position: absolute; right: 14px; top: 50%; width: 6px; height: 6px;
+  margin: 0; border: 0; border-right: 1.5px solid #66776e; border-bottom: 1.5px solid #66776e;
+  transform: translateY(-65%) rotate(45deg);
+}
+.booking-browser .queue-dropdown-trigger[aria-expanded="true"]::after { transform: translateY(-25%) rotate(225deg); }
+.booking-browser .queue-dropdown-trigger:hover:not(:disabled) { background: #f5f8f7; border-color: #9daea5; }
+.booking-browser .queue-dropdown-trigger:active:not(:disabled) { background: #e4eeeb; }
+.booking-browser .queue-dropdown-trigger:focus-visible,
+.booking-browser .queue-dropdown-trigger[aria-expanded="true"] { outline: none; border-color: var(--accent, #0f766e); box-shadow: 0 0 0 2px #0f766e22; }
+.booking-browser .queue-dropdown-trigger:disabled { opacity: .55; cursor: not-allowed; }
+.queue-dropdown-menu, .booking-browser .queue-dropdown-menu {
+  position: fixed; inset: auto; margin: 0; padding: 4px; box-sizing: border-box; z-index: 10000;
+  overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #c5d1cd transparent;
+  border: 1px solid #dce3df; border-radius: 8px; background: #fff; color: #34443c;
+  box-shadow: 0 6px 20px #18372a20; font: 400 12px/1.4 var(--font-body, sans-serif);
+}
+.queue-dropdown-menu[popover] {
+  opacity: 0; transform: translateY(-3px);
+  transition: opacity 140ms, transform 140ms, display 140ms allow-discrete, overlay 140ms allow-discrete;
+}
+.queue-dropdown-menu:popover-open { opacity: 1; transform: translateY(0); }
+@starting-style { .queue-dropdown-menu:popover-open { opacity: 0; transform: translateY(-3px); } }
+.queue-dropdown-menu[hidden] { display: none; }
+.queue-dropdown-list { min-width: 0; }
+.queue-dropdown-option, .booking-browser .queue-dropdown-menu .booking-stage-option {
+  display: flex; align-items: center; gap: 9px; min-height: 36px; box-sizing: border-box;
+  margin: 0; padding: 7px 9px; border: 0; border-radius: 4px; background: #fff;
+  color: inherit; font: inherit; cursor: pointer; transition: background 140ms;
+}
+.queue-dropdown-option > span:first-child, .booking-browser .queue-dropdown-menu .booking-stage-option > span { flex: 1; min-width: 0; overflow-wrap: anywhere; font: inherit; color: inherit; letter-spacing: normal; text-transform: none; margin: 0; }
+.queue-dropdown-option[aria-selected="true"], .booking-browser .queue-dropdown-menu .booking-stage-option:has(input:checked) { background: #edf5f2; }
+.queue-dropdown-option:hover, .booking-browser .queue-dropdown-menu .booking-stage-option:hover { background: #f1f5f3; }
+.queue-dropdown-option.is-highlighted, .booking-browser .queue-dropdown-menu .booking-stage-option:focus-within { outline: 1px solid var(--accent, #0f766e); outline-offset: -1px; background: #f1f7f5; }
+.queue-dropdown-option:active, .booking-browser .queue-dropdown-menu .booking-stage-option:active { background: #dcece6; }
+.queue-dropdown-check { visibility: hidden; color: var(--accent, #0f766e); flex: 0 0 14px; }
+.queue-dropdown-option[aria-selected="true"] .queue-dropdown-check { visibility: visible; }
+.queue-dropdown-group { padding: 10px 9px 4px; color: var(--muted, #667085); font-size: 10px; font-weight: 600; }
+.queue-dropdown-empty { padding: 18px 10px; color: var(--muted, #667085); }
+.queue-dropdown-search { position: sticky; top: -4px; z-index: 1; display: flex; align-items: center; gap: 7px; padding: 7px 5px; background: #fff; border-bottom: 1px solid #e4eae7; }
+.queue-dropdown-search svg { width: 16px; height: 16px; flex: 0 0 16px; fill: none; stroke: #66776e; stroke-width: 1.7; }
+.queue-dropdown-search input { box-sizing: border-box; flex: 1; width: 0; min-width: 0; height: 30px; min-height: 30px; padding: 4px; border: 0; border-radius: 3px; background: #fff; color: inherit; font: inherit; box-shadow: none; }
+.queue-dropdown-search input:focus-visible { outline: 1px solid var(--accent, #0f766e); outline-offset: -1px; }
+.queue-dropdown-search button { width: 26px; height: 28px; padding: 0; border: 0; border-radius: 4px; background: #fff; color: #66776e; font-size: 19px; cursor: pointer; }
+.queue-dropdown-search button:hover { background: #edf5f2; }
+.booking-browser .queue-dropdown-menu .booking-stage-option input { box-sizing: border-box; width: 14px; min-width: 14px; height: 14px; min-height: 14px; padding: 0; margin: 0; accent-color: var(--accent, #0f766e); cursor: pointer; flex: 0 0 14px; }
+.booking-browser .queue-dropdown-menu .booking-stage-option--toggle-all { position: sticky; top: -4px; z-index: 1; margin-bottom: 4px; border-bottom: 1px solid #e4eae7; border-radius: 0; background: #fff; font-weight: 600; }
+@container booking-queue (min-width: 640px) {
+  .booking-browser .booking-browser-filters { grid-template-columns: minmax(180px, .8fr) minmax(200px, 1fr) minmax(220px, 1fr); }
+  .booking-browser .booking-browser-owner-field, .booking-browser .booking-browser-stage-field { grid-column: auto; }
+}
+@container booking-queue (max-width: 639px) {
+  .booking-browser.is-wide .booking-browser-filters { grid-template-columns: minmax(155px, 1fr) minmax(0, 1fr); }
+  .booking-browser.is-wide .booking-browser-owner-field { grid-column: 2; }
+  .booking-browser.is-wide .booking-browser-stage-field { grid-column: 1 / -1; }
+}
+@container booking-queue (max-width: 340px) {
+  .booking-browser .booking-browser-filters, .booking-browser.is-wide .booking-browser-filters { grid-template-columns: minmax(0, 1fr); }
+  .booking-browser .booking-browser-owner-field, .booking-browser.is-wide .booking-browser-owner-field { grid-column: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .queue-dropdown-menu[popover], .queue-dropdown-option, .booking-browser .queue-dropdown-trigger, .booking-browser .queue-dropdown-menu .booking-stage-option { transition: none; } }

@@ -1,4 +1,6 @@
-import { crmExecuteFunction, crmUpdateRecord } from "./api.js";
+import { runBulkServiceStatus, bulkServiceStatusSummary } from "./bulk-service-status.js";
+import { recordEditLocks } from "./record-edit-locks.js";
+import { crmExecuteFunction, crmUpdateRecord, crmGetFields, crmGetRecord } from "./api.js";
 import { startDraftLoading, stopDraftLoading } from "./draft-loading.js";
 import { MODULES, SERVICE_TABLE_COLUMNS, SERVICE_TABLE_COLUMNS_STORAGE_KEY } from "./constants.js";
 import { buildGroupedRows } from "./data.js";
@@ -10,18 +12,70 @@ import {
   clearLoading,
   renderActiveTab,
   renderSelectionPanel,
+  renderServicePaymentStatus,
   renderServicesTable,
   setError,
   setNotice,
   showLoading
 } from "./render.js";
 import { state } from "./state.js";
-import { escapeHtml, normalizeComparableText } from "./utils.js";
+import { escapeHtml, getServiceSupplierName, normalizeComparableText } from "./utils.js";
 
 let reloadBookingWorkspaceHandler = null;
 let syncBookingHandler = null;
 let serviceStatusPreviewFeedbackTimeout = 0;
 let draggedServiceColumnKey = "";
+let paymentStatusOptionsRequest = null;
+
+export async function loadServicePaymentStatusOptions() {
+  if (state.servicePaymentStatusOptions?.length) return;
+  if (paymentStatusOptionsRequest) return paymentStatusOptionsRequest;
+  paymentStatusOptionsRequest = (async () => {
+    try {
+      const fields = await crmGetFields(MODULES.bookingServices);
+      const field = fields.find(item => item.api_name === "Payment_Status");
+      const options = (field?.pick_list_values || []).filter(option => option.type !== "unused").map(option => ({
+        value: String(option.actual_value ?? option.display_value ?? ""),
+        label: String(option.display_value ?? option.actual_value ?? "")
+      }));
+      if (!options.length) throw new Error("Could not load the Payment Status options from CRM. Reopen the service to retry.");
+      state.servicePaymentStatusOptions = options;
+      state.servicePaymentStatusError = "";
+    } catch (error) {
+      state.servicePaymentStatusError = error.message || "Could not load payment statuses.";
+    } finally {
+      paymentStatusOptionsRequest = null;
+      renderServicePaymentStatus(elements, state);
+    }
+  })();
+  return paymentStatusOptionsRequest;
+}
+
+export async function onSelectedServicePaymentStatusChange() {
+  const service = state.selectedService;
+  const value = elements.fieldPaymentStatus.value;
+  if (!service || state.servicePaymentStatusSaving || value === (service.Payment_Status ?? "") || !state.servicePaymentStatusOptions?.some(option => option.value === value)) return;
+  state.servicePaymentStatusSaving = true;
+  renderServicePaymentStatus(elements, state);
+  showLoading(elements, state, "Saving payment status...");
+  try {
+    const result = await crmUpdateRecord(MODULES.bookingServices, { id: service.id, Payment_Status: value }, { expectedRecord: service });
+    if (String(result?.code || "").toUpperCase() !== "SUCCESS" || result?.status === "error") {
+      throw new Error(result?.message || "CRM did not confirm the payment status update.");
+    }
+    service.Payment_Status = value;
+    const current = state.services.find(item => item.id === service.id);
+    if (current) current.Payment_Status = value;
+    renderServicesWorkspace();
+    setNotice(elements, "");
+  } catch (error) {
+    setError(elements, error.message || "Could not save payment status.");
+  } finally {
+    state.servicePaymentStatusSaving = false;
+    clearLoading(elements, state);
+    renderServicePaymentStatus(elements, state);
+  }
+}
 
 export function configureServicesController(config) {
   const settings = config || {};
@@ -39,7 +93,8 @@ export function renderServicesWorkspace() {
     onSelectStep: selectStep,
     onToggleStepCollapsed: toggleStepCollapsed,
     onToggleServiceSelection: toggleServiceSelection,
-    onToggleGroupSelection: toggleGroupSelection
+    onToggleGroupSelection: toggleGroupSelection,
+    onSortChanged: syncSelectAllCheckbox
   });
   syncSelectAllCheckbox();
   renderSelectionPanel(elements, state);
@@ -105,12 +160,12 @@ export function closeBulkActionMenus() {
 
 export function syncBulkStatusActionState() {
   const hasSelectedServices = Object.keys(state.selectedServiceIds).length > 0;
-  elements.applyBulkStatus.disabled = !hasSelectedServices || !elements.bulkStatusEzus.value;
+  elements.applyBulkStatus.disabled = state.bulkStatusSaving || !hasSelectedServices || !elements.bulkStatusEzus.value;
   applyStatusSelectAppearance(elements.bulkStatusEzus, elements.bulkStatusEzus.value);
 }
 
 export function onSelectedServiceStatusChange() {
-  if (!state.selectedService || !elements.fieldStatusEzus.value) {
+  if (!state.selectedService || state.serviceStatusSaving || elements.fieldStatusEzus.value === state.selectedService.Status_EZUS || !elements.fieldStatusEzus.value) {
     return;
   }
 
@@ -284,6 +339,7 @@ export function resetServiceFilters() {
     supplier: "",
     category: [],
     subcategory: [],
+    serviceDate: [],
     subdestination: []
   };
   state.hideNonOperationalServices = true;
@@ -361,7 +417,7 @@ export function applyServiceFilter() {
     const matchesStatus = !normalizedStatuses.length ||
       normalizedStatuses.indexOf(normalizeComparableText(service.Status_EZUS || "")) !== -1;
     const matchesSupplier = !normalizedSupplier ||
-      normalizeComparableText(service.Supplier_Name || "") === normalizedSupplier;
+      normalizeComparableText(getServiceSupplierName(service)) === normalizedSupplier;
     const matchesCategory = !normalizedCategories.length ||
       normalizedCategories.indexOf(normalizeComparableText(service.Category || "")) !== -1;
     const matchesSubcategory = !normalizedSubcategories.length ||
@@ -369,7 +425,10 @@ export function applyServiceFilter() {
     const matchesSubdestination = !normalizedSubdestinations.length ||
       normalizedSubdestinations.indexOf(normalizeComparableText(service.Subdestination || "")) !== -1;
 
-    return matchesOperationalFilter && matchesStatus && matchesSupplier && matchesCategory && matchesSubcategory && matchesSubdestination;
+    const selectedDates = state.serviceFilters.serviceDate || [];
+    const matchesDate = !selectedDates.length || selectedDates.indexOf(String(service.Service_Date || "").slice(0, 10)) !== -1;
+
+    return matchesDate && matchesOperationalFilter && matchesStatus && matchesSupplier && matchesCategory && matchesSubcategory && matchesSubdestination;
   });
 
   buildGroupedRows(state);
@@ -397,7 +456,20 @@ function serviceRequiresOperationalManagement(service) {
   return false;
 }
 
-export function selectService(serviceId) {
+export async function selectService(serviceId) {
+  if (state.serviceLockLoading) return;
+  state.serviceLockLoading = true;
+  const bookingId = state.selectedBookingId;
+  try {
+    if (state.serviceEditLeaseId !== serviceId) {
+      if (state.serviceEditLeaseId) await recordEditLocks.release(MODULES.bookingServices, state.serviceEditLeaseId);
+      state.serviceEditLeaseId = "";
+      await recordEditLocks.begin(MODULES.bookingServices, serviceId);
+      if (state.selectedBookingId !== bookingId) { await recordEditLocks.release(MODULES.bookingServices, serviceId); return; }
+      state.serviceEditLeaseId = serviceId;
+      state.recordEditingLocksActive = true;
+    }
+  void loadServicePaymentStatusOptions();
   state.selectedServiceId = serviceId;
   state.selectedService = state.services.find(function (service) {
     return service.id === serviceId;
@@ -409,9 +481,13 @@ export function selectService(serviceId) {
   state.selectedStep = state.selectedStepId ? state.stepIndex[state.selectedStepId] || null : null;
 
   renderServicesWorkspace();
+  } catch (error) { setError(elements, error.message); }
+  finally { state.serviceLockLoading = false; }
 }
 
 export function closeServiceDetails() {
+  if (state.serviceEditLeaseId) void recordEditLocks.release(MODULES.bookingServices, state.serviceEditLeaseId).catch(() => {});
+  state.serviceEditLeaseId = "";
   state.selectedServiceId = "";
   state.selectedService = null;
   state.selectedStepId = "";
@@ -434,47 +510,44 @@ export function selectStep(stepId, rawStepId) {
 }
 
 export async function onApplyBulkStatus() {
-  const selectedIds = Object.keys(state.selectedServiceIds);
+  if (state.bulkStatusSaving || state.syncingEzus) return;
+  const selectedIds = Object.keys(state.selectedServiceIds).filter(id => state.selectedServiceIds[id]);
   const nextStatus = elements.bulkStatusEzus.value;
-
-  if (!selectedIds.length || !nextStatus) {
-    return;
-  }
-
+  const bookingId = String(state.selectedBookingId || "");
+  const workspaceRequestId = state.bookingWorkspaceRequestId;
+  const isCurrent = () => String(state.selectedBookingId || "") === bookingId && state.bookingWorkspaceRequestId === workspaceRequestId;
+  if (!selectedIds.length || !nextStatus || !bookingId) return;
+  state.bulkStatusSaving = true;
   showLoading(elements, state, "Updating selected services...");
-
   try {
-    for (const serviceId of selectedIds) {
-      const result = await crmUpdateRecord(MODULES.bookingServices, {
-        id: serviceId,
-        Status_EZUS: nextStatus
-      });
-      const status = String(result.status || result.code || "").toLowerCase();
-
-      if (status && status !== "success") {
-        throw new Error(result.message || "Zoho CRM did not confirm the bulk update.");
-      }
-
-      const service = state.services.find(function (record) {
-        return record.id === serviceId;
-      });
-
-      if (service) {
-        service.Status_EZUS = nextStatus;
-      }
+    const operation = await runBulkServiceStatus({
+      userId: state.currentUserId, bookingId, serviceIds: selectedIds, target: nextStatus,
+      storage: window.sessionStorage, isCurrent,
+      read: id => crmGetRecord(MODULES.bookingServices, id),
+      update: (id, target) => crmUpdateRecord(MODULES.bookingServices, { id, Status_EZUS: target })
+    });
+    if (!isCurrent()) return;
+    const pending = {};
+    for (const row of operation.rows) {
+      if (row.status === "confirmed") {
+        const service = state.services.find(record => String(record.id) === row.id);
+        if (service) service.Status_EZUS = operation.target;
+      } else pending[row.id] = true;
     }
-
-    state.selectedServiceIds = {};
-    closeBulkActionMenus();
+    state.selectedServiceIds = pending;
     renderServicesWorkspace();
-    setNotice(
-      elements,
-      "Status updated for " + selectedIds.length + (selectedIds.length === 1 ? " selected service." : " selected services.")
-    );
+    const summary = bulkServiceStatusSummary(operation);
+    if (operation.complete) {
+      closeBulkActionMenus();
+      setNotice(elements, summary);
+    } else {
+      setError(elements, summary + " Confirmed services will not be repeated. Apply again to retry rejected saves and check unconfirmed saves. " + operation.rows.filter(row => row.status !== "confirmed").map(row => row.id + ": " + row.message).join(" "));
+    }
   } catch (error) {
-    setError(elements, error.message || "Could not update the selected services.");
+    if (isCurrent()) setError(elements, error.message || "Could not update the selected services.");
   } finally {
-    clearLoading(elements, state);
+    state.bulkStatusSaving = false;
+    if (isCurrent()) { clearLoading(elements, state); syncBulkStatusActionState(); }
   }
 }
 
@@ -588,36 +661,46 @@ function closeCreateDraftModal() {
 export async function onSaveService(event) {
   event.preventDefault();
 
-  if (!state.selectedService) {
+  if (!state.selectedService || state.serviceStatusSaving) {
     return;
   }
 
+  const service = state.selectedService;
+  state.serviceStatusSaving = true;
+  elements.fieldStatusEzus.dataset.saving = "true";
   showLoading(elements, state, "Saving booking service...");
 
   const payload = {
-    id: state.selectedService.id,
-    Status_EZUS: elements.fieldStatusEzus.value,
+    id: service.id,
+    ...(elements.fieldStatusEzus.value ? { Status_EZUS: elements.fieldStatusEzus.value } : {}),
     Service_Notes: elements.fieldServiceNotes.value
   };
 
   try {
-    const result = await crmUpdateRecord(MODULES.bookingServices, payload);
+    const result = await crmUpdateRecord(MODULES.bookingServices, payload, { expectedRecord: service });
     const status = String(result.status || result.code || "").toLowerCase();
 
-    if (status && status !== "success") {
+    if (status !== "success") {
       throw new Error(result.message || "Zoho CRM did not confirm the update.");
     }
 
-    state.selectedService.Status_EZUS = payload.Status_EZUS;
-    state.selectedService.Service_Notes = payload.Service_Notes;
+    if (payload.Status_EZUS !== undefined) service.Status_EZUS = payload.Status_EZUS;
+    service.Service_Notes = payload.Service_Notes;
     state.serviceStatusDraftValue = "";
 
     renderServicesWorkspace();
     playServiceStatusSavedFeedback();
     setNotice(elements, "");
   } catch (error) {
+    state.serviceStatusDraftValue = error.code === "CRM_VERSION_CONFLICT" ? payload.Status_EZUS || "" : "";
+    if (state.selectedService === service && error.code !== "CRM_VERSION_CONFLICT") {
+      elements.fieldStatusEzus.value = service.Status_EZUS || "-None-";
+      applyStatusSelectAppearance(elements.fieldStatusEzus, elements.fieldStatusEzus.value);
+    }
     setError(elements, error.message || "Could not save the booking service.");
   } finally {
+    state.serviceStatusSaving = false;
+    elements.fieldStatusEzus.dataset.saving = "false";
     clearLoading(elements, state);
   }
 }
@@ -627,20 +710,23 @@ export async function onUpdateServiceNotes() {
     return;
   }
 
+  const service = state.selectedService;
+  const notes = elements.fieldServiceNotes.value;
   showLoading(elements, state, "Updating service notes...");
 
   try {
     const result = await crmUpdateRecord(MODULES.bookingServices, {
-      id: state.selectedService.id,
-      Service_Notes: elements.fieldServiceNotes.value
-    });
+      id: service.id,
+      Service_Notes: notes
+    }, { expectedRecord: service });
     const status = String(result.status || result.code || "").toLowerCase();
 
     if (status && status !== "success") {
       throw new Error(result.message || "Zoho CRM did not confirm the notes update.");
     }
 
-    state.selectedService.Service_Notes = elements.fieldServiceNotes.value;
+    service.Service_Notes = notes;
+    if (state.selectedService !== service) return;
     renderServicesWorkspace();
     setNotice(elements, "");
   } catch (error) {
@@ -800,7 +886,7 @@ function renderRenfeField(label, name, value, options) {
 }
 
 function renderRenfeCurrencyField(label, name, value) {
-  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" value="' + escapeHtml(value) + '" type="number" min="0.01" step="0.01" required></div></label>';
+  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" value="' + escapeHtml(value) + '" type="number" step="0.01" required></div></label>';
 }
 
 function getRenfeServiceValue(service, fieldNames) {
@@ -910,7 +996,11 @@ function getVisibleServiceColumnCount() {
 }
 
 function getDefaultServiceTableColumns() {
-  return SERVICE_TABLE_COLUMNS.map(function (column) {
+  const priority = ["serviceName", "supplier", "date", "status", "paymentStatus", "serviceDateTime", "name"];
+  const ordered = [...SERVICE_TABLE_COLUMNS].sort((a, b) =>
+    (priority.includes(a.key) ? priority.indexOf(a.key) : priority.length) -
+    (priority.includes(b.key) ? priority.indexOf(b.key) : priority.length));
+  return ordered.map(function (column) {
     return {
       key: column.key,
       visible: true
@@ -974,7 +1064,12 @@ function sanitizeServiceTableColumns(value) {
 
   defaults.forEach(function (entry) {
     if (!seen[entry.key]) {
-      normalized.push(entry);
+      const paymentStatusIndex = normalized.findIndex(column => column.key === "paymentStatus");
+      if (entry.key === "paymentMethod" && paymentStatusIndex !== -1) {
+        normalized.splice(paymentStatusIndex + 1, 0, entry);
+      } else {
+        normalized.push(entry);
+      }
     }
   });
 

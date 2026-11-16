@@ -1,0 +1,22 @@
+.service-state-trigger {
+  display: inline-flex; align-items: center; gap: 9px; width: 100%; min-width: 0;
+  height: 36px; padding: 0 11px; border: 1px solid #d5dcd8; border-radius: 6px;
+  background: #fff; color: #34443c; font: 400 13px/1.4 var(--font-body, sans-serif);
+  text-align: left; cursor: pointer; box-shadow: none;
+}
+.service-state-trigger:hover:not(:disabled) { border-color: #9daea5; background: #fafcfb; }
+.service-state-trigger:focus-visible { outline: 1px solid var(--accent, #0f766e); outline-offset: 1px; border-color: var(--accent, #0f766e); }
+.service-state-trigger:disabled { cursor: not-allowed; opacity: .6; }
+.service-state-trigger[aria-busy="true"] { cursor: progress; }
+.service-state-dot { flex: 0 0 7px; height: 7px; border-radius: 50%; }
+.service-state-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-state-chevron { flex: 0 0 6px; height: 6px; border-right: 1.5px solid #66776e; border-bottom: 1.5px solid #66776e; transform: translateY(-2px) rotate(45deg); margin-left: auto; }
+.service-state-menu { position: fixed; inset: auto; margin: 0; padding: 4px; box-sizing: border-box; overflow: auto; overscroll-behavior: contain; border: 1px solid #dce3df; border-radius: 7px; background: #fff; color: #34443c; box-shadow: 0 6px 20px #18372a20; font: 400 13px/1.4 var(--font-body, sans-serif); }
+.service-state-option { display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 7px; border-radius: 4px; cursor: pointer; text-align: left; font-weight: 400; }
+.service-state-option[aria-selected="true"] { background: #eaf4ef; }
+.service-state-option:hover, .service-state-option.is-active { background: #f2f5f3; outline: 1px solid #d5e0da; outline-offset: -1px; }
+.service-state-option[aria-selected="true"]:hover, .service-state-option[aria-selected="true"].is-active { background: #e2eee7; }
+.service-state-option[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.service-state-check { color: var(--accent, #0f766e); visibility: hidden; }
+.service-state-option[aria-selected="true"] .service-state-check { visibility: visible; }
+.service-state-trigger .service-state-label, .service-state-menu .service-state-label, .service-state-menu .service-state-check { color: inherit; font: inherit; letter-spacing: normal; text-transform: none; }

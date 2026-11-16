@@ -17,9 +17,9 @@ function setup() {
         return {
           dataset: {}, handlers: {}, open: false,
           setAttribute() {}, focus() {},
-          querySelector(selector) { return children[selector] ||= { focus() {}, hidden: false }; },
+          querySelector(selector) { return children[selector] ||= { focus() {}, setAttribute() {}, hidden: false }; },
           addEventListener(event, handler) { this.handlers[event] = handler; },
-          showModal() { this.open = true; }, close() { this.open = false; }
+          showModal() { this.open = true; }, show() { this.open = true; }, close() { this.open = false; }
         };
       }
     },

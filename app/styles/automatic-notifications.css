@@ -1,0 +1,51 @@
+﻿.automatic-entry { gap:7px; margin-left:auto; white-space:nowrap; }
+.automatic-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.automatic-toolbar h2 { font-size:17px; margin:8px 0 4px; color:#172b4d; }
+.automatic-toolbar h2:focus { outline:none; }
+.automatic-toolbar p { margin:0; font-size:12px; color:#64748b; }
+.automatic-back.button { padding:0; min-height:26px; color:#52657b; }
+.automatic-list-status { font-size:12px; color:#64748b; margin-bottom:8px; }
+.automatic-notification { border:1px solid #dce3eb; border-radius:10px; margin-top:8px; background:#fff; min-width:0; }
+.automatic-notification > summary { cursor:pointer; padding:12px 14px; display:flex; align-items:center; gap:12px; list-style:none; }
+.automatic-notification > summary::-webkit-details-marker { display:none; }
+.automatic-chevron { flex:none; color:#64748b; font-size:22px; line-height:1; }
+.automatic-notification[open] > summary .automatic-chevron { transform:rotate(90deg); }
+.automatic-row-content { flex:1; min-width:0; }
+.automatic-row-heading { display:flex; align-items:flex-start; gap:12px; }
+.automatic-row-heading strong { flex:1; min-width:0; font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.automatic-row-meta { display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:5px; color:#64748b; font-size:12px; line-height:1.5; }
+.automatic-recipients { overflow-wrap:anywhere; }
+.automatic-view-label { flex:none; color:#087f78; font-size:12px; }
+.automatic-notification[open] > summary .automatic-view-label { display:none; }
+.automatic-notification summary:focus-visible { outline:2px solid #087f78; outline-offset:3px; border-radius:6px; }
+.automatic-status { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; color:#475569; background:#f1f5f9; border-radius:12px; padding:3px 9px; font-size:11px; }
+.automatic-status--sent { color:#166534; background:#dcfce7; }
+.automatic-status--failed { color:#991b1b; background:#fee2e2; }
+.automatic-status--sending,.automatic-status--queued { color:#854d0e; background:#fef9c3; }
+[data-notification-detail] { padding:0 16px 14px; overflow-wrap:anywhere; }
+[data-notification-detail] dl { display:grid; grid-template-columns: max-content minmax(0,1fr); gap:8px 14px; margin:0; font-size:12px; }
+[data-notification-detail] dt { color:#64748b; padding-top:3px; }
+[data-notification-detail] dd { margin:0; min-width:0; }
+.automatic-envelope { padding:14px 0; border-top:1px solid #edf2f7; }
+.automatic-address { display:inline-block; background:#f5f8fa; border:1px solid #e4eaf0; border-radius:5px; padding:2px 7px; max-width:100%; overflow-wrap:anywhere; box-sizing:border-box; }
+.automatic-addresses { display:inline; margin-left:8px; }
+.automatic-addresses > summary { display:inline; color:#087f78; cursor:pointer; font-size:12px; }
+.automatic-address-list { display:flex; flex-wrap:wrap; gap:5px; padding-top:8px; }
+.automatic-send-note { font-size:11px; color:#64748b; margin:12px 0 0; }
+.automatic-email-content { border-top:1px solid #edf2f7; padding-top:12px; }
+.automatic-email-content h3 { font-size:12px; color:#52657b; margin:0 0 8px; }
+[data-notification-detail] iframe { display:block; width:100%; height:65vh; min-height:320px; border:1px solid #e4eaf0; border-radius:6px; background:white; box-sizing:border-box; }
+.automatic-content-empty,.automatic-content-loading { padding:22px 12px; background:#f8fafc; color:#64748b; border-radius:6px; font-size:12px; }
+.automatic-error { color:#991b1b; white-space:pre-wrap; font-size:12px; }
+.automatic-diagnostics { margin-top:14px; color:#64748b; font-size:11px; }
+.automatic-diagnostics > summary { cursor:pointer; }
+.automatic-diagnostics dl { margin-top:10px; }
+@media (max-width:600px) {
+  .automatic-notification > summary { padding:10px; gap:8px; }
+  .automatic-row-heading { gap:6px; }
+  .automatic-view-label { display:none; }
+  .automatic-row-meta { gap:3px 10px; }
+  .automatic-recipients { flex-basis:100%; }
+  .automatic-entry { white-space:normal; text-align:left; }
+  [data-notification-detail] { padding:0 10px 12px; }
+}

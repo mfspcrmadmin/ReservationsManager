@@ -74,7 +74,7 @@ function configureServiceColumnWidths(head) {
       handle.title = "Drag to resize. Double-click to reset. Use arrow keys to adjust.";
       cell.appendChild(handle);
     } else {
-      col.dataset.fixedWidth = index === 0 ? String(firstFixedWidth) : "42";
+      col.dataset.fixedWidth = cell.dataset.fixedWidth || (index === 0 ? String(firstFixedWidth) : "42");
     }
     group.appendChild(col);
   });
@@ -141,7 +141,7 @@ return { configure: configureServiceColumnWidths, reset: resetServiceColumnWidth
 }
 
 const serviceResizer = createColumnResizer("bookingsManager.serviceColumnWidths", {
-  name: 100, date: 152, serviceDateTime: 216, status: 210, paymentStatus: 190, serviceName: 320, supplier: 200, paxNumber: 112, step: 260, serviceNotes: 260
-});
+  name: 80, date: 120, serviceDateTime: 170, status: 140, paymentStatus: 140, paymentMethod: 150, serviceName: 240, supplier: 180, paxNumber: 88, step: 220, serviceNotes: 240, sales: 125, purchase: 125
+}, 52);
 export const configureServiceColumnWidths = serviceResizer.configure;
 export const resetServiceColumnWidths = serviceResizer.reset;

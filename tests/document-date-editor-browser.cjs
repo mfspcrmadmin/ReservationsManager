@@ -1,0 +1,23 @@
+const fs=require('fs'),path=require('path'),assert=require('assert/strict');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+(async()=>{const browser=await chromium.launch({headless:true,channel:'msedge'});try{
+ const page=await browser.newPage({timezoneId:'America/Los_Angeles'});
+ await page.setContent('<div class="studio-crm-fields"><div><label for="start">Start (with timezone)</label><input id="start" data-crm-field="Start_Date_Time" value="2026-07-13T08:00:37+02:00"></div><div><label for="arrival">Arrival</label><input id="arrival" data-crm-field="Arrival_Date" value="2026-07-12"></div></div>');
+ await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'../app/js/document-date-editor.js'),'utf8').replace(/^export /gm,'')});
+ await page.evaluate(()=>{window.syncDates=mountDocumentDateEditors(document,[{fields:[{api_name:'Start_Date_Time',type:'datetime',label:'Start (with timezone)'},{api_name:'Arrival_Date',type:'date',label:'Arrival'}]}]);syncDates();window.edits=0;document.querySelector('#start').addEventListener('input',()=>edits++);});
+ assert.equal(await page.locator('.studio-date-display').first().innerText(),'13 Jul 26 ? 08:00:37 (UTC+02:00)');
+ assert.equal(await page.locator('#start').inputValue(),'2026-07-13T08:00:37+02:00');assert.equal(await page.evaluate(()=>edits),0);
+ await page.locator('.studio-date-preferences summary').click();await page.getByRole('combobox',{name:'Date display format'}).selectOption('dd/MM/yyyy');
+ assert.equal(await page.locator('.studio-date-display').first().innerText(),'13/07/2026 ? 08:00:37 (UTC+02:00)');assert.equal(await page.evaluate(()=>edits),0);
+ await page.getByLabel('Start Date',{exact:true}).fill('2026-07-14');
+ assert.equal(await page.locator('#start').inputValue(),'2026-07-14T08:00:37+02:00');
+ await page.getByLabel('Start Time',{exact:true}).fill('09:30');
+ assert.equal(await page.locator('#start').inputValue(),'2026-07-14T09:30:00+02:00');
+ await page.getByLabel('Start Time zone',{exact:true}).selectOption('+05:45');
+ assert.equal(await page.locator('#start').inputValue(),'2026-07-14T09:30:00+05:45');
+ await page.getByLabel('Start Time',{exact:true}).fill('');assert.ok(await page.locator('#start').getAttribute('data-date-error'));
+ await page.getByRole('button',{name:'Clear date'}).first().click();assert.equal(await page.locator('#start').inputValue(),'');assert.equal(await page.locator('#start').getAttribute('data-date-error'),'');
+ await page.getByLabel('Arrival Date',{exact:true}).fill('2026-08-01');assert.equal(await page.locator('#arrival').inputValue(),'2026-08-01');
+ await page.evaluate(()=>{document.querySelector('#start').disabled=true;syncDates();});assert.ok(await page.getByLabel('Start Date',{exact:true}).isDisabled());
+ console.log('PASS dates: default format, alternate formats, calendar/time edits, seconds and offset preservation, incomplete values, clear and locks across browser time zones.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -6,7 +6,9 @@ export const MODULES = {
   paymentAccounts: "Payment_Accounts",
   cardPurchases: "Card_Purchases",
   prepaymentRequests: "Prepayment_Requests",
+  prepaymentRequestServices: "Prepayment_Request_Services",
   prepayments: "Prepayments",
+  prepaymentInvoiceAllocations: "Prepayment_Invoice_Allocations",
   pax: "PAX",
   paxBookingServices: "PAX_Booking_Services"
 };
@@ -20,11 +22,11 @@ export const SERVICE_TABLE_COLUMNS = [
   },
   {
     key: "date",
-    label: "Date"
+    label: "Service date"
   },
   {
     key: "serviceDateTime",
-    label: "Service Date Time"
+    label: "Service date & time"
   },
   {
     key: "status",
@@ -33,6 +35,10 @@ export const SERVICE_TABLE_COLUMNS = [
   {
     key: "paymentStatus",
     label: "Payment Status"
+  },
+  {
+    key: "paymentMethod",
+    label: "Payment Method"
   },
   {
     key: "serviceName",
@@ -83,13 +89,10 @@ export const STATUS_OPTIONS = [
   "Blocked",
   "Alert",
   "Optional",
-  "Pre-Paid",
   "Confirmed",
   "Cancelled",
   "Cancelled with Charges",
   "Email Draft Created",
-  "Pre-Payment Requested",
-  "Partially Pre-Paid",
   "Availability Draft Created",
   "NBTM-Confirmed"
 ];

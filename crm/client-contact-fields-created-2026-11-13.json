@@ -1,0 +1,179 @@
+{
+  "date": "2026-11-13",
+  "scope": "Accounts and Contacts schema only",
+  "rename": {
+    "module": "Accounts",
+    "api_name": "Account_Type",
+    "id": "616617000000000397",
+    "before": "Client Type",
+    "after": "Legacy Client Classification",
+    "verified": true,
+    "existing_picklist_values_and_permissions_preserved": true
+  },
+  "record_values_updated": false,
+  "bookings_modified": false,
+  "automations_created": false,
+  "pending": [
+    "Available_for_New_Bookings rule not agreed; field not created",
+    "Data classification and migration",
+    "Final permissions and relationship validations"
+  ],
+  "modules": [
+    {
+      "module": "Accounts",
+      "verification_errors": [],
+      "fields": [
+        {
+          "api_name": "Client_Type",
+          "id": "616617000178467015",
+          "label": "Client Type",
+          "type": "picklist",
+          "values": [
+            "-None-",
+            "Agency",
+            "Private Client"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Organization_Level",
+          "id": "616617000178467028",
+          "label": "Organization Level",
+          "type": "picklist",
+          "values": [
+            "-None-",
+            "Group",
+            "Agency",
+            "Branch"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Commercial_Status",
+          "id": "616617000178467041",
+          "label": "Commercial Status",
+          "type": "picklist",
+          "values": [
+            "-None-",
+            "Active",
+            "Inactive",
+            "Closed"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Current_Consortia",
+          "id": "616617000178467052",
+          "label": "Current Consortia",
+          "type": "lookup",
+          "lookup": "Consortias",
+          "values": [],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Data_Quality_Status",
+          "id": "616617000178467064",
+          "label": "Data Quality Status",
+          "type": "picklist",
+          "values": [
+            "-None-",
+            "Confirmed",
+            "Pending Review",
+            "Duplicate"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Canonical_Client",
+          "id": "616617000178358015",
+          "label": "Canonical Client",
+          "type": "lookup",
+          "lookup": "Accounts",
+          "values": [],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032035",
+              "name": "Standard"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "Contacts",
+      "verification_errors": [],
+      "fields": [
+        {
+          "api_name": "Contact_Roles",
+          "id": "616617000178386027",
+          "label": "Contact Roles",
+          "type": "multiselectpicklist",
+          "values": [
+            "Travel Agent",
+            "Private Client",
+            "Supplier Contact"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032039",
+              "name": "Standard"
+            }
+          ]
+        },
+        {
+          "api_name": "Functional_Roles",
+          "id": "616617000178386040",
+          "label": "Functional Roles",
+          "type": "multiselectpicklist",
+          "values": [
+            "Reservations",
+            "Accounting",
+            "Rates",
+            "Management",
+            "Sales",
+            "Other"
+          ],
+          "access": "Administrator read_write; other returned profiles hidden",
+          "layouts": [
+            {
+              "id": "616617000000032039",
+              "name": "Standard"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

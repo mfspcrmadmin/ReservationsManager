@@ -4,9 +4,13 @@ function lookupId(value) {
   return String(value && typeof value === "object" ? value.id || "" : value || "").trim();
 }
 
-export async function validateCreateInEzusAgency(transition, bookingId) {
+export function isCreateEzusTransition(transition) {
   const name = String(transition && (transition.name || transition.next_field_value) || "").trim();
-  if (!/^create\s+in\s+ezus$/i.test(name)) return;
+  return /^create\s+(?:in\s+)?ezus(?:\s+project)?$/i.test(name);
+}
+
+export async function validateCreateInEzusAgency(transition, bookingId) {
+  if (!isCreateEzusTransition(transition)) return;
 
   // Read current associations: the booking may have been edited outside the widget.
   let booking;

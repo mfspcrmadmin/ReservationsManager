@@ -1,0 +1,269 @@
+{
+  "date": "2026-11-13",
+  "scope": "Price Presentation options and CLIA history schema",
+  "record_updates": false,
+  "bookings_modified": false,
+  "verified_fields": [
+    {
+      "api": "History_Type",
+      "id": "616617000178389022",
+      "label": "History Type",
+      "type": "picklist",
+      "values": [
+        "-None-",
+        "Agent Affiliation",
+        "Consortia Membership",
+        "IATA Assignment",
+        "Organization Relationship",
+        "CLIA Assignment"
+      ],
+      "profiles": [
+        {
+          "id": "616617000000026972",
+          "name": "Administrator",
+          "permission": "read_write"
+        },
+        {
+          "id": "616617000000026974",
+          "name": "Standard",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000001538235",
+          "name": "Management",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782001",
+          "name": "Booking Handling Team",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782087",
+          "name": "Product",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782177",
+          "name": "Finance And Administration",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000126951208",
+          "name": "Booking Handling Team - Admin",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000154042112",
+          "name": "IT",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000163274109",
+          "name": "Marketing",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000165994117",
+          "name": "Booking Handing Team-Product",
+          "permission": "hidden"
+        }
+      ]
+    },
+    {
+      "api": "CLIA_Code",
+      "id": "616617000178540001",
+      "label": "CLIA Code",
+      "type": "text",
+      "values": [],
+      "profiles": [
+        {
+          "id": "616617000000026972",
+          "name": "Administrator",
+          "permission": "read_write"
+        },
+        {
+          "id": "616617000000026974",
+          "name": "Standard",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000001538235",
+          "name": "Management",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782001",
+          "name": "Booking Handling Team",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782087",
+          "name": "Product",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782177",
+          "name": "Finance And Administration",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000126951208",
+          "name": "Booking Handling Team - Admin",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000154042112",
+          "name": "IT",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000163274109",
+          "name": "Marketing",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000165994117",
+          "name": "Booking Handing Team-Product",
+          "permission": "hidden"
+        }
+      ]
+    },
+    {
+      "api": "CLIA_Holder",
+      "id": "616617000178540011",
+      "label": "CLIA Holder",
+      "type": "lookup",
+      "values": [],
+      "lookup": "Accounts",
+      "profiles": [
+        {
+          "id": "616617000000026972",
+          "name": "Administrator",
+          "permission": "read_write"
+        },
+        {
+          "id": "616617000000026974",
+          "name": "Standard",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000001538235",
+          "name": "Management",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782001",
+          "name": "Booking Handling Team",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782087",
+          "name": "Product",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782177",
+          "name": "Finance And Administration",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000126951208",
+          "name": "Booking Handling Team - Admin",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000154042112",
+          "name": "IT",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000163274109",
+          "name": "Marketing",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000165994117",
+          "name": "Booking Handing Team-Product",
+          "permission": "hidden"
+        }
+      ]
+    },
+    {
+      "api": "Preference_Value",
+      "id": "616617000178539002",
+      "label": "Preference Value",
+      "type": "picklist",
+      "values": [
+        "-None-",
+        "Total Price",
+        "Breakdown by Service",
+        "Net Price and Commission"
+      ],
+      "profiles": [
+        {
+          "id": "616617000000026972",
+          "name": "Administrator",
+          "permission": "read_write"
+        },
+        {
+          "id": "616617000000026974",
+          "name": "Standard",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000001538235",
+          "name": "Management",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782001",
+          "name": "Booking Handling Team",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782087",
+          "name": "Product",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000003782177",
+          "name": "Finance And Administration",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000126951208",
+          "name": "Booking Handling Team - Admin",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000154042112",
+          "name": "IT",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000163274109",
+          "name": "Marketing",
+          "permission": "hidden"
+        },
+        {
+          "id": "616617000165994117",
+          "name": "Booking Handing Team-Product",
+          "permission": "hidden"
+        }
+      ]
+    }
+  ],
+  "existing_accounts_clia": {
+    "api": "CLIA_Code",
+    "action": "Preserved existing field"
+  },
+  "pending": [
+    "Preference_Key to Preference_Value dependency and options for other keys",
+    "Conditional validation for CLIA Assignment",
+    "Current/history synchronization for CLIA",
+    "Olga user-specific permissions not configured; new fields follow Administrator-only setup",
+    "Do not infer IATA validation or formatting for CLIA",
+    "Existing field labels and historic values not globally translated"
+  ]
+}

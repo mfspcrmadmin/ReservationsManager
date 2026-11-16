@@ -1,8 +1,9 @@
+import { resolveWidgetRelationship } from "./widget-permissions.js";
 import { crmGetRecord } from "./api.js";
 import { MODULES } from "./constants.js";
 import { state } from "./state.js";
 import { escapeHtml } from "./utils.js";
-import { TAG_CATALOG_FIELD, BOOKING_TAGS_FIELD, parseTagCatalog, parseBookingTags, mergeBookingTags, serializeTags, validateTag } from "./booking-tags-data.js";
+import { TAG_CATALOG_FIELD, BOOKING_TAGS_FIELD, SALES_TAGS_FIELD, canEditTagField, parseTagCatalog, parseBookingTags, mergeBookingTags, serializeTags, validateTag } from "./booking-tags-data.js";
 
 let catalog = { version: 1, tags: [] };
 let catalogError = "";
@@ -47,18 +48,40 @@ function textColor(hex) {
 function chip(tag) {
   return '<span class="booking-tag-chip" style="background:' + tag.color + ';color:' + textColor(tag.color) + '">' + escapeHtml(tag.name) + '</span>';
 }
-export function renderBookingTags(booking, compact) {
+function tagFieldLabel(field) { return field === SALES_TAGS_FIELD ? "Sales Tags" : "Reservations Tags"; }
+function canEditTags(field) { const relationship = resolveWidgetRelationship(state); return Boolean(relationship && String(relationship.id) === ownerId()) && canEditTagField(relationship.Profile, field); }
+function visibleTags(booking, field) {
+  const users = parseBookingTags(booking[field]).users;
+  const tags = [];
+  for (const [user, ids] of Object.entries(users)) {
+    const relationship = (state.bookingTagRelationships || []).find(record => String(record.id) === user);
+    const definitions = user === ownerId() ? catalog.tags : parseTagCatalog(relationship?.[TAG_CATALOG_FIELD]).tags;
+    for (const id of ids) {
+      const tag = definitions.find(tag => tag.id === id);
+      if (tag) tags.push(tag);
+      else if (!relationship && user !== ownerId()) tags.push({ name: "Unavailable tag", color: "#e5e7eb" });
+    }
+  }
+  return tags;
+}
+export function bookingTagSortText(booking, field) {
+  try { return visibleTags(booking, field).map(tag => tag.name).sort().join(", "); }
+  catch (_) { return ""; }
+}
+export function renderBookingTags(booking, compact, field) {
   if (!booking || !booking.id) return "";
-  let tags = [];
-  let invalid = false;
-  try {
-    const ids = parseBookingTags(booking[BOOKING_TAGS_FIELD]).users[ownerId()] || [];
-    tags = catalog.tags.filter(tag => ids.includes(tag.id));
-  } catch (_) { invalid = true; }
-  return '<span class="booking-tags-slot" data-booking-tags-slot="' + escapeHtml(booking.id) + '" data-tags-compact="' + Boolean(compact) + '">' +
-    '<button class="booking-tags-trigger" type="button" data-booking-tags="' + escapeHtml(booking.id) + '" title="Manage my tags" aria-label="Manage my tags for ' + escapeHtml(booking.Deal_Name || "this booking") + '">' +
-    tags.map(chip).join("") +
-    '<span class="booking-tags-add">' + (invalid ? "Tags !" : "+ Tags") + '</span></button>' +
+  if (!field) return [SALES_TAGS_FIELD, BOOKING_TAGS_FIELD].map(key => '<div class="booking-tag-group"><strong>' + tagFieldLabel(key) + '</strong>' + renderBookingTags(booking, compact, key) + '</div>').join("");
+  let tags = [], invalid = false;
+  try { tags = visibleTags(booking, field); } catch (_) { invalid = true; }
+  const editable = canEditTags(field);
+  const label = tagFieldLabel(field);
+  if (!compact) {
+    return '<span class="booking-tags-slot" data-booking-tags-slot="' + escapeHtml(booking.id) + '" data-tag-field="' + field + '" data-tags-compact="false">' +
+      tags.map(chip).join("") + (editable ? '<button type="button" class="booking-tags-trigger booking-tags-add" data-booking-tags="' + escapeHtml(booking.id) + '" data-tag-field="' + field + '" aria-label="Add or edit ' + label + '">' + (invalid ? 'Tags !' : '+ Tags') + '</button>' : '<span class="booking-tags-readonly">' + (invalid ? 'Tags !' : tags.length ? 'Read only' : 'No tags — Read only') + '</span>') + '</span>';
+  }
+  return '<span class="booking-tags-slot" data-booking-tags-slot="' + escapeHtml(booking.id) + '" data-tag-field="' + field + '" data-tags-compact="' + Boolean(compact) + '">' +
+    '<' + (editable ? 'button type="button" data-booking-tags="' + escapeHtml(booking.id) + '" data-tag-field="' + field + '"' : 'span') + ' class="booking-tags-trigger" title="' + label + (editable ? ' - Edit' : ' - Read only') + '">' +
+    tags.map(chip).join("") + '<span class="booking-tags-add">' + (invalid ? "Tags !" : editable ? "+ Tags" : tags.length ? "Read only" : "No tags - Read only") + '</span></' + (editable ? 'button' : 'span') + '>' +
     (compact ? '<button class="booking-tags-more" type="button" data-booking-tags-more hidden aria-label="Show all tags">+0</button>' : '') + '</span>';
 }
 
@@ -120,7 +143,7 @@ function showAllBookingTags(slot) {
     copy.hidden = false;
     return copy.outerHTML;
   }).join("");
-  dialog.innerHTML = '<header><div><h3 id="booking-tags-preview-title">My booking tags</h3><p>' + escapeHtml(booking?.Deal_Name || "Booking") + '</p></div><button type="button" class="icon-button" data-tags-close aria-label="Close">×</button></header><div class="booking-tags-preview-list">' + chips + '</div>';
+  dialog.innerHTML = '<header><div><h3 id="booking-tags-preview-title">Booking tags</h3><p>' + escapeHtml(booking?.Deal_Name || "Booking") + '</p></div><button type="button" class="icon-button" data-tags-close aria-label="Close">×</button></header><div class="booking-tags-preview-list">' + chips + '</div>';
   dialog.querySelector("[data-tags-close]").onclick = () => dialog.close();
   dialog.addEventListener("keydown", event => { if (event.key === "Escape") event.stopPropagation(); });
   dialog.addEventListener("close", () => { dialog.remove(); activeDialog = null; });
@@ -130,7 +153,7 @@ function showAllBookingTags(slot) {
 function refreshTags() {
   document.querySelectorAll("[data-booking-tags-slot]").forEach(slot => {
     const record = bookingRecord(slot.dataset.bookingTagsSlot);
-    if (record) slot.outerHTML = renderBookingTags(record, slot.dataset.tagsCompact === "true");
+    if (record) slot.outerHTML = renderBookingTags(record, slot.dataset.tagsCompact === "true", slot.dataset.tagField);
   });
 }
 function requireField(record, field) {
@@ -141,6 +164,8 @@ async function loadCatalog() {
   const record = await readTagRecord(MODULES.userRelationships, ownerId());
   requireField(record, TAG_CATALOG_FIELD);
   catalog = parseTagCatalog(record[TAG_CATALOG_FIELD]);
+  const cached = (state.bookingTagRelationships || []).find(item => String(item.id) === ownerId());
+  if (cached) cached[TAG_CATALOG_FIELD] = record[TAG_CATALOG_FIELD];
   catalogError = "";
   return record;
 }
@@ -148,6 +173,11 @@ async function loadCatalog() {
 // Read immediately before merging and verify the returned field after saving.
 // The embedded SDK offers no conditional-update header; see docs/booking-tags.md.
 async function writeJson(entity, record, field, value) {
+  if (entity === MODULES.userRelationships) {
+    const relationship = resolveWidgetRelationship(state);
+    if (!relationship || field !== TAG_CATALOG_FIELD || String(record.id) !== String(relationship.id)) throw new Error("Your tag catalog is read only until your active User Relationships record is verified.");
+  }
+  if (entity === MODULES.bookings && !canEditTags(field)) throw new Error("These tags are read only for your profile.");
   const json = serializeTags(value);
   const response = await ZOHO.CRM.API.updateRecord({ Entity: entity, APIData: { id: record.id, [field]: json }, Trigger: [] });
   const result = response && response.data && response.data[0];
@@ -175,22 +205,22 @@ export async function initializeBookingTags() {
       if (!button) return;
       event.preventDefault();
       event.stopPropagation();
-      openTagEditor(button.dataset.bookingTags);
+      openTagEditor(button.dataset.bookingTags, button.dataset.tagField);
     }, true);
   }
   try { await loadCatalog(); } catch (error) { catalogError = error.message; }
   refreshTags();
 }
 
-async function openTagEditor(bookingId) {
-  if (activeDialog) return;
+async function openTagEditor(bookingId, field) {
+  if (activeDialog || !canEditTags(field)) return;
   const record = bookingRecord(bookingId);
   if (!record) return;
   const dialog = document.createElement("dialog");
   activeDialog = dialog;
   dialog.className = "booking-tags-dialog";
   dialog.setAttribute("aria-labelledby", "booking-tags-title");
-  dialog.innerHTML = '<header><div><h3 id="booking-tags-title">My booking tags</h3><p>' + escapeHtml(record.Deal_Name || "Booking") + '</p></div><button type="button" class="icon-button" data-tags-close aria-label="Close">×</button></header>' +
+  dialog.innerHTML = '<header><div><h3 id="booking-tags-title">' + tagFieldLabel(field) + '</h3><p>' + escapeHtml(record.Deal_Name || "Booking") + '</p></div><button type="button" class="icon-button" data-tags-close aria-label="Close">×</button></header>' +
     '<p class="booking-tags-feedback" role="status">Loading tags…</p><div class="booking-tags-editor-body"></div>';
   document.body.appendChild(dialog);
   dialog.showModal();
@@ -223,6 +253,7 @@ async function openTagEditor(bookingId) {
   }
   async function run(action, message) {
     if (busy) return;
+    if (!canEditTags(field)) { feedback.textContent = "These tags are read only for your profile."; return; }
     busy = true;
     dialog.setAttribute("aria-busy", "true");
     dialog.querySelectorAll("input, button").forEach(control => { control.disabled = true; });
@@ -282,15 +313,15 @@ async function openTagEditor(bookingId) {
       run(async () => {
         await loadCatalog();
         const latest = await readTagRecord(MODULES.bookings, bookingId);
-        requireField(latest, BOOKING_TAGS_FIELD);
-        const currentIds = parseBookingTags(latest[BOOKING_TAGS_FIELD]).users[ownerId()] || [];
+        requireField(latest, field);
+        const currentIds = parseBookingTags(latest[field]).users[ownerId()] || [];
         const added = [...selected].filter(id => !initial.includes(id));
         const removed = initial.filter(id => !selected.has(id));
         const merged = [...new Set([...currentIds.filter(id => !removed.includes(id)), ...added])].filter(id => catalog.tags.some(tag => tag.id === id));
-        const value = mergeBookingTags(latest[BOOKING_TAGS_FIELD], ownerId(), merged);
-        freshBooking = await writeJson(MODULES.bookings, latest, BOOKING_TAGS_FIELD, value);
+        const value = mergeBookingTags(latest[field], ownerId(), merged);
+        freshBooking = await writeJson(MODULES.bookings, latest, field, value);
         [state.selectedBooking, ...state.bookings, ...Object.values(state.bookingIndex || {})].forEach(item => {
-          if (item && String(item.id) === String(bookingId)) item[BOOKING_TAGS_FIELD] = freshBooking[BOOKING_TAGS_FIELD];
+          if (item && String(item.id) === String(bookingId)) item[field] = freshBooking[field];
         });
         initial = merged;
         selected = new Set(merged);
@@ -301,8 +332,8 @@ async function openTagEditor(bookingId) {
   try {
     await loadCatalog();
     freshBooking = await readTagRecord(MODULES.bookings, bookingId);
-    requireField(freshBooking, BOOKING_TAGS_FIELD);
-    initial = parseBookingTags(freshBooking[BOOKING_TAGS_FIELD]).users[ownerId()] || [];
+    requireField(freshBooking, field);
+    initial = parseBookingTags(freshBooking[field]).users[ownerId()] || [];
     selected = new Set(initial.filter(id => catalog.tags.some(tag => tag.id === id)));
     feedback.textContent = "";
     draw();

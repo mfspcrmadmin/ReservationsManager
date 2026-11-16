@@ -1,4 +1,14 @@
 // CRM WebTab passes custom URL state to the PageLoad event.
+export function parseBookingTarget(data) {
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (_) { throw new Error('The booking link is invalid.'); }
+  }
+  if (data?.widgetparams !== undefined) return parseBookingTarget(data.widgetparams);
+  if (!data || data.view !== 'booking') return null;
+  if (typeof data.bookingId !== 'string' || !/^\d+$/.test(data.bookingId)) throw new Error('The booking link has an invalid booking ID.');
+  return { bookingId: data.bookingId };
+}
+
 export function parseReviewNotesTarget(data) {
   if (typeof data === 'string') {
     try { data = JSON.parse(data); } catch (_) { throw new Error('The Review Notes link is invalid.'); }
@@ -9,8 +19,18 @@ export function parseReviewNotesTarget(data) {
   return { bookingId: data.bookingId };
 }
 
-export function createReviewNotesNavigation({ open, onError }) {
-  let ready = false, pending = null, running = false, lastId = '';
+export function parsePrepaymentTarget(data) {
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch (_) { throw new Error('The prepayment link is invalid.'); }
+  }
+  if (data?.widgetparams !== undefined) return parsePrepaymentTarget(data.widgetparams);
+  if (!data || data.view !== 'prepayment') return null;
+  if (typeof data.bookingId !== 'string' || !/^\d+$/.test(data.bookingId) || typeof data.prepaymentId !== 'string' || !/^\d+$/.test(data.prepaymentId)) throw new Error('The prepayment link has an invalid booking or prepayment ID.');
+  return { bookingId: data.bookingId, prepaymentId: data.prepaymentId };
+}
+
+export function createReviewNotesNavigation({ open, onError, parseTarget = parseReviewNotesTarget, getContextKey = () => '' }) {
+  let ready = false, pending = null, running = false, lastId = '', lastContext;
   async function drain() {
     if (!ready || running) return;
     running = true;
@@ -18,10 +38,12 @@ export function createReviewNotesNavigation({ open, onError }) {
       while (pending) {
         const target = pending;
         pending = null;
-        if (target.bookingId === lastId) continue;
+        const key = target.bookingId + ':' + (target.prepaymentId || '');
+        if (key === lastId && getContextKey() === lastContext) continue;
         try {
-          await open(target.bookingId);
-          lastId = target.bookingId;
+          if (await open(target.bookingId, target) === false) continue;
+          lastId = key;
+          lastContext = getContextKey();
         } catch (error) { onError(error); }
       }
     } finally { running = false; }
@@ -29,7 +51,7 @@ export function createReviewNotesNavigation({ open, onError }) {
   return {
     receive(data) {
       try {
-        const target = parseReviewNotesTarget(data);
+        const target = parseTarget(data);
         if (target) pending = target;
       } catch (error) { onError(error); }
       return drain();

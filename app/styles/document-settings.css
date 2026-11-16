@@ -1,0 +1,119 @@
+/* Settings owns a single scroll surface; header/footer are normal flex children. */
+body:has(.document-settings-dialog[open]){overflow:hidden;}
+.document-studio dialog.document-settings-dialog {width:min(820px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);padding:0;overflow:hidden;background:#fff;}
+.document-studio .document-settings-dialog>form {display:flex;flex-direction:column;max-height:calc(100dvh - 34px);min-height:0;margin:0;overflow:hidden;}
+.document-settings-header {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 24px;border-bottom:1px solid #e3e9e5;flex:none;}
+.document-studio .document-settings-dialog .document-settings-header h2 {margin:0;font-size:18px;}
+.document-studio .document-settings-header [data-settings-close] {width:36px;height:36px;padding:8px;flex:none;margin:0;}
+.document-settings-header svg {width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.document-settings-body {min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:24px;scrollbar-gutter:stable;}
+.document-studio .document-settings-footer {flex:none;padding:16px 24px;background:#fff;border-top:1px solid #e3e9e5;}
+.document-studio .document-settings-dialog .document-settings-footer .document-create-actions {margin:0;gap:10px;}
+.document-studio .document-settings-footer [data-status]:not(:empty) {margin:0 0 12px;}
+.document-studio .document-settings-dialog .document-settings-body .studio-field {display:grid;gap:7px;margin:0 0 18px;min-width:0;}
+.document-studio .document-settings-dialog .document-settings-body .shared-select-wrap {margin:0;}
+.document-settings-label {display:flex;align-items:center;gap:8px;}
+.document-studio .document-settings-dialog .document-settings-body .document-settings-description {margin:0;font-size:12px;font-weight:400;color:#60746b;}
+.document-studio .document-settings-dialog .document-settings-body .studio-document-rules {padding:24px 0 0;margin:24px 0 0;border:0;border-top:1px solid #e3e9e5;border-radius:0;min-width:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-document-rules>legend {float:left;display:flex;align-items:center;gap:8px;width:100%;padding:0;margin:0 0 18px;font-size:14px;font-weight:600;color:#344c45;}
+.document-settings-date-grid,.document-settings-contact-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px;clear:both;}
+.document-studio .document-settings-dialog .document-settings-body [data-output-date-example] {clear:both;margin:0;padding:10px 12px;border-radius:7px;background:#f0f6f3;color:#456359;font-size:12px;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row {clear:both;padding:18px 0;border-bottom:1px solid #e3e9e5;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row:last-child {padding-bottom:0;border-bottom:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row h4 {margin:0 0 16px;font-size:13px;color:#344c45;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row label {gap:7px;margin:0 0 18px;font-size:12px;font-weight:500;min-width:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-categories {max-height:none;overflow:visible;margin:0 0 18px;padding:0;border:0;border-radius:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-categories label {margin:8px 0;font-weight:400;}
+.document-studio .document-settings-dialog .document-settings-body .studio-inspector-help {margin:0 0 10px;padding-left:10px;border-left:2px solid #a9c1b5;font-size:12px;}
+.document-studio .document-settings-dialog .document-settings-body .studio-select-value {white-space:normal;overflow-wrap:anywhere;text-overflow:clip;}
+.document-studio .document-settings-dialog .document-settings-body [hidden] {display:none!important;}
+.document-studio .document-settings-dialog .studio-settings-help {display:inline-flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px;min-height:20px;margin:0;padding:0;border:1px solid #bacbc2;border-radius:50%;background:#fff;color:#60776a;font:600 12px/1 Arial,sans-serif;cursor:pointer;}
+.document-studio .document-settings-dialog .studio-settings-help:hover {background:#edf6f1;color:#12654e;}
+.document-studio .document-settings-dialog .studio-settings-help:focus-visible {outline:2px solid #147d64;outline-offset:2px;}
+.studio-settings-help-popup {position:fixed;inset:auto;box-sizing:border-box;width:340px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;margin:0;padding:14px 16px;border:1px solid #d4dfda;border-radius:10px;background:#fff;color:#344c45;box-shadow:0 10px 30px #183e2926;font:400 13px/1.6 "Open Sans",Arial,sans-serif;}
+@media(max-width:620px){
+ .document-studio dialog.document-settings-dialog {width:calc(100vw - 16px);max-height:calc(100dvh - 16px);}
+ .document-studio .document-settings-dialog>form {max-height:calc(100dvh - 18px);}
+ .document-settings-header,.document-studio .document-settings-footer {padding:14px 16px;}
+ .document-settings-body {padding:18px 16px;scrollbar-gutter:auto;}
+ .document-settings-date-grid,.document-settings-contact-grid {grid-template-columns:minmax(0,1fr);}
+}
+
+.document-studio .document-settings-dialog .document-settings-footer .button {min-height:40px;padding:9px 14px;border:1px solid #d4dfda;border-radius:7px;box-shadow:none;}
+.document-studio .document-settings-dialog .document-settings-footer .button.tertiary {background:#fff;color:#344c45;}
+.document-studio .document-settings-dialog .document-settings-footer .button.primary {border-color:var(--accent,#147d64);background:var(--accent,#147d64);color:#fff;}
+.document-studio .document-settings-dialog .document-settings-footer .button.tertiary:hover:not(:disabled) {background:#edf6f1;border-color:#8eafa1;}
+
+/* Tabbed settings. All overrides are scoped to this modal. */
+.document-studio dialog.document-settings-dialog {width:min(980px,calc(100vw - 32px));}
+.document-studio .document-settings-dialog>form {height:min(780px,calc(100dvh - 34px));}
+.document-studio .document-settings-dialog .document-settings-body {flex:1;padding:20px 24px;}
+.document-settings-dialog .settings-tabs {display:flex;gap:6px;padding:10px 24px 0;border-bottom:1px solid var(--line,#e3e9e5);flex:none;background:white;}
+.document-settings-dialog .settings-tabs button {display:flex;align-items:center;justify-content:center;gap:8px;border:0;border-bottom:3px solid transparent;border-radius:6px 6px 0 0;background:white;color:#60746b;padding:12px 14px;font:600 13px var(--font-body,Arial);cursor:pointer;}
+.document-settings-dialog .settings-tabs button[aria-selected=true] {color:#147d64;border-bottom-color:#147d64;background:#f0f7f3;}
+.document-settings-dialog .settings-tabs svg {width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none;}
+.document-settings-dialog .settings-tab-panel[hidden] {display:none!important;}
+.document-studio .document-settings-dialog .document-settings-body .studio-document-rules {margin:0;padding:0;border:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-document-rules>legend {float:none;width:auto;font-size:14px;margin-bottom:16px;}
+.document-settings-dialog .settings-general-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:0 20px;max-width:720px;}
+.document-settings-dialog .settings-general-grid .document-settings-label {min-height:20px;}
+.document-studio .document-settings-dialog .document-settings-body .studio-field,.document-studio .document-settings-dialog .document-settings-body .studio-rule-row label {margin-bottom:14px;gap:6px;}
+.document-settings-dialog .settings-categories-layout {display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;clear:both;}
+.document-settings-dialog .settings-category-sidebar {min-width:0;}
+.document-settings-dialog .settings-category-list {display:flex;flex-direction:column;gap:3px;max-height:380px;overflow:auto;overscroll-behavior:contain;margin-top:8px;padding-right:4px;}
+.document-settings-dialog .settings-category-list button {flex:none;text-align:left;white-space:normal;overflow-wrap:anywhere;padding:9px 10px;border:0;border-left:3px solid transparent;border-radius:6px;background:white;color:#496057;font:400 12px/1.4 var(--font-body,Arial);cursor:pointer;}
+.document-settings-dialog .settings-category-list button[aria-pressed=true] {border-left-color:#147d64;background:#eaf4ef;color:#12654e;font-weight:600;}
+.document-studio .document-settings-dialog .settings-category-mobile {display:none;}
+.document-settings-dialog .settings-category-editor {min-width:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row {padding:0;border:0;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row h4 {font-size:16px;line-height:1.4;margin:0 0 18px;overflow-wrap:anywhere;}
+.document-settings-dialog .settings-group-heading {font:600 12px/1.4 var(--font-body,Arial);color:#344c45;margin:18px 0 12px;}
+.document-settings-dialog .settings-group-heading:first-of-type {margin-top:0;}
+.document-settings-dialog .settings-step-switch {display:flex!important;align-items:center;gap:10px!important;max-width:350px;cursor:pointer;}
+.document-studio .document-settings-dialog .settings-step-switch input[role=switch] {appearance:none;flex:0 0 34px;width:34px;height:20px;min-height:20px;padding:0;margin:0 0 0 auto;border:1px solid #92a69b;border-radius:12px;background:#e2e9e5;position:relative;cursor:pointer;}
+.document-settings-dialog .settings-step-switch input[role=switch]::before {content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:white;box-shadow:0 1px 3px #23443230;transition:transform 150ms;}
+.document-studio .document-settings-dialog .settings-step-switch input[role=switch]:checked {background:#147d64;border-color:#147d64;}
+.document-settings-dialog .settings-step-switch input[role=switch]:checked::before {transform:translateX(14px);}
+.document-settings-dialog .settings-switch-state {min-width:42px;color:#52695e;font-size:12px;}
+.document-settings-dialog .studio-category-details>label {max-width:350px;}
+.document-studio .document-settings-dialog .document-settings-body .settings-multi {margin:0;padding:0;}
+.document-settings-dialog .settings-multi-toolbar {display:flex;align-items:center;gap:10px;margin:8px 0;}
+.document-settings-dialog .settings-multi-toolbar>span {flex:none;font-size:11px;color:#60746b;}
+.document-settings-dialog .settings-multi-options {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 8px;max-height:232px;overflow:auto;overscroll-behavior:contain;padding:2px;}
+.document-studio .document-settings-dialog .document-settings-body .settings-multi-options label {display:flex;align-items:center;gap:7px;margin:0;padding:7px 8px;border-radius:5px;min-width:0;font-size:11px;line-height:1.35;cursor:pointer;overflow-wrap:anywhere;}
+.document-settings-dialog .settings-multi-options label:has(:checked) {background:#edf6f1;color:#17634e;}
+.document-studio .document-settings-dialog .settings-multi-options input[type=checkbox] {accent-color:#147d64;flex:0 0 14px;width:14px;height:14px;min-height:14px;padding:0;margin:0;}
+.document-studio .document-settings-dialog input[type=search] {width:100%;min-width:0;min-height:32px;box-sizing:border-box;padding:6px 9px;border:1px solid #d4dfda;border-radius:6px;font:12px var(--font-body,Arial);color:#344c45;background:white;}
+.document-studio .document-settings-dialog .studio-select-trigger {min-height:34px;padding-top:6px;padding-bottom:6px;font-size:12px;}
+.document-studio .document-settings-dialog .document-settings-footer .document-create-actions {display:flex;align-items:center;flex-wrap:wrap;}
+.document-settings-dialog .settings-apply-group {margin-right:auto;display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:310px;}
+.document-settings-dialog .settings-apply-group small {font-size:10px;line-height:1.35;color:#60746b;}
+.document-settings-dialog :is(button,input,.settings-multi-options label) {transition:background-color 150ms,border-color 150ms,color 150ms,box-shadow 150ms;}
+.document-settings-dialog :is(.settings-tabs button,.settings-category-list button):hover:not(:disabled),.document-settings-dialog .settings-multi-options label:hover {background:#e7f2ec;}
+.document-settings-dialog :is(.settings-tabs button,.settings-category-list button):active:not(:disabled),.document-settings-dialog .settings-multi-options label:active {background:#dceee3;}
+.document-settings-dialog :is(button,input):focus-visible {outline:2px solid #147d64;outline-offset:2px;}
+.document-settings-dialog button:disabled,.document-settings-dialog input:disabled {opacity:.55;cursor:default;}
+@media(max-width:700px){
+ .document-settings-dialog .settings-category-sidebar {display:none;}
+ .document-studio .document-settings-dialog .settings-category-mobile {display:grid;gap:6px;margin-bottom:18px;}
+ .document-settings-dialog .settings-categories-layout {display:block;}
+ .document-studio .document-settings-dialog .document-settings-body .studio-rule-row h4 {display:none;}
+ .document-settings-dialog .settings-tabs {padding:8px 12px 0;gap:2px;}
+ .document-settings-dialog .settings-tabs button {flex:1;padding:10px 6px;gap:5px;font-size:11px;}
+ .document-settings-dialog .settings-general-grid {grid-template-columns:1fr;}
+ .document-studio .document-settings-dialog .document-settings-body {padding:16px;}
+ .document-settings-dialog .document-settings-contact-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+ .document-settings-dialog .document-settings-date-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+ .document-settings-dialog .settings-apply-group {flex-basis:100%;max-width:none;margin-bottom:6px;}
+ .document-settings-dialog .settings-multi-options {max-height:220px;}
+}
+@media(max-width:380px){.document-settings-dialog .settings-multi-options {grid-template-columns:1fr;}.document-settings-dialog .settings-tabs svg {display:none;}}
+
+.document-studio .document-settings-dialog .settings-tabs button {box-shadow:none;}
+.document-studio .document-settings-dialog .settings-category-list button {box-shadow:none;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row h4 {margin-bottom:12px;}
+.document-settings-dialog .settings-group-heading {margin:12px 0 8px;}
+.document-studio .document-settings-dialog .document-settings-body .studio-rule-row label {margin-bottom:10px;}
+.document-studio .document-settings-dialog .document-settings-body .settings-multi-options label {margin:0;}
+@media(max-width:480px){.document-settings-dialog .document-settings-contact-grid {grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){.document-settings-dialog :is(button,input,.settings-multi-options label),.document-settings-dialog .settings-step-switch input[role=switch]::before {transition:none;}}

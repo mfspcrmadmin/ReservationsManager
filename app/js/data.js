@@ -1,4 +1,4 @@
-import { crmGetAllRecords, crmSearchRecord, crmSearchWord } from "./api.js";
+import { crmSearchRecord, crmSearchWord } from "./api.js";
 import { MODULES } from "./constants.js";
 import {
   buildBookingLabel,
@@ -45,102 +45,65 @@ export async function searchBookingByInput(rawValue) {
   }
 
   const escapedValue = escapeCriteriaValue(queryValue);
-  let combinedResults = [];
-
-  try {
-    const mfspResults = await crmSearchRecord(
-      MODULES.bookings,
-      "(MFSP_Reference:equals:" + escapedValue + ")"
-    );
-
-    combinedResults = combinedResults.concat(mfspResults.map(normalizeBookingCandidate));
-  } catch (error) {}
-
-  if (queryValue.length >= 2) {
-    try {
-      const nameResults = await crmSearchRecord(
-        MODULES.bookings,
-        "(Deal_Name:starts_with:" + escapedValue + ")"
-      );
-
-      combinedResults = combinedResults.concat(nameResults.map(normalizeBookingCandidate));
-    } catch (error) {}
+  const searches = [
+    { label: "reference", run: () => crmSearchRecord(MODULES.bookings, "(MFSP_Reference:equals:" + escapedValue + ")") }
+  ];
+  if (queryValue.length >= 2) searches.push(
+    { label: "name", run: () => crmSearchRecord(MODULES.bookings, "(Deal_Name:starts_with:" + escapedValue + ")") },
+    { label: "text", run: () => crmSearchWord(MODULES.bookings, queryValue) }
+  );
+  const results = await Promise.allSettled(searches.map(search => search.run()));
+  const failures = results.flatMap((result, index) => result.status === "rejected" ? [{ label: searches[index].label, cause: result.reason }] : []);
+  if (failures.length) {
+    const error = new Error("Booking search could not be completed. " + failures.map(failure => failure.label + ": " + [failure.cause?.code, failure.cause?.message || "CRM request failed"].filter(Boolean).join(" - ")).join("; ") + ". Try again.");
+    error.code = failures[0].cause?.code || "BOOKING_SEARCH_FAILED";
+    error.cause = failures[0].cause;
+    throw error;
   }
-
-  if (queryValue.length >= 2) {
-    try {
-      const wordResults = await crmSearchWord(MODULES.bookings, queryValue);
-      combinedResults = combinedResults.concat(wordResults.map(normalizeBookingCandidate));
-    } catch (error) {}
+  if (results.some(result => !Array.isArray(result.value) || result.value.some(record => !record?.id))) {
+    throw new Error("CRM returned an invalid booking search result. Refresh and try again.");
   }
+  return dedupeBookings(results.flatMap(result => result.value.map(normalizeBookingCandidate)));
+}
 
-  return dedupeBookings(combinedResults);
+// Search only within this booking. Never recover by scanning an arbitrary
+// portion of the complete module: that cannot establish an empty or full list.
+async function loadBookingRows(module, bookingId, label) {
+  const id = String(bookingId || "").trim();
+  if (!id) throw new Error("Select a booking before loading " + label + ".");
+  const records = [];
+  const seen = new Set();
+  const pageSize = 200;
+  for (let page = 1; page <= 10; page++) {
+    let rows;
+    try {
+      rows = await crmSearchRecord(module, "(Booking:equals:" + escapeCriteriaValue(id) + ")", page, pageSize);
+    } catch (cause) {
+      const error = new Error("Could not load all booking " + label + " (page " + page + "). " + (cause.message || "CRM search failed."));
+      error.code = cause.code;
+      error.cause = cause;
+      throw error;
+    }
+    if (!Array.isArray(rows) || rows.length > pageSize) throw new Error("CRM returned an invalid page of booking " + label + ". Refresh and try again.");
+    for (const row of rows) {
+      const rowId = String(row?.id || "");
+      if (!rowId || String(row.Booking?.id || "") !== id) throw new Error("CRM returned " + label + " without a valid booking association. The list could not be confirmed.");
+      if (seen.has(rowId)) throw new Error("Booking " + label + " changed or CRM repeated a page. Refresh to load a complete list.");
+      seen.add(rowId);
+      records.push(row);
+    }
+    if (rows.length < pageSize) return records;
+  }
+  // Search is limited to 2,000 rows. A full last page does not prove completion.
+  throw new Error("The booking " + label + " reached the CRM search limit. The complete list could not be confirmed; no partial list was loaded.");
 }
 
 export async function loadBookingServicesForBooking(bookingId) {
-  try {
-    const searchResults = await crmSearchRecord(
-      MODULES.bookingServices,
-      "(Booking:equals:" + bookingId + ")"
-    );
-
-    if (searchResults.length) {
-      return searchResults;
-    }
-  } catch (error) {}
-
-  const aggregated = [];
-
-  for (let page = 1; page <= 10; page += 1) {
-    const pageRecords = await crmGetAllRecords(MODULES.bookingServices, page, 200);
-
-    if (!pageRecords.length) {
-      break;
-    }
-
-    aggregated.push.apply(aggregated, pageRecords);
-
-    if (pageRecords.length < 200) {
-      break;
-    }
-  }
-
-  return aggregated.filter(function (service) {
-    return service.Booking && service.Booking.id === bookingId;
-  });
+  return loadBookingRows(MODULES.bookingServices, bookingId, "services");
 }
 
 export async function loadBookingStepsForBooking(bookingId) {
-  try {
-    const searchResults = await crmSearchRecord(
-      MODULES.bookingSteps,
-      "(Booking:equals:" + bookingId + ")"
-    );
-
-    if (searchResults.length) {
-      return searchResults;
-    }
-  } catch (error) {}
-
-  const aggregated = [];
-
-  for (let page = 1; page <= 10; page += 1) {
-    const pageRecords = await crmGetAllRecords(MODULES.bookingSteps, page, 200);
-
-    if (!pageRecords.length) {
-      break;
-    }
-
-    aggregated.push.apply(aggregated, pageRecords);
-
-    if (pageRecords.length < 200) {
-      break;
-    }
-  }
-
-  return aggregated.filter(function (step) {
-    return step.Booking && step.Booking.id === bookingId;
-  });
+  return loadBookingRows(MODULES.bookingSteps, bookingId, "steps");
 }
 
 function extractDateKey(value) {

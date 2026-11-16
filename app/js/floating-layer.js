@@ -42,6 +42,11 @@ function positionTooltip() {
 }
 
 function showTooltip(trigger) {
+  if (trigger.closest(".document-studio, .documents-library") &&
+      (trigger.hasAttribute("title") || trigger.hasAttribute("data-studio-tooltip-active"))) {
+    hideTooltip();
+    return;
+  }
   const message = trigger.getAttribute("data-tooltip");
   if (!message) {
     return;

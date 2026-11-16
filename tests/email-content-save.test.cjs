@@ -21,6 +21,7 @@ function setup({ response = { success: true }, persisted = "<p>New</p>", readErr
   let reads = 0;
   const context = vm.createContext({
     state, elements,
+    recordEditLocks: require("./helpers/record-edit-locks.cjs"),
     document: { createElement: () => ({ innerHTML: "" }) },
     getSelectedCommunicationRecord: () => state.mailContentByKey["drafts::draft-1"],
     getCommunicationEditorFields: () => ({ email_to: "supplier@example.com", email_from: "agent@example.com", email_cc: "cc@example.com", email_subject: "Subject" }),

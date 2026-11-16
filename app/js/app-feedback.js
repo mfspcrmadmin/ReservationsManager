@@ -24,6 +24,7 @@ export function formatFeedbackMessage(message, kind) {
 }
 
 export function showFeedback(message, kind = "info") {
+  const previousFocus = document.activeElement;
   let dialog = document.getElementById("app-feedback-dialog");
   if (!dialog) {
     dialog = document.createElement("dialog");
@@ -40,13 +41,31 @@ export function showFeedback(message, kind = "info") {
     document.body.appendChild(dialog);
   }
   const loading = kind === "loading";
+  const wasLoading = dialog.dataset.kind === "loading";
+  if (dialog.open && wasLoading !== loading) dialog.close();
+  // Keep notices visible and dismissible when an editor is in the top layer.
+  const modal = [...(document.querySelectorAll?.("dialog:modal") || [])].filter(node => node !== dialog).at(-1) ||
+    [...(document.querySelectorAll?.(".booking-action-dialog, .columns-panel") || [])]
+      .filter(node => !node.closest("[hidden]") && node.getClientRects().length).at(-1);
+  const host = !loading && modal ? modal : document.body;
+  if (dialog.parentElement && dialog.parentElement !== host) {
+    if (dialog.open) dialog.close();
+    host.appendChild(dialog);
+  }
+  dialog.className = loading ? "app-feedback-dialog" : "app-feedback-dialog interface-feedback";
   dialog.dataset.kind = kind;
+  dialog.setAttribute("role", loading ? "dialog" : kind === "error" ? "alert" : "status");
   dialog.querySelector("h3").textContent = loading ? "Please wait" : kind === "error" ? "Error occurred" : "Information";
   dialog.querySelector("p").textContent = formatFeedbackMessage(message, kind);
   dialog.querySelector("[data-feedback-spinner]").hidden = !loading;
   const close = dialog.querySelector("[data-feedback-close]");
   close.hidden = loading;
-  if (!dialog.open) dialog.showModal();
+  close.textContent = loading ? "Close" : "×";
+  close.setAttribute("aria-label", "Dismiss notification");
+  if (!dialog.open) {
+    if (loading) dialog.showModal();
+    else dialog.show();
+  }
   if (loading) dialog.focus();
-  else close.focus();
+  else if (previousFocus?.isConnected && !dialog.contains(previousFocus)) previousFocus.focus({ preventScroll: true });
 }

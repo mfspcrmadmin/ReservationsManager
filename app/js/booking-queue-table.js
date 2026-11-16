@@ -1,7 +1,11 @@
+import { editableTagField, canEditTagField } from "./booking-tags-data.js";
 import { createColumnResizer } from "./service-column-resizing.js";
 
 export const QUEUE_COLUMNS = [
   { key: "booking", label: "Booking", width: 240 },
+  { key: "tasks", label: "Tasks", width: 300 },
+  { key: "salesTags", label: "Sales Tags", width: 240 },
+  { key: "reservationsTags", label: "Reservations Tags", width: 240 },
   { key: "mfsp", label: "MFSP", width: 112 },
   { key: "arrival", label: "Arrival date", width: 140 },
   { key: "departure", label: "Departure date", width: 140 },
@@ -13,23 +17,36 @@ export const QUEUE_COLUMNS = [
   { key: "sync", label: "SYNC", width: 240 },
   { key: "desk", label: "Desk", width: 320 }
 ];
-const compactKeys = ["booking", "mfsp", "arrival", "stage"];
+const compactKeys = ["booking", "tasks", "mfsp", "arrival", "stage"];
 const preferences = new Map();
 
-export function sanitizeQueueColumns(stored, wide) {
+export function sanitizeQueueColumns(stored, wide, profile = "") {
   const result = [];
+  const tagKey = editableTagField(profile) === "Sales_Tags_JSON" ? "salesTags" : editableTagField(profile) === "Reservations_Tags_JSON" ? "reservationsTags" : "";
+  const defaultVisible = key => ["salesTags", "reservationsTags"].includes(key) ? canEditTagField(profile, key === "salesTags" ? "Sales_Tags_JSON" : "Reservations_Tags_JSON") : wide || compactKeys.includes(key);
   (Array.isArray(stored) ? stored : []).forEach(function (entry) {
     if (!entry || !QUEUE_COLUMNS.some(column => column.key === entry.key) || result.some(column => column.key === entry.key)) return;
-    result.push({ key: entry.key, visible: typeof entry.visible === "boolean" ? entry.visible : wide || compactKeys.includes(entry.key) });
+    result.push({ key: entry.key, visible: typeof entry.visible === "boolean" ? entry.visible : defaultVisible(entry.key) });
   });
   QUEUE_COLUMNS.forEach(function (column) {
     if (!result.some(entry => entry.key === column.key)) {
-      const entry = { key: column.key, visible: wide || compactKeys.includes(column.key) };
+      const entry = { key: column.key, visible: defaultVisible(column.key) };
       const syncIndex = result.findIndex(existing => existing.key === "sync");
-      if (column.key === "desk" && syncIndex >= 0) result.splice(syncIndex + 1, 0, entry);
+      if (["salesTags", "reservationsTags"].includes(column.key)) {
+        const bookingIndex = result.findIndex(existing => existing.key === "booking");
+        const otherTagIndex = result.findIndex(existing => ["salesTags", "reservationsTags"].includes(existing.key));
+        result.splice(column.key === tagKey || otherTagIndex < 0 ? Math.max(0, bookingIndex + 1) : otherTagIndex + 1, 0, entry);
+      }
+      else if (column.key === "desk" && syncIndex >= 0) result.splice(syncIndex + 1, 0, entry);
       else result.push(entry);
     }
   });
+  if (!Array.isArray(stored) || !stored.some(entry => entry?.key === "tasks")) {
+    const taskIndex = result.findIndex(entry => entry.key === "tasks");
+    const task = result.splice(taskIndex, 1)[0];
+    const salesIndex = result.findIndex(entry => entry.key === "salesTags");
+    result.splice(salesIndex < 0 ? 1 : salesIndex, 0, task);
+  }
   if (!result.some(column => column.visible)) result[0].visible = true;
   return result;
 }
@@ -41,17 +58,20 @@ function read(key) {
 export function getQueueTablePreferences(state) {
   const identity = state.currentUserId ? "id:" + state.currentUserId : state.currentUserEmail ? "email:" + state.currentUserEmail.trim().toLowerCase() : "";
   const key = identity ? "bookingsManager.bookingQueue." + identity : "";
-  if (!preferences.has(key)) {
+  const profile = state.currentUserRelationshipProfile || "";
+  const cacheKey = key + "|" + profile;
+  if (!preferences.has(cacheKey)) {
     const stored = read(key) || {};
-    preferences.set(key, {
+    preferences.set(cacheKey, {
+      profile,
       key,
-      compact: sanitizeQueueColumns(stored.compact, false),
-      wide: sanitizeQueueColumns(stored.wide, true),
+      compact: sanitizeQueueColumns(stored.compact, false, profile),
+      wide: sanitizeQueueColumns(stored.wide, true, profile),
       textSize: typeof stored.textSize === "number" && Number.isFinite(stored.textSize) ? Math.max(10, Math.min(20, Math.round(stored.textSize))) : 12,
       resizer: createColumnResizer(key ? key + ".widths" : "", Object.fromEntries(QUEUE_COLUMNS.map(column => [column.key, column.width])), 42)
     });
   }
-  return preferences.get(key);
+  return preferences.get(cacheKey);
 }
 
 function save(pref) {
@@ -107,7 +127,13 @@ function openColumns(pref, wide, rerender, head) {
       return '<div class="column-editor-row' + (column.visible ? '' : ' is-muted') + '" draggable="true" data-key="' + column.key + '"><span class="column-drag-handle" aria-hidden="true">&#8942;&#8942;</span><label class="column-editor-toggle"><input type="checkbox" class="table-checkbox" data-visible="' + column.key + '"' + (column.visible ? ' checked' : '') + (column.visible && count === 1 ? ' disabled' : '') + '><span>' + label + '</span></label><div class="column-editor-actions"><button class="button tertiary compact" type="button" data-move="-1" aria-label="Move ' + label + ' up"' + (index === 0 ? ' disabled' : '') + '>↑</button><button class="button tertiary compact" type="button" data-move="1" aria-label="Move ' + label + ' down"' + (index === pref[mode].length - 1 ? ' disabled' : '') + '>↓</button></div></div>';
     }).join("");
   }
-  function update() { save(pref); rerender(); renderList(); }
+  function update() {
+    // Column edits apply to the queue in both layouts.
+    pref[mode === "wide" ? "compact" : "wide"] = pref[mode].map(column => ({ ...column }));
+    save(pref);
+    rerender();
+    renderList();
+  }
   function move(key, targetKey, after) {
     const columns = pref[mode];
     const index = columns.findIndex(column => column.key === key);
@@ -157,7 +183,7 @@ function openColumns(pref, wide, rerender, head) {
     clearDrag();
   };
   list.ondragend = function () { dragged = ""; clearDrag(); };
-  dialog.querySelector("[data-queue-reset]").onclick = function () { pref[mode] = sanitizeQueueColumns(null, wide); pref.resizer.reset(); update(); };
+  dialog.querySelector("[data-queue-reset]").onclick = function () { pref[mode] = sanitizeQueueColumns(null, wide, pref.profile); pref.resizer.reset(); update(); };
   dialog.querySelector("[data-queue-close]").onclick = () => dialog.close();
   dialog.addEventListener("click", event => { if (event.target === dialog && (event.clientX < dialog.getBoundingClientRect().left || event.clientX > dialog.getBoundingClientRect().right || event.clientY < dialog.getBoundingClientRect().top || event.clientY > dialog.getBoundingClientRect().bottom)) dialog.close(); });
   dialog.addEventListener("close", function () { dialog.remove(); head.querySelector("[data-queue-columns]")?.focus(); });

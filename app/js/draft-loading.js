@@ -1,17 +1,21 @@
 const activeDraftAnimations = new WeakMap();
-const autumnDraftPhrases = [
-  "Abriendo el paraguas para resguardar tus servicios…",
-  "Convenciendo a septiembre de que agosto ya terminó…",
-  "Barriendo las hojas de otoño del CRM…",
-  "Poniendo chubasqueros diminutos a tus reservas…",
-  "Enseñando a los proveedores la rutina de la vuelta al cole…",
-  "Preparando un cafecito para tus referencias de reserva…",
-  "Arropando las plantillas de email con una rebeca…",
-  "Pidiendo a las nubes que respeten el itinerario…",
-  "Ordenando las reservas antes de que caigan las hojas…",
-  "Metiendo un paraguas entre el hotel y el traslado…",
-  "Convenciendo a los borradores de salir del modo verano…",
-  "Manteniendo tus servicios secos y tus emails en orden…"
+const winterDraftPhrases = [
+  "Preparando borradores con un toque de magia navideña…",
+  "Calentando un chocolate mientras llegan tus reservas…",
+  "Pidiendo a los elfos que revisen los archivos adjuntos…",
+  "Despejando la nieve del camino hacia tu próximo viaje…",
+  "Envolviendo tus borradores para regalo…",
+  "Poniendo una bufanda a tus referencias de reserva…",
+  "Consultando la lista de deseos de tus viajeros…",
+  "Encendiendo luces de Navidad para iluminar el itinerario…",
+  "Llevando tus emails en trineo hasta la bandeja de borradores…",
+  "Horneando galletas de jengibre mientras preparamos tus borradores…",
+  "Buscando una habitación con vistas a un paisaje nevado…",
+  "Añadiendo una pizca de canela y unos copos de nieve…",
+  "Consultando a los duendecillos de Papá Noel…",
+  "Preparando el chocolate caliente a los proveedores…",
+  "Decorando el árbol de Navidad con tus itinerarios…",
+  "Cantando villancicos mientras revisamos tus borradores…"
 ];
 
 export function stopDraftLoading(modal) {
@@ -25,40 +29,51 @@ export function stopDraftLoading(modal) {
 
 export function startDraftLoading(modal, spinner) {
   stopDraftLoading(modal);
-  spinner.hidden = true;
+  spinner.hidden = false;
   const scene = document.createElement("div");
   scene.className = "draft-loading-scene";
   // Decorative illustration; the existing modal text describes the operation.
   scene.innerHTML = `<svg class="draft-loading-illustration" viewBox="0 0 240 158" aria-hidden="true">
-    <ellipse cx="120" cy="141" rx="77" ry="8" fill="#dcece5"/>
-    <g class="draft-rain" stroke="#89bcb9" stroke-width="2.5" stroke-linecap="round">
-      <path d="m35 28-3 8m32-19-3 8m108-2-3 8m33 11-3 8m-153 8-3 8m139 4-3 8"/>
+    <circle cx="174" cy="54" r="35" fill="#edf6fa"/>
+    <ellipse cx="120" cy="141" rx="83" ry="8" fill="#e2edf2"/>
+    <g class="draft-sparkles" fill="#d4aa4c">
+      <path d="m44 42 2 5 5 2-5 2-2 5-2-5-5-2 5-2Zm161 40 2 4 4 2-4 2-2 4-2-4-4-2 4-2Z"/>
     </g>
-    <g class="draft-envelope"><rect x="161" y="95" width="35" height="25" rx="4" fill="#fffaf0" stroke="#b88649" stroke-width="2"/><path d="m163 98 15 11 16-11" fill="none" stroke="#b88649" stroke-width="2"/></g>
-    <g class="draft-courier">
-      <path d="m105 120-3 17m21-17 6 17" stroke="#374e48" stroke-width="9" stroke-linecap="round"/>
-      <path d="M99 94q13-12 27 0l8 29H91Z" fill="#e9ae4b" stroke="#b9802f" stroke-width="2"/>
-      <circle cx="113" cy="79" r="13" fill="#ebba95"/>
-      <path d="M100 77q-2-17 15-14 12 1 12 12l-9-3-5-5-5 9Z" fill="#5a443a"/>
-      <path d="m111 84 5 1" stroke="#946249" stroke-width="2" stroke-linecap="round"/>
-      <circle cx="118" cy="78" r="1.5" fill="#374e48"/>
-      <path d="m122 96 13 5 7-14" fill="none" stroke="#e9ae4b" stroke-width="9" stroke-linecap="round"/>
-      <g class="draft-umbrella"><path d="M143 47v49q0 9-7 7" fill="none" stroke="#405e56" stroke-width="3" stroke-linecap="round"/>
-        <path d="M98 49q7-35 45-35t45 35q-12-11-23 0-11-11-22 0-12-11-23 0-11-11-22 0" fill="#38907a" stroke="#256a59" stroke-width="2"/>
-        <path d="M120 49q3-25 23-35 21 13 22 35M143 14V9" fill="none" stroke="#256a59" stroke-width="2"/>
-      </g>
+    <g class="draft-tree">
+      <rect x="174" y="119" width="10" height="21" rx="2" fill="#96734e"/>
+      <path d="m179 44-23 32h11l-23 30h13l-18 24h80l-18-24h13l-23-30h11Z" fill="#43866e"/>
+      <path d="m158 79 21-29 21 29m-45 29h48" fill="none" stroke="#dceef0" stroke-width="4" stroke-linecap="round"/>
+      <path d="m179 29 3 8 9 1-7 6 2 9-7-5-7 5 2-9-7-6 9-1Z" fill="#e9bd59"/>
+      <g fill="#db7474"><circle cx="172" cy="89" r="3"/><circle cx="190" cy="114" r="3"/></g>
+      <g fill="#f4cf77"><circle cx="185" cy="72" r="3"/><circle cx="164" cy="117" r="3"/></g>
     </g>
-    <g class="draft-leaf" fill="#cc7846"><path d="M52 98q23-6 15 16-18 7-15-16"/><path d="m54 113 12-12" stroke="#9a542e" stroke-width="1.5"/></g>
+    <g class="draft-snowman">
+      <ellipse cx="94" cy="117" rx="28" ry="25" fill="#fff" stroke="#bdd5df" stroke-width="2"/>
+      <circle cx="94" cy="76" r="21" fill="#fff" stroke="#bdd5df" stroke-width="2"/>
+      <path d="M75 63q3-27 31-24l8 24Z" fill="#c95861"/>
+      <rect x="72" y="58" width="44" height="9" rx="4" fill="#fff" stroke="#bdd5df"/>
+      <circle cx="107" cy="39" r="6" fill="#fff" stroke="#bdd5df"/>
+      <circle cx="87" cy="76" r="2" fill="#3f5967"/><circle cx="100" cy="76" r="2" fill="#3f5967"/>
+      <path d="m94 81 13 4-13 3Z" fill="#e9a15e"/>
+      <path d="M86 90q8 6 15 0" fill="none" stroke="#3f5967" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M76 96q18 8 37 0l-1 9q-18 7-36-1Z" fill="#c95861"/>
+      <path d="m103 102 8 1 4 21-10 1Z" fill="#c95861"/>
+      <circle cx="93" cy="114" r="2" fill="#3f5967"/><circle cx="93" cy="127" r="2" fill="#3f5967"/>
+      <path d="m68 111-16-12m5 4-1-8m64 16 17-13" fill="none" stroke="#96734e" stroke-width="3" stroke-linecap="round"/>
+    </g>
+    <g class="draft-envelope"><rect x="124" y="91" width="35" height="25" rx="4" fill="#fffaf0" stroke="#ba9550" stroke-width="2"/><path d="m126 94 15 11 16-11" fill="none" stroke="#ba9550" stroke-width="2"/><path d="m139 108 3-3 3 3-3 3Z" fill="#c95861"/></g>
+    <g class="draft-snowflake" stroke="#96bacd" stroke-width="2" stroke-linecap="round"><path d="M49 76v12m-6-6h12m-10-4 8 8m0-8-8 8"/></g>
+    <g class="draft-snowflake draft-snowflake--second" stroke="#96bacd" stroke-width="2" stroke-linecap="round"><path d="M135 30v12m-6-6h12m-10-4 8 8m0-8-8 8"/></g>
   </svg><p class="draft-loading-phrase" aria-hidden="true"></p>`;
   const phrase = scene.querySelector("p");
-  let index = Math.floor(Math.random() * autumnDraftPhrases.length);
-  phrase.textContent = autumnDraftPhrases[index];
+  let index = Math.floor(Math.random() * winterDraftPhrases.length);
+  phrase.textContent = winterDraftPhrases[index];
   spinner.insertAdjacentElement("afterend", scene);
   modal.classList.add("has-draft-animation");
   const timer = window.setInterval(() => {
     if (modal.hidden || !modal.isConnected) { stopDraftLoading(modal); return; }
-    index = (index + 1) % autumnDraftPhrases.length;
-    phrase.textContent = autumnDraftPhrases[index];
+    index = (index + 1) % winterDraftPhrases.length;
+    phrase.textContent = winterDraftPhrases[index];
   }, 4600);
   activeDraftAnimations.set(modal, { scene, timer });
 }

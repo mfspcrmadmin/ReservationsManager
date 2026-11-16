@@ -1,4 +1,28 @@
 import { escapeHtml, getLookupName } from "./utils.js";
+import { crmGetRecord } from "./api.js";
+
+const agencyConsortia = new WeakMap();
+
+export async function loadOverviewConsortia(container, booking) {
+  const target = container.querySelector("[data-overview-consortia]");
+  if (!target) return;
+  const accountId = booking.Account_Name?.id;
+  if (!accountId) return;
+  let entry = agencyConsortia.get(booking);
+  if (!entry || entry.accountId !== accountId) {
+    entry = { accountId, promise: crmGetRecord("Accounts", accountId) };
+    agencyConsortia.set(booking, entry);
+  }
+  try {
+    const account = await entry.promise;
+    if (!account) throw new Error("Client / agency unavailable");
+    target.innerHTML = chips(account, ["Consortia"], "overview-chip--client");
+  } catch (error) {
+    if (agencyConsortia.get(booking) === entry) agencyConsortia.delete(booking);
+    target.innerHTML = missing("Could not load");
+    console.warn("Unable to load client / agency Consortia:", error);
+  }
+}
 
 function value(booking, keys) {
   for (const key of keys) {
@@ -53,6 +77,7 @@ export function renderBookingOverview(booking, duration) {
     '<div><dt>Trip type</dt><dd>' + chips(booking, ["Trip_Type"]) + '</dd></div>' +
     '<div><dt>Department</dt><dd>' + chips(booking, ["Department"]) + '</dd></div></dl></section></div>' +
     '<div class="overview-column"><section class="overview-section overview-client"><h2>Client &amp; contact</h2><div class="overview-client-identity"><span class="overview-label">Client / agency</span>' + (client ? '<strong class="overview-client-name">' + escapeHtml(client) + '</strong>' : missing()) + chips(booking, ["Client_Type"], "overview-chip--client") + '</div>' +
+    '<div class="overview-contact"><span class="overview-label">Consortia</span><div data-overview-consortia>' + (booking.Account_Name?.id ? missing("Loading…") : missing()) + '</div></div>' +
     '<div class="overview-contact"><span class="overview-label">Contact</span>' + (contact ? '<strong>' + escapeHtml(contact) + '</strong>' : missing()) + '<div class="overview-email">' +
     (email ? (emailLink ? '<a href="mailto:' + escapeHtml(encodeURIComponent(email)) + '">' + escapeHtml(email) + '</a>' : '<span>' + escapeHtml(email) + '</span>') + '<button type="button" class="overview-copy-email" data-overview-copy-email="' + escapeHtml(email) + '" aria-label="Copy email" title="Copy email">' + copyIcon + '</button><span class="overview-copy-status" role="status"></span>' : missing("Email not provided")) + '</div></div></section>' +
     '<section class="overview-section"><h2>Assigned team</h2><ul class="overview-team">' +

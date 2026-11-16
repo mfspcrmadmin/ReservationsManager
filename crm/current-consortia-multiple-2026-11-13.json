@@ -1,0 +1,140 @@
+{
+  "date": "2026-11-13",
+  "record_mutations": false,
+  "old": {
+    "api": "Current_Consortia",
+    "id": "616617000178467052",
+    "label": "Legacy Current Consortia",
+    "type": "lookup",
+    "nonempty_query": "HTTP 204",
+    "preserved": true
+  },
+  "new": {
+    "api": "Current_Consortia_List",
+    "id": "616617000178428021",
+    "label": "Current Consortia",
+    "type": "multiselectlookup",
+    "target": "Consortias",
+    "linking_module": {
+      "visibility": 2,
+      "plural_label": "Clients X Consortias",
+      "api_name": "Clients_X_Consortias",
+      "id": "616617000178428025"
+    },
+    "profiles": [
+      {
+        "permission_type": "read_write",
+        "name": "Administrator",
+        "id": "616617000000026972"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Standard",
+        "id": "616617000000026974"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Management",
+        "id": "616617000001538235"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handling Team",
+        "id": "616617000003782001"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Product",
+        "id": "616617000003782087"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Finance And Administration",
+        "id": "616617000003782177"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handling Team - Admin",
+        "id": "616617000126951208"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "IT",
+        "id": "616617000154042112"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Marketing",
+        "id": "616617000163274109"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handing Team-Product",
+        "id": "616617000165994117"
+      }
+    ]
+  },
+  "reciprocal": {
+    "api": "Current_Member_Clients",
+    "id": "616617000178428040",
+    "profiles": [
+      {
+        "permission_type": "read_write",
+        "name": "Administrator",
+        "id": "616617000000026972"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Standard",
+        "id": "616617000000026974"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Management",
+        "id": "616617000001538235"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handling Team",
+        "id": "616617000003782001"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Product",
+        "id": "616617000003782087"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Finance And Administration",
+        "id": "616617000003782177"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handling Team - Admin",
+        "id": "616617000126951208"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "IT",
+        "id": "616617000154042112"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Marketing",
+        "id": "616617000163274109"
+      },
+      {
+        "permission_type": "hidden",
+        "name": "Booking Handing Team-Product",
+        "id": "616617000165994117"
+      }
+    ]
+  },
+  "verification": "Fields and Accounts Standard layout reread",
+  "pending": [
+    "Commercial History remains authority; automatic projection not implemented",
+    "Olga-specific permissions not configured",
+    "Linking module permissions require UI review: module update rejected INVALID_DATA invalid operation; hiding mandatory linking fields rejected INVALID OPERATION"
+  ],
+  "bookings_modified": false
+}

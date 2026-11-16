@@ -1,21 +1,96 @@
+import { requirePaymentSettlement } from "./payment-settlement.js";
+import { pendingCardPurchaseCreation, completeCardPurchaseCreation, finishCardPurchaseCreation, cardPurchaseCreationDisposition, discardUnsentCardPurchaseCreation, cardPurchaseCreationSummary } from "./card-purchase-creation.js";
 import { crmCreateRecord, crmExecuteFunction, crmGetAllRecords, crmGetRecord, crmSearchRecord, crmUpdateRecord } from "./api.js";
 import { MODULES } from "./constants.js";
+import { requireSupplierPaymentReference } from "./supplier-payment-reference.js";
 import { elements } from "./dom.js";
 import { clearLoading, setError, setNotice } from "./render.js";
 import { state } from "./state.js";
-import { escapeHtml, getLayoutValue, normalizeComparableText } from "./utils.js";
+import { escapeHtml, getServiceSupplierName, getLayoutValue, normalizeComparableText } from "./utils.js";
 
 const ZOHO_SDK_TIMEOUT_MS = 4000;
 
+export function bookingReportOutcome(result, label) {
+  if (result?.success !== true || result.error === true || result.status === "error") {
+    throw new Error(result?.message || "Creator could not create the report.");
+  }
+  const saved = label + " created successfully.";
+  if (result.notificationStatus === "failed" || result.notificationWarning) {
+    return { notice: saved, warning: result.notificationWarning || "The report was saved, but the email could not be sent to the booking Accounting Rep. Do not submit it again; contact Administration." };
+  }
+  if (result.notificationFallback) {
+    return { notice: saved, warning: "No supported Accounting Rep is linked to this booking. The report email was sent to you instead of Administration." };
+  }
+  return { notice: saved, warning: "" };
+}
+
+export function setBookingReportActor(payload, user) {
+  const actingUserId = String(user.currentUserId || "").trim();
+  if (!/^\d+$/.test(actingUserId)) throw new Error("Could not identify the signed-in user. Reload the widget before submitting the report.");
+  const email = String(user.currentUserEmail || "").trim();
+  payload.actingUserId = actingUserId;
+  payload.reported_by = email;
+  payload.reported_by_name = String(user.currentUserName || "").trim() || email;
+  return payload;
+}
+
+function showBookingReportOutcome(result, label) {
+  const outcome = bookingReportOutcome(result, label);
+  setNotice(elements, outcome.notice);
+  setError(elements, outcome.warning);
+}
+
 export async function onRecordCardPurchase() {
-  if (!state.selectedService) {
+  if (!state.selectedService || state.cardPurchaseSaving) {
     return;
   }
+  if (!requireCardPurchaseSupplier(state.selectedService)) return;
+
+  const service = state.selectedService;
+  const booking = state.selectedBooking;
+  let supplierCode;
+  try {
+    supplierCode = await requireSupplierPaymentReference(getCardPurchaseSupplierId(service));
+  } catch (error) {
+    setError(elements, error.message);
+    return;
+  }
+  if (state.selectedService !== service || state.selectedBooking !== booking || state.cardPurchaseDialogOpen || state.cardPurchaseSaving) return;
+
+  try {
+    const pending = pendingCardPurchaseCreation(state, booking.id, service.id);
+    if (pending && cardPurchaseCreationDisposition(pending) === "draft") {
+      discardUnsentCardPurchaseCreation(state, booking.id, service.id);
+    } else if (pending) {
+      state.cardPurchaseSaving = true;
+      await completeCardPurchaseCreation(state, booking.id, service.id);
+      state.cardPurchasesLoaded = false;
+      finishCardPurchaseCreation(state, booking.id, service.id);
+      if (state.selectedBooking === booking) setNotice(elements, "The existing card transaction and its documents are confirmed in CRM. No new transaction was created.");
+      return;
+    }
+  } catch (error) {
+    let recovery;
+    try { recovery = pendingCardPurchaseCreation(state, booking.id, service.id); } catch (_) { /* Keep the original error. */ }
+    setError(elements, (recovery ? cardPurchaseCreationSummary(recovery) + " " : "") + error.message);
+    return;
+  } finally { state.cardPurchaseSaving = false; }
 
   setError(elements, "");
   state.cardPurchaseDialogOpen = true;
+  state.cardPurchaseDialogContext = { bookingId: String(booking.id), serviceId: String(service.id) };
   elements.cardPurchaseDialog.hidden = false;
-  initializeCardPurchaseForm();
+  initializeCardPurchaseForm(supplierCode);
+}
+
+function getCardPurchaseSupplierId(service) {
+  return String(service.Supplier && (service.Supplier.id || service.Supplier.value) || service.Supplier_Id || "").trim();
+}
+
+function requireCardPurchaseSupplier(service) {
+  if (getCardPurchaseSupplierId(service)) return true;
+  setError(elements, "This service has no supplier associated. Associate a supplier with the service before recording a card purchase.");
+  return false;
 }
 
 function extractPrepaymentResult(response) {
@@ -78,7 +153,7 @@ function openCancellationDialog() {
   const accountingRepId = typeof accountingRep === "object" ? accountingRep.id || "" : "";
   const pvp = booking.Sales_Price_inc_Taxes || booking.Sales_Price || "";
   const values = {
-    booking_layout: getLayoutValue(booking.Layout), booking_id: booking.id || "", reported_by: state.currentUserEmail || booking.Owner && booking.Owner.email || "", accounting_rep_id: accountingRepId,
+    booking_layout: getLayoutValue(booking.Layout), booking_id: booking.id || "", reported_by: state.currentUserEmail || "", accounting_rep_id: accountingRepId,
     date_field: new Date().toISOString().slice(0, 10), agency_name: booking.Account_Name && booking.Account_Name.name || booking.Agency_Name || "", agent_contact_name: booking.Contact_Name && booking.Contact_Name.name || booking.Agent_Contact_Name || "",
     mfsp_reference: booking.MFSP_Reference || "", booking_name: booking.Deal_Name || booking.Name || "", paid_amount: booking.Total_Paid_Amount || "", amount: pvp,
     booking_cost: booking.Purchase_Price_inc_Taxes || booking.Purchase_Price || "", comission: booking.Final_Commission || "", balance_due_amount: booking.Balance_Amount || booking.Balance_due_amount || ""
@@ -102,14 +177,14 @@ function openCancellationDialog() {
   dialog.querySelector("[data-back]").onclick = function () { dialog.remove(); onOpenBookingReportDialog(); };
   dialog.querySelector(".booking-action-dialog-backdrop").onclick = function () { dialog.remove(); };
   dialog.querySelector("form").addEventListener("submit", async function (event) {
-    event.preventDefault(); const button = event.currentTarget.querySelector('[type="submit"]'); const payload = Object.fromEntries(new FormData(event.currentTarget)); button.disabled = true;
-    try { const result = extractPrepaymentResult(await crmExecuteFunction("customapi_createreportcancellation", { requestBody: JSON.stringify(payload) })); if (!result || result.success === false || result.error === true) throw new Error(result && result.message || "Creator could not create the cancellation."); dialog.remove(); setNotice(elements, "Cancellation created successfully."); }
+    event.preventDefault(); const button = event.currentTarget.querySelector('[type="submit"]'); if (button.disabled) return; const payload = Object.fromEntries(new FormData(event.currentTarget)); button.disabled = true;
+    try { setBookingReportActor(payload, state); const result = extractPrepaymentResult(await crmExecuteFunction("customapi_createreportcancellation", { requestBody: JSON.stringify(payload) })); showBookingReportOutcome(result, "Cancellation"); dialog.remove(); }
     catch (error) { setError(elements, error.message || "Could not create the cancellation."); } finally { button.disabled = false; }
   });
 }
 
 function hiddenCancellationFields(values) { return ["booking_layout", "booking_id", "reported_by", "accounting_rep_id", "date_field", "agency_name", "agent_contact_name", "mfsp_reference", "booking_name"].map(function (key) { return '<input type="hidden" name="' + key + '" value="' + escapeHtml(values[key]) + '">'; }).join(""); }
-function cancellationCurrency(label, name, value, help) { return '<label class="field"><span>' + label + ' <em>*</em>' + (help ? " " + infoTooltip(help) : "") + '</span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" type="number" min="0" step="0.01" required value="' + escapeHtml(value) + '"></div></label>'; }
+function cancellationCurrency(label, name, value, help) { return '<label class="field"><span>' + label + ' <em>*</em>' + (help ? " " + infoTooltip(help) : "") + '</span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" type="number" step="0.01" required value="' + escapeHtml(value) + '"></div></label>'; }
 function infoTooltip(message) { return '<span class="field-info" tabindex="0" data-tooltip="' + escapeHtml(message) + '" aria-label="More information">i</span>'; }
 
 function openChangeRequestDialog() {
@@ -122,7 +197,7 @@ function openChangeRequestDialog() {
   const values = {
     booking_layout: getLayoutValue(booking.Layout),
     booking_id: booking.id || "",
-    reported_by: state.currentUserEmail || booking.Owner && booking.Owner.email || "",
+    reported_by: state.currentUserEmail || "",
     accounting_rep_id: accountingRepId,
     date_field: new Date().toISOString().slice(0, 10),
     mfsp_reference: booking.MFSP_Reference || "",
@@ -145,7 +220,7 @@ function openChangeRequestDialog() {
     renderChangeCurrencyField("New Cost", "new_cost", values.new_cost),
     renderChangeCurrencyField("Commission", "comission", values.comission),
     '<label class="field"><span>Transaction type</span><select name="transaction_type"><option value="">Select…</option><option value="Refund">Refund</option><option value="Additional Payment">Additional Payment</option></select></label>',
-    '<label class="field"><span>Transaction amount</span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="transaction_amount" type="number" min="0" step="0.01"></div></label>',
+    '<label class="field"><span>Transaction amount</span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="transaction_amount" type="number" step="0.01"></div></label>',
     '<label class="field change-request-description"><span>Change description</span><textarea name="change_description" rows="5"></textarea></label>',
     '</div><div class="booking-action-dialog-footer booking-action-dialog-footer--split"><div class="booking-action-dialog-footer-actions"><button class="button tertiary compact" type="button" data-back>Back</button><button class="button tertiary compact" type="button" data-close>Cancel</button></div><button class="button booking-action-button compact" type="submit">Submit</button></div></form></div>'
   ].join("");
@@ -156,17 +231,16 @@ function openChangeRequestDialog() {
   dialog.querySelector("form").addEventListener("submit", async function (event) {
     event.preventDefault();
     const submitButton = event.currentTarget.querySelector('[type="submit"]');
+    if (submitButton.disabled) return;
     const payload = Object.fromEntries(new FormData(event.currentTarget));
     submitButton.disabled = true;
     submitButton.textContent = "Submitting…";
     try {
+      setBookingReportActor(payload, state);
       const response = await crmExecuteFunction("customapi_createreportchange", { requestBody: JSON.stringify(payload) });
       const result = extractPrepaymentResult(response);
-      if (!result || result.success === false || result.status === "error" || result.error === true) {
-        throw new Error(result && result.message || "Creator could not create the change request.");
-      }
+      showBookingReportOutcome(result, "Change request");
       dialog.remove();
-      setNotice(elements, "Change request created successfully.");
     } catch (error) {
       setError(elements, error && error.message ? error.message : "Could not create the change request.");
     } finally {
@@ -177,7 +251,7 @@ function openChangeRequestDialog() {
 }
 
 function renderChangeCurrencyField(label, name, value) {
-  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" type="number" min="0" step="0.01" required value="' + escapeHtml(value) + '"></div></label>';
+  return '<label class="field"><span>' + label + ' <em>*</em></span><div class="booking-form-currency"><span class="booking-form-currency-symbol">EUR</span><input name="' + name + '" type="number" step="0.01" required value="' + escapeHtml(value) + '"></div></label>';
 }
 
 export function onCreatePaymentRequestClick() {
@@ -195,7 +269,23 @@ export function onCreatePaymentRequestClick() {
 }
 
 export function onCloseCardPurchaseDialog() {
+  if (state.cardPurchaseSaving) return;
+  const context = state.cardPurchaseDialogContext || { bookingId: state.selectedBooking?.id, serviceId: state.selectedService?.id };
+  try {
+    const pending = pendingCardPurchaseCreation(state, context.bookingId, context.serviceId);
+    const disposition = cardPurchaseCreationDisposition(pending);
+    if (disposition === "draft") {
+      discardUnsentCardPurchaseCreation(state, context.bookingId, context.serviceId);
+      state.cardPurchaseSupportingDocuments = [];
+      setNotice(elements, "Unsent card transaction draft discarded.");
+    } else if (disposition === "recorded") {
+      setNotice(elements, "The transaction is already recorded in CRM. Closing keeps its pending recovery; it does not cancel the transaction.");
+    } else if (disposition === "unknown") {
+      setError(elements, "Creation could not be confirmed. Closing keeps recovery. Check CRM before creating another transaction.");
+    }
+  } catch (error) { setError(elements, error.message); return; }
   state.cardPurchaseDialogOpen = false;
+  state.cardPurchaseDialogContext = null;
   elements.cardPurchaseDialog.hidden = true;
 }
 
@@ -230,16 +320,37 @@ export async function onSubmitCardPurchaseForm(event) {
   var service = state.selectedService;
   var booking = state.selectedBooking;
   var submitButton = elements.cardPurchaseSubmit;
+  if (submitButton.disabled || state.cardPurchaseSaving) return;
   setError(elements, "");
 
   if (!service || !booking) {
     setError(elements, "Load a booking and select a service before recording a card purchase.");
     return;
   }
+  if (!requireCardPurchaseSupplier(service)) return;
 
   submitButton.disabled = true;
-  submitButton.textContent = "Submitting…";
+  state.cardPurchaseSaving = true;
+  var submitLabel = submitButton.textContent;
+  submitButton.ariaBusy = "true";
+  submitButton.textContent = "Saving…";
   try {
+    if (pendingCardPurchaseCreation(state, booking.id, service.id)) {
+      await completeCardPurchaseCreation(state, booking.id, service.id);
+      state.cardPurchasesLoaded = false;
+      state.cardPurchasesLoadedBookingId = "";
+      state.cardPurchaseSaving = false;
+      if (state.selectedBooking === booking && state.selectedService === service) onCloseCardPurchaseDialog();
+      finishCardPurchaseCreation(state, booking.id, service.id);
+      if (state.selectedBooking === booking) setNotice(elements, "The existing card transaction and its documents are confirmed in CRM. No new transaction was created.");
+      return;
+    }
+    var supplierCode = await requireSupplierPaymentReference(getCardPurchaseSupplierId(service));
+    if (state.selectedService !== service || state.selectedBooking !== booking) throw new Error("Selection changed. Close and reopen the form.");
+    if (!state.cardPurchaseSupportingDocuments.length) {
+      elements.cardPurchaseSupportingDocumentsDropzone.focus();
+      throw new Error("Attach at least one file in Supporting Documents.");
+    }
     var transactionType = state.cardPurchaseTransactionType || "Purchase";
     var isRefund = transactionType === "Refund";
     var amount = elements.cardPurchaseAmount.value;
@@ -252,7 +363,7 @@ export async function onSubmitCardPurchaseForm(event) {
       Booking: { id: booking.id },
       Boking_Service: { id: service.id },
       MFSP_Reference: booking.MFSP_Reference || service.Booking_Reference || "",
-      Supplier_Code: getCardPurchaseSupplierCode(service),
+      Supplier_Code: supplierCode,
       Card_Payment_Account: { id: elements.cardPurchasePaymentAccount.value },
       Transaction_Type: transactionType,
       Accounting_Status: isRefund ? "Pending credit note" : "Pending invoice",
@@ -260,45 +371,45 @@ export async function onSubmitCardPurchaseForm(event) {
       Transaction_Date: toCrmDateTime(transactionDate),
       Transaction_Notes: elements.cardPurchaseObservations.value
     };
-    var supplierId = service.Supplier && (service.Supplier.id || service.Supplier.value) || service.Supplier_Id || "";
-    if (supplierId) {
-      payload.Supplier = { id: supplierId };
-    }
-    var settlementId = getLookupId(service.Supplier_Settlement);
-    if (settlementId) {
-      payload.Settlement = { id: settlementId };
-    }
+    payload.Supplier = { id: getCardPurchaseSupplierId(service) };
     if (isRefund) {
-      payload.Original_Card_Purchase = { id: originalPurchaseId };
+      // Original_Card_Purchase is a legacy lookup to Payment_Accounts.
+      payload.Original_Purchase_Transaction = { id: originalPurchaseId };
     }
-    var supportingDocuments = state.cardPurchaseSupportingDocuments.length
-      ? await uploadCardPurchaseSupportingDocuments(state.cardPurchaseSupportingDocuments)
-      : [];
-    var cardPurchase = await crmCreateRecord(MODULES.cardPurchases, payload);
-    if (supportingDocuments.length) {
-      var cardPurchaseId = cardPurchase.id || cardPurchase.details && cardPurchase.details.id;
-      if (!cardPurchaseId) {
-        throw new Error("The card transaction was created without a record ID, so Supporting Documents could not be saved.");
-      }
-      await saveCardPurchaseSupportingDocuments(cardPurchaseId, supportingDocuments);
-    }
+    payload.Settlement = { id: await requirePaymentSettlement(booking.id, getCardPurchaseSupplierId(service), [service]) };
+    if (state.selectedService !== service || state.selectedBooking !== booking) throw new Error("Selection changed. Close and reopen the form.");
+    var supportingDocuments = await uploadCardPurchaseSupportingDocuments(state.cardPurchaseSupportingDocuments);
+    await completeCardPurchaseCreation(state, booking.id, service.id, {
+      payload, documents: supportingDocuments,
+      create: value => crmCreateRecord(MODULES.cardPurchases, value)
+    });
     state.cardPurchasesLoaded = false;
     state.cardPurchasesLoadedBookingId = "";
-    onCloseCardPurchaseDialog();
-    setNotice(elements, transactionType + " recorded successfully in CRM.");
+    state.cardPurchaseSaving = false;
+    if (state.selectedBooking === booking && state.selectedService === service) onCloseCardPurchaseDialog();
+    finishCardPurchaseCreation(state, booking.id, service.id);
+    if (state.selectedBooking === booking) setNotice(elements, transactionType + " recorded successfully in CRM.");
   } catch (error) {
-    setError(elements, error && error.message ? error.message : "Could not record the card purchase.");
+    let recovery;
+    try { recovery = pendingCardPurchaseCreation(state, booking.id, service.id); } catch (_) { /* Keep the original recovery error. */ }
+    if (recovery?.recordId) {
+      state.cardPurchasesLoaded = false;
+      state.cardPurchasesLoadedBookingId = "";
+    }
+    if (state.selectedBooking === booking) setError(elements,
+      (recovery ? cardPurchaseCreationSummary(recovery) + " Changes to recorded transaction fields will not be saved here. " : "") +
+      (error && error.message ? error.message : "Could not record the card purchase."));
   } finally {
+    state.cardPurchaseSaving = false;
     submitButton.disabled = false;
-    submitButton.textContent = "Submit";
+    submitButton.ariaBusy = "false";
+    let recovery;
+    try { recovery = pendingCardPurchaseCreation(state, booking.id, service.id); } catch (_) { /* Keep the form available to show its blocking error. */ }
+    submitButton.textContent = recovery ? (recovery.recordId ? "Retry documents" : "Check creation status") : submitLabel;
   }
 }
 
-function getCardPurchaseSupplierCode(service) {
-  return String(service.Ezus_Supplier_Reference || service.EZUS_Supplier_Reference || service.Supplier_Reference || service.Supplier_Code || "").replace(/^.*-supnew-/, "");
-}
-
-function initializeCardPurchaseForm() {
+function initializeCardPurchaseForm(supplierCode) {
   if (!elements.cardPurchaseForm) {
     return;
   }
@@ -306,10 +417,10 @@ function initializeCardPurchaseForm() {
   elements.cardPurchaseForm.reset();
   var service = state.selectedService || {};
   var booking = state.selectedBooking || {};
-  var supplierCode = getCardPurchaseSupplierCode(service);
   elements.cardPurchaseMfspReference.textContent = booking.MFSP_Reference || service.Booking_Reference || "-";
   elements.cardPurchaseBookingName.textContent = booking.Deal_Name || booking.Name || booking.Booking && booking.Booking.name || "-";
-  elements.cardPurchaseSupplierName.textContent = service.Supplier_Name || service.Supplier && service.Supplier.name || "-";
+  elements.cardPurchaseSupplierName.textContent = getServiceSupplierName(service);
+  elements.cardPurchaseSupplierName.classList.toggle("supplier-unlinked", getServiceSupplierName(service) === "No supplier linked");
   elements.cardPurchaseSupplierCode.textContent = supplierCode || "-";
   elements.cardPurchaseServiceName.textContent = service.Product_Description || service.Name || "-";
   elements.cardPurchaseServiceContextDate.textContent = String(service.Service_Date || "").slice(0, 10) || "-";
@@ -376,41 +487,9 @@ async function uploadCardPurchaseSupportingDocuments(files) {
     if (!fileId || String(result.status || result.code || "").toLowerCase() === "error") {
       throw new Error(result.message || "Could not upload " + file.name + ".");
     }
-    uploaded.push({ File_Id__s: fileId });
+    uploaded.push({ File_Id__s: fileId, file: { name: file.name, size: file.size } });
   }
   return uploaded;
-}
-
-async function saveCardPurchaseSupportingDocuments(cardPurchaseId, supportingDocuments) {
-  var fileIds = supportingDocuments.map(function (document) {
-    return document && document.File_Id__s;
-  }).filter(Boolean);
-  var payloadVariants = [
-    fileIds.map(function (fileId) { return { $file_id: fileId }; }),
-    fileIds.map(function (fileId) { return { file_id: fileId }; }),
-    fileIds,
-    { $file_id: fileIds }
-  ];
-  var lastResult = null;
-
-  for (var index = 0; index < payloadVariants.length; index += 1) {
-    lastResult = await crmUpdateRecord(MODULES.cardPurchases, {
-      id: cardPurchaseId,
-      Supporting_Documents: payloadVariants[index]
-    });
-    if (String(lastResult.status || "").toLowerCase() === "error" || String(lastResult.code || "").toUpperCase() !== "SUCCESS") {
-      continue;
-    }
-    var refreshedCardPurchase = await crmGetRecord(MODULES.cardPurchases, cardPurchaseId);
-    if (refreshedCardPurchase && refreshedCardPurchase.Supporting_Documents) {
-      return;
-    }
-  }
-
-  throw new Error(
-    lastResult && (lastResult.message || lastResult.code) ||
-    "The card transaction was created, but Supporting Documents could not be saved."
-  );
 }
 
 function renderCardPurchaseTransactionType() {

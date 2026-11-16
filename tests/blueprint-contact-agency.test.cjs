@@ -15,7 +15,8 @@ function setup() {
     reads: [], writes: []
   };
   const context = vm.createContext({
-    state: { selectedBookingId: "booking", selectedBooking: { Account_Name: { id: "stale" } } },
+    state: { currentUserId: "616617000000000001", currentUserEmail: "rep@example.com", currentUserName: "Reservation Rep", selectedBookingId: "booking", selectedBooking: { Account_Name: { id: "stale" } } },
+    assertUserBlueprintTransition: async () => context.state.bookingBlueprint, renderBookingSummary() {},
     elements: {}, MODULES: { bookings: "Deals" },
     crmGetRecord: async (module, id) => {
       fixture.reads.push([module, id]);

@@ -1,7 +1,11 @@
-import { renderBookingOverview } from "./booking-overview.js";
+import { getWidgetPermissions } from "./widget-permissions.js";
+import { renderBookingFinancial } from "./booking-financial.js";
+import { renderBookingOverview, loadOverviewConsortia } from "./booking-overview.js";
 import { renderBookingCommunication } from "./booking-communication.js";
 import { updateBookingQueueOverlay } from "./booking-queue-overlay.js";
 import { observeQueueDeskCells } from "./booking-queue-desk.js";
+import { observeQueueTaskCells, loadQueueTasks } from "./booking-queue-tasks.js";
+import { sortTableRows, queueSortValue, sortableHeader, bindTableSort, nextTableSort } from "./table-sorting.js";
 import { renderBookingTags } from "./booking-tags.js";
 import { getQueueTablePreferences, getQueueVisibleColumns, queueColumnButton, configureQueueTable } from "./booking-queue-table.js";
 import {
@@ -60,6 +64,7 @@ export function renderBookingSummary(elements, state) {
   elements.summaryBookingHero.innerHTML = "";
   elements.summaryContent.hidden = summaryView === "travelers";
   elements.summaryContent.innerHTML = summaryView === "travelers" ? "" : renderSummaryMainPanel(booking, summaryView);
+  void loadOverviewConsortia(elements.summaryContent, booking);
   if (elements.summaryTravelersView) {
     elements.summaryTravelersView.hidden = summaryView !== "travelers";
   }
@@ -120,7 +125,7 @@ export function renderBookingWorkspace(elements, state) {
   elements.createAxus.disabled = false;
   elements.syncEzus.disabled = state.syncingEzus;
   elements.openBookingReportDialog.disabled = false;
-  elements.createPaymentRequest.disabled = !state.currentUserIsAdministrator;
+  elements.createPaymentRequest.disabled = false;
 }
 
 function applyBookingRailLayoutState(elements, state) {
@@ -142,7 +147,7 @@ function renderBookingAdminActions(elements, state, booking) {
     return;
   }
 
-  const isAdministrator = Boolean(state.currentUserIsAdministrator);
+  const isAdministrator = getWidgetPermissions(state).adminActions;
   const bookingId = String(booking && (booking.id || booking.Id) || "").trim();
 
   elements.bookingAdminActions.hidden = !isAdministrator;
@@ -163,10 +168,11 @@ export function renderBookingBrowser(options) {
   const onSyncBooking = options.onSyncBooking;
   // Disconnect observations from the previous render, including empty states.
   observeQueueDeskCells(elements.bookingBrowserBody, null, null);
+  observeQueueTaskCells(elements.bookingBrowserBody, null);
   const ownerOptions = buildBookingBrowserOwnerOptions(state);
   const stageOptions = buildBookingBrowserStageOptions(state.bookings, state.bookingBrowserStageOptions);
   const hasStageOptions = stageOptions.length > 0;
-  const filteredBookings = filterBookingsForBrowser(state.bookings, state);
+  const filteredBookings = sortTableRows(filterBookingsForBrowser(state.bookings, state), state.bookingQueueSort, (booking, key) => queueSortValue(booking, key, state));
   const pendingOwnerId = state.bookingBrowserPendingOwnerId || "";
   const pendingStages = Array.isArray(state.bookingBrowserPendingStages) ? state.bookingBrowserPendingStages : [];
   const isWide = Boolean(state.bookingBrowserWide);
@@ -174,10 +180,54 @@ export function renderBookingBrowser(options) {
   const visibleColumns = getQueueVisibleColumns(tablePreferences, isWide);
   const columnCount = visibleColumns.length + 1;
   const isWorkspaceLoading = !state.initialized || state.bookingBrowserLoading;
+  const filterSummary = elements.bookingBrowserPanel?.querySelector("#queue-filter-summary");
+  const roleLabels = { booking_owner: "Booking owner", sales_rep: "Sales rep", reservations_rep: "Reservations rep", accounting_rep: "Accounting rep", guest_relations_rep: "Guest relations rep", hour_rep: "24h rep" };
+  const roleLabel = roleLabels[state.bookingBrowserSearchField] || "User";
+  const ownerLabel = elements.bookingBrowserOwner?.closest("label")?.querySelector("span");
+  if (ownerLabel) ownerLabel.textContent = roleLabel;
+  if (filterSummary) {
+    const pending = !state.bookingBrowserFiltersApplied || pendingOwnerId !== String(state.bookingBrowserOwnerId || "") ||
+      JSON.stringify([...pendingStages].sort()) !== JSON.stringify([...(state.bookingBrowserStages || [])].sort());
+    const ownerName = ownerOptions.find(option => String(option.value) === String(state.bookingBrowserOwnerId))?.label || "";
+    const applied = state.bookingBrowserFiltersApplied ? "Showing: " + ownerName + " · " + getBookingBrowserStagesLabel(stageOptions, state.bookingBrowserStages || []) : "Choose a user and stages, then apply filters.";
+    filterSummary.textContent = (pending && state.bookingBrowserFiltersApplied ? "Changes not applied. " : "") + applied;
+    filterSummary.dataset.pending = String(pending);
+  }
 
   applyBookingBrowserLayoutState(elements, state);
-  elements.bookingBrowserHead.innerHTML = visibleColumns.map(column => '<th data-service-column-key="' + column.key + '">' + escapeHtml(column.label) + '</th>').join("") + queueColumnButton();
+  elements.bookingBrowserHead.innerHTML = visibleColumns.map(column => sortableHeader(column, state.bookingQueueSort)).join("") + queueColumnButton();
   configureQueueTable(elements, tablePreferences, isWide, () => renderBookingBrowser(options));
+  bindTableSort(elements.bookingBrowserHead, async key => {
+    const sort = state.bookingQueueSort = nextTableSort(state.bookingQueueSort, key);
+    if (key === "tasks") {
+      elements.bookingBrowserHead.setAttribute("aria-busy", "true");
+      await Promise.all(filteredBookings.map(async booking => {
+        let count = null;
+        try { count = (await loadQueueTasks(booking.id)).filter(task => task.Status !== "Completed").length; } catch (_) { /* Unavailable counts sort last. */ }
+        state.queueTaskCounts ||= {};
+        state.queueTaskCounts[booking.id] = count;
+      }));
+      if (state.bookingQueueSort !== sort) return;
+    }
+    if (key === "desk" && options.onLoadDeskTicket) {
+      elements.bookingBrowserHead.setAttribute("aria-busy", "true");
+      const indicator = elements.bookingBrowserHead.querySelector('[data-table-sort="desk"] .table-sort-indicator');
+      if (indicator) indicator.textContent = "…";
+      await Promise.all(filteredBookings.map(async booking => {
+        const ticketId = firstTextValue(booking.Desk_Ticket_ID, booking.Desk_Ticket_Id, booking.DeskTicketID, booking["Desk Ticket ID"]);
+        let value = null;
+        if (ticketId && ticketId !== "-") {
+          try { value = (await options.onLoadDeskTicket(ticketId))?.latest_interaction?.created_time; } catch (_) { /* Unavailable interactions sort last. */ }
+        }
+        state.queueDeskSortValues = state.queueDeskSortValues || {};
+        state.queueDeskSortValues[booking.id] = value;
+      }));
+      if (state.bookingQueueSort !== sort) return;
+    }
+    renderBookingBrowser(options);
+    elements.bookingBrowserHead.querySelector('[data-table-sort="' + key + '"]')?.focus();
+  });
+  elements.bookingBrowserHead.removeAttribute("aria-busy");
 
   elements.bookingBrowserSearchBy.innerHTML = buildBookingBrowserSearchByOptions(
     state.bookingBrowserSearchField
@@ -237,7 +287,7 @@ export function renderBookingBrowser(options) {
     stageFilterContainer.classList.toggle("is-empty", !hasStageOptions);
   }
 
-  elements.bookingBrowserCount.textContent = "Bookings (" + filteredBookings.length + ")";
+  elements.bookingBrowserCount.textContent = state.bookingBrowserLoading ? "Loading bookings..." : state.bookingBrowserError ? "Search failed" : "Bookings (" + filteredBookings.length + ")";
 
   if (state.bookingBrowserLoading) {
     elements.bookingBrowserBody.innerHTML = [
@@ -281,6 +331,7 @@ export function renderBookingBrowser(options) {
   }).join("");
 
   observeQueueDeskCells(elements.bookingBrowserBody, options.onLoadDeskTicket, formatDeskLatestInteraction);
+  observeQueueTaskCells(elements.bookingBrowserBody, state);
   Array.prototype.forEach.call(elements.bookingBrowserBody.querySelectorAll("tr[data-browser-booking-id]"), function (row) {
     row.addEventListener("click", function () {
       const bookingId = row.getAttribute("data-browser-booking-id");
@@ -307,10 +358,13 @@ export function renderBookingBrowser(options) {
 
 function renderQueueCell(key, booking, state) {
   switch (key) {
-    case "booking": return escapeHtml(booking.Deal_Name || "-") + renderBookingTags(booking, true);
+    case "booking": return escapeHtml(booking.Deal_Name || "-");
+    case "tasks": return '<span data-queue-tasks="' + escapeHtml(booking.id) + '">Loading tasks…</span>';
+    case "salesTags": return renderBookingTags(booking, true, "Sales_Tags_JSON");
+    case "reservationsTags": return renderBookingTags(booking, true, "Reservations_Tags_JSON");
     case "mfsp": return escapeHtml(booking.MFSP_Reference || "-");
-    case "arrival": return escapeHtml(formatDate(booking.Arrival_Date));
-    case "departure": return escapeHtml(formatDate(booking.Departure_Date));
+    case "arrival": return escapeHtml(formatQueueDate(booking.Arrival_Date));
+    case "departure": return escapeHtml(formatQueueDate(booking.Departure_Date));
     case "stage": return renderBookingBrowserStage(booking.Stage);
     case "travelers": return escapeHtml(booking.Travelers_Number || "-");
     case "agency": return escapeHtml(getLookupName(booking.Account_Name) || "-");
@@ -325,6 +379,15 @@ function renderQueueCell(key, booking, state) {
     }
     default: return "";
   }
+}
+
+function formatQueueDate(value) {
+  if (!value) return "-";
+  const date = new Date(String(value).slice(0, 10) + "T00:00:00Z");
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short", day: "numeric", year: "numeric", timeZone: "UTC"
+  }).format(date);
 }
 
 function renderBookingBrowserSync(booking, state) {
@@ -476,32 +539,7 @@ function renderSummaryMainPanel(booking, viewName) {
 }
 
 function renderFinancialSummaryView(booking) {
-  const leftColumn = [
-    buildSummaryMetricRow("Sales Price", formatCurrency(booking.Sales_Price_inc_Taxes)),
-    buildSummaryMetricRow("Purchase Price", formatCurrency(booking.Purchase_Price_inc_Taxes)),
-    buildSummaryMetricRow("Gross Margin", formatCurrency(getGrossMarginValue(booking))),
-    buildSummaryMetricRow("Net Margin", formatCurrency(getNetMarginValue(booking)))
-  ];
-  const rightColumn = [
-    buildSummaryMetricRow("Balance Amount", formatCurrency(booking.Balance_Amount)),
-    buildSummaryMetricRow("Total Requested Amount", formatCurrency(getBookingRawValue(booking, ["Total_Requested_Amount"]))),
-    buildSummaryMetricRow("Total Paid Amount", formatCurrency(getBookingRawValue(booking, ["Total_Paid_Amount"]))),
-    buildSummaryMetricRow("Total Refund Amount", formatCurrency(getBookingRawValue(booking, ["Total_Refund_Amount"])))
-  ];
-
-  return [
-    '<div class="summary-view-layout">',
-    '  <section class="summary-section">',
-    '    <div class="summary-section-header">',
-    "      <h2>Financial snapshot</h2>",
-    "    </div>",
-    '    <div class="summary-financial-grid">',
-    '      <section class="summary-metric-panel"><h3>Revenue</h3>' + leftColumn.join("") + "</section>",
-    '      <section class="summary-metric-panel"><h3>Payments</h3>' + rightColumn.join("") + "</section>",
-    "    </div>",
-    "  </section>",
-    "</div>"
-  ].join("");
+  return renderBookingFinancial(booking, getGrossMarginValue(booking), getNetMarginValue(booking));
 }
 
 function renderSummaryHero(booking) {
@@ -619,7 +657,7 @@ function renderBookingActionArea(elements, booking, state) {
       elements.actionHasAxus.textContent = "Not set";
       elements.actionHasAxus.className = "";
     }
-    renderItineraryLinkControl(elements, "");
+    renderItineraryLinkControl(elements, "", state);
     renderBookingQuickAccess(elements, null, "");
     elements.actionEzusSyncWarning.hidden = true;
     elements.actionEzusSyncWarning.textContent = "";
@@ -665,7 +703,7 @@ function renderBookingActionArea(elements, booking, state) {
     elements.actionHasAxus.textContent = hasAxusState.label;
     elements.actionHasAxus.className = "action-status-badge " + hasAxusState.className;
   }
-  renderItineraryLinkControl(elements, getItineraryLinkValue(booking));
+  renderItineraryLinkControl(elements, getItineraryLinkValue(booking), state);
   renderBookingQuickAccess(elements, booking, hasAxusState.label);
   renderBookingDeskStatus(elements, booking, state);
   elements.actionEzusSyncWarning.hidden = !syncMessage;
@@ -681,16 +719,18 @@ function renderBookingQuickAccess(elements, booking, itineraryFormat) {
   const deskTicketId = getBookingQuickAccessValue(booking, ["Desk Ticket ID", "Desk_Ticket_ID", "Desk_Ticket_Id", "DeskTicketID"]);
   const workdriveFolderId = getBookingQuickAccessValue(booking, ["Booking Workdrive Folder ID", "Booking_Workdrive_Folder_ID", "Booking_WorkDrive_Folder_ID", "BookingWorkdriveFolderID", "Workdrive_Folder_ID"]);
   const ezusProjectApi = getBookingQuickAccessValue(booking, ["Ezus Project API", "Ezus_Project_API", "Ezus_Project_Api", "EzusProjectAPI", "Ezus_Project_ID"]);
-  const axusItineraryId = getBookingQuickAccessValue(booking, ["Axus Itinerary ID", "Axus_Itinerary_ID", "AXUS_Itinerary_ID", "Axus_Itinerary_Id", "AXUS Itinerary ID"]);
+  const axusItineraryId = getBookingQuickAccessValue(booking, ["Axus_ID", "Axus Itinerary ID", "Axus_Itinerary_ID", "AXUS_Itinerary_ID", "Axus_Itinerary_Id", "AXUS Itinerary ID"]);
   const isAxus = itineraryFormat === "AXUS";
-  const isEzus = itineraryFormat === "EZUS";
 
   setQuickAccessLink(elements.quickAccessDesk, deskTicketId, "https://desk.zoho.eu/agent/madeforspainandportugal/new-request-handling/tickets/details/");
   setQuickAccessLink(elements.quickAccessWorkdrive, workdriveFolderId, "https://workdrive.zoho.eu/folder/");
-  setQuickAccessLink(elements.quickAccessEzus, isEzus ? ezusProjectApi : "", "https://pro.ezus.io/project?id=");
+  setQuickAccessLink(elements.quickAccessEzus, ezusProjectApi, "https://pro.ezus.io/project?id=");
   setQuickAccessLink(elements.quickAccessAxus, isAxus ? axusItineraryId : "", "https://axustravelapp.com/admin/itinerary/");
 
-  elements.bookingQuickAccess.hidden = !booking || ![deskTicketId, workdriveFolderId, isEzus ? ezusProjectApi : "", isAxus ? axusItineraryId : ""].some(Boolean);
+  if (elements.quickAccessBookingLinks) {
+    elements.quickAccessBookingLinks.hidden = !booking || ![deskTicketId, workdriveFolderId, ezusProjectApi, isAxus ? axusItineraryId : ""].some(Boolean);
+  }
+  elements.bookingQuickAccess.hidden = false;
 }
 
 function getBookingQuickAccessValue(booking, fieldNames) {
@@ -711,16 +751,18 @@ function setQuickAccessLink(linkElement, id, urlPrefix) {
   }
 }
 
-function renderItineraryLinkControl(elements, itineraryLink) {
+function renderItineraryLinkControl(elements, itineraryLink, state) {
   if (!elements.actionItineraryOpen || !elements.actionItineraryEdit || !elements.actionItineraryForm) {
     return;
   }
 
   const hasItineraryLink = Boolean(itineraryLink);
-  elements.actionItineraryLink.classList.toggle("is-missing", !hasItineraryLink);
+  const salesStandard = String(state?.currentUserRelationshipProfile || "").trim().replace(/\s+/g, " ").toLowerCase() === "sales standard";
+  elements.actionItineraryLink.classList.toggle("is-missing", !hasItineraryLink && !salesStandard);
+  elements.actionItineraryLink.classList.toggle("is-empty-neutral", !hasItineraryLink && salesStandard);
   elements.actionItineraryOpen.hidden = false;
-  elements.actionItineraryOpen.textContent = hasItineraryLink ? "Open itinerary ↗" : "Itinerary link required";
-  elements.actionItineraryOpen.setAttribute("aria-label", hasItineraryLink ? "Open itinerary" : "Add required itinerary link");
+  elements.actionItineraryOpen.textContent = hasItineraryLink ? "Open itinerary ↗" : salesStandard ? "FID Itinerary link empty" : "FID Itinerary link required";
+  elements.actionItineraryOpen.setAttribute("aria-label", hasItineraryLink ? "Open itinerary" : salesStandard ? "FID Itinerary link empty" : "Add required FID itinerary link");
   elements.actionItineraryEdit.hidden = !hasItineraryLink;
   elements.actionItineraryEdit.textContent = "Edit";
   elements.actionItineraryForm.hidden = true;
@@ -831,7 +873,7 @@ function renderBookingBlueprintPanel(state) {
     "    </div>",
     orderedTransitions.length
       ? '    <div class="booking-workflow-actions">' + renderBookingBlueprintTransitions(orderedTransitions, state.bookingBlueprintExecuting) + "</div>"
-      : '    <span class="booking-workflow-empty">No workflow action is currently required.</span>',
+      : '    <span class="booking-workflow-empty">No workflow actions are available for your user at this stage.</span>',
     "  </div>",
     "</section>"
   ].join("");
@@ -1308,9 +1350,10 @@ function getGrossMarginValue(booking) {
     return rawValue;
   }
 
-  if (booking.Sales_Price_inc_Taxes !== null && booking.Sales_Price_inc_Taxes !== undefined && booking.Sales_Price_inc_Taxes !== "" &&
-      booking.Purchase_Price_inc_Taxes !== null && booking.Purchase_Price_inc_Taxes !== undefined && booking.Purchase_Price_inc_Taxes !== "") {
-    return (Number(booking.Sales_Price_inc_Taxes) || 0) - (Number(booking.Purchase_Price_inc_Taxes) || 0);
+  if (booking.Sales_Price_inc_Taxes != null && String(booking.Sales_Price_inc_Taxes).trim() !== "" &&
+      booking.Purchase_Price_inc_Taxes != null && String(booking.Purchase_Price_inc_Taxes).trim() !== "" &&
+      Number.isFinite(Number(booking.Sales_Price_inc_Taxes)) && Number.isFinite(Number(booking.Purchase_Price_inc_Taxes))) {
+    return Number(booking.Sales_Price_inc_Taxes) - Number(booking.Purchase_Price_inc_Taxes);
   }
 
   return "";

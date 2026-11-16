@@ -112,6 +112,17 @@ export async function saveCommunicationAttachments(communicationId, pending, rem
   trace("save-start", { pendingFiles: pending.length, removals: removed.size,
     files: pending.map(entry => ({ bytes: entry.file.size, type: entry.file.type || "", alreadyUploaded: Boolean(entry.fileId) })) });
   try {
+    if (pending.writeUnconfirmed) {
+      // A stale read is not proof that the previous PUT failed.
+      const attempt = pending.writeUnconfirmed;
+      const saved = await verifyAttachmentChanges(communicationId, attempt.pending, attempt.removed, trace);
+      if (pending.length !== attempt.pending.length || pending.some((entry, index) => entry !== attempt.pending[index]) ||
+        removed.size !== attempt.removed.size || [...removed].some(id => !attempt.removed.has(id))) {
+        throw new Error("The previous attachments were saved. Close and reopen attachments before changing the selection.");
+      }
+      pending.writeUnconfirmed = false;
+      return saved;
+    }
     const latest = await loadCommunicationAttachments(communicationId, trace);
     if (latest.readOnly) throw new Error("Attachments cannot be changed after the email has been sent.");
     const remaining = latest.files.filter(file => !removed.has(file.id));
@@ -158,11 +169,19 @@ export async function saveCommunicationAttachments(communicationId, pending, rem
         if (!entry.beforeAttachmentIds) entry.beforeAttachmentIds = beforeSave.files.map(file => file.id);
       }
       progress("Saving attachments…");
-      const result = await requestCommunicationAttachmentsV8(communicationId, changes, trace);
+      pending.writeUnconfirmed = { pending: pending.slice(), removed: new Set(removed) };
+      let result;
+      try {
+        result = await requestCommunicationAttachmentsV8(communicationId, changes, trace);
+      } catch (error) {
+        if (["NO_PERMISSION", "INVALID_DATA", "MANDATORY_NOT_FOUND", "AUTHORIZATION_FAILED"].includes(error.code)) pending.writeUnconfirmed = false;
+        throw error;
+      }
       if (String(result.code || "").toUpperCase() !== "SUCCESS" || String(result.status || "").toLowerCase() === "error") throw new Error(result.message || "CRM did not confirm the attachment update.");
     }
     stage = "verification";
     const saved = await verifyAttachmentChanges(communicationId, pending, removed, trace);
+    pending.writeUnconfirmed = false;
     trace("save-complete", { returnedFiles: saved.files.length });
     return saved;
   } catch (error) {

@@ -1,5 +1,15 @@
+import { WIDGET_PROFILE_PERMISSIONS, normalizeWidgetProfile } from "./widget-permissions.js";
 export const TAG_CATALOG_FIELD = "Booking_Tag_Catalog_JSON";
-export const BOOKING_TAGS_FIELD = "Booking_Tags_JSON";
+export const BOOKING_TAGS_FIELD = "Reservations_Tags_JSON";
+export const SALES_TAGS_FIELD = "Sales_Tags_JSON";
+export function canEditTagField(profile, field) {
+  if (![SALES_TAGS_FIELD, BOOKING_TAGS_FIELD].includes(field)) return false;
+  return Boolean(WIDGET_PROFILE_PERMISSIONS[normalizeWidgetProfile(profile)]?.editableTagFields.includes(field));
+}
+export function editableTagField(profile) {
+  const fields = WIDGET_PROFILE_PERMISSIONS[normalizeWidgetProfile(profile)]?.editableTagFields || [];
+  return fields.length === 1 ? fields[0] : "";
+}
 export const TAG_JSON_LIMIT = 30000;
 
 function objectJson(raw, empty) {

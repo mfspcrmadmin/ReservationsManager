@@ -1,0 +1,54 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const fs=require('node:fs'), path=require('node:path'), http=require('node:http'), assert=require('node:assert/strict');
+const root=path.resolve('app');
+const boot=`
+import {elements} from '/js/dom.js';
+import {state} from '/js/state.js';
+import {renderServicesTable} from '/js/render.js';
+import {initializeServiceTableColumns, toggleGroupSelection, toggleStepCollapsed, setServiceView} from '/js/services-controller.js';
+import {buildGroupedRows} from '/js/data.js';
+import {initServiceTextSize} from '/js/service-text-size.js';
+import {initInterfaceSystem} from '/js/interface-system.js';
+window.state=state;
+state.selectedBooking={id:'1',Arrival_Date:'2026-10-20'}; state.selectedBookingId='1';
+state.stepIndex={'10':{id:'10',Name:'Step 1',Short_Description:'A long introduction to the historic city with a private guide and several important stops',Step_Category:'Visits',Step_Type:'Walking tour',Start_Date_Time:'2026-10-20T09:00:00',Status:'Confirmed'}};
+state.services=Array.from({length:35},(_,i)=>({id:String(i+1),Name:String(i+1),Product_Description:'Private walking tour of the historic city and museum with a local expert — service '+(i+1),Supplier:{id:'9',name:'A local supplier with a deliberately long company name'},Service_Date:'2026-10-20',Service_Date_Time:'2026-10-20T09:00:00',Status_EZUS:i%2?'Confirmed':'On Request',Payment_Status:i%3?'':'Prepayment requested',Step:{id:'10'},Total_Sales_Price:100,Total_Purchase_Price:70}));
+state.filteredServices=state.services.filter(s=>s.Status_EZUS==='Confirmed'); state.serviceFilters.status=['Confirmed'];
+state.selectedServiceIds={'2':true};state.serviceView='grouped'; initializeServiceTableColumns();buildGroupedRows(state);
+window.draw=()=>renderServicesTable({elements,state,onSelectService:()=>{},onSelectStep:()=>{window.stepClicks=(window.stepClicks||0)+1},onToggleStepCollapsed:id=>{state.collapsedStepIds[id]=!state.collapsedStepIds[id];draw()},onToggleGroupSelection:(id,checked)=>{state.groupedRows.find(g=>g.stepId===id).services.forEach(s=>{if(checked)state.selectedServiceIds[s.id]=true;else delete state.selectedServiceIds[s.id]});draw()},onToggleServiceSelection:(id,checked)=>{if(checked)state.selectedServiceIds[id]=true;else delete state.selectedServiceIds[id];draw()}});
+elements.viewFlat.onclick=()=>{state.serviceView='flat';draw()}; elements.viewGrouped.onclick=()=>{state.serviceView='grouped';draw()};
+draw();initServiceTextSize();initInterfaceSystem();window.ready=true;
+`;
+let html=fs.readFileSync(path.join(root,'widget.html'),'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'');
+html=html.replace('</body>','<script type="module">'+boot+'</script></body>');
+// Keep actual Services markup/styles; isolate it from unrelated workspace panels.
+html=html.replace('</head>',`<style>body{margin:0;padding:12px} .app-shell,.booking-hub-shell,.booking-main-shell{display:contents!important} #manage-services-panel{display:block!important;width:100%;} #manage-services-panel .workspace{display:block!important;height:720px!important} #manage-services-panel .table-panel{height:100%!important} .booking-browser,.booking-actions-rail,.booking-active-booking-area,.booking-workspace-section,.sidebar,.page-header{display:none!important} .booking-main-shell > :not(#manage-services-panel){display:none!important} .tab-panel:not(#manage-services-panel){display:none!important}</style></head>`);
+const server=http.createServer((req,res)=>{if(req.url==='/'){res.setHeader('Content-Type','text/html');return res.end(html)}const file=path.resolve(root,'.'+req.url.split('?')[0]);if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.statusCode=404;return res.end()}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':'text/css');res.end(fs.readFileSync(file));});
+(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({headless:true,channel:'msedge'});try{
+const page=await browser.newPage({viewport:{width:1200,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.ready);
+assert.equal(await page.locator('[data-group-step-id]').evaluate(n=>n.indeterminate),true);
+assert.equal(await page.locator('.step-card-financial').textContent(),'Sales 1700,00 €Purchase 1190,00 €');
+await page.locator('[data-group-step-id]').check();assert.equal(await page.evaluate(()=>Object.keys(state.selectedServiceIds).length),17);assert.equal(await page.evaluate(()=>window.stepClicks||0),0);assert.equal(await page.locator('tr[data-service-id]').count(),17);
+await page.locator('[data-collapse-steps]').click();assert.equal(await page.locator('tr[data-service-id]').count(),0);await page.locator('#view-flat').click();assert.equal(await page.locator('tr[data-service-id]').count(),17);await page.locator('#view-grouped').click();assert.equal(await page.locator('tr[data-service-id]').count(),0);await page.locator('[data-expand-steps]').click();
+assert.equal(await page.locator('.service-missing-value').count()>0,true);
+const summary=await page.locator('#service-filter-summary').boundingBox(),text=await page.locator('#service-text-size-controls').boundingBox();assert.ok(Math.abs(summary.y-text.y)<20,'summary and text size share a row');
+await page.screenshot({path:'_local/artifacts/services-grouped-desktop.png'});
+for(let i=0;i<8;i++)await page.locator('[data-text-size=increase]').click({force:true}).catch(()=>{});
+assert.equal(await page.locator('[data-text-size=increase]').isDisabled(),true);assert.equal(await page.locator('#service-text-size-controls output').textContent(),'20 px');await page.locator('#view-flat').click();assert.equal(await page.locator('#service-text-size-controls output').textContent(),'20 px');await page.screenshot({path:'_local/artifacts/services-simple-large-text.png'});
+await page.locator('[data-text-size=reset]').click();for(let i=0;i<2;i++)await page.locator('[data-text-size=decrease]').click();assert.equal(await page.locator('[data-text-size=decrease]').isDisabled(),true);await page.locator('[data-text-size=reset]').click();
+await page.locator('#view-grouped').click();await page.locator('#services-data-table').evaluate(n=>n.parentElement.scrollLeft=650);
+const group=await page.locator('.step-card').boundingBox(),wrap=await page.locator('#services-data-table').evaluate(n=>({x:n.parentElement.getBoundingClientRect().x,width:n.parentElement.clientWidth}));assert.ok(Math.abs(group.x-wrap.x)<4,'step identity stays visible horizontally');assert.ok(group.width<=wrap.width+2);
+await page.locator('#services-data-table').evaluate(n=>{n.parentElement.scrollLeft=0;n.parentElement.scrollTop=300});const head=await page.locator('#services-head-row th').first().boundingBox(),scroll=await page.locator('#services-data-table').evaluate(n=>n.parentElement.getBoundingClientRect().top);assert.ok(Math.abs(head.y-scroll)<4,'header stays inside scroll area');
+await page.setViewportSize({width:360,height:900});await page.locator('#services-data-table').evaluate(n=>n.parentElement.scrollTop=0);await page.screenshot({path:'_local/artifacts/services-grouped-narrow.png'});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no page overflow');
+await page.evaluate(()=>{state.serviceFilters.status=[];state.selectedServiceIds={};draw();document.querySelector('#hide-non-operational-services').checked=false;document.querySelector('#hide-non-operational-services').dispatchEvent(new Event('change',{bubbles:true}));});
+await page.waitForFunction(()=>document.querySelector('#service-filter-summary').textContent==='');
+assert.equal(await page.locator('#bulk-status-toggle').isDisabled(),true);
+assert.equal(await page.locator('#bulk-request-prepayment').isDisabled(),true);
+await page.evaluate(()=>{localStorage.setItem('bookingsManager.serviceTableColumns',JSON.stringify([{key:'supplier',visible:true},{key:'serviceName',visible:true},{key:'date',visible:false}]));localStorage.setItem('bookingsManager.serviceColumnWidths',JSON.stringify({supplier:267}));});
+await page.reload();await page.waitForFunction(()=>window.ready);
+assert.equal(await page.locator('#services-head-row [data-service-column-key]').first().getAttribute('data-service-column-key'),'supplier');
+assert.equal(await page.locator('col[data-service-width=supplier]').evaluate(n=>n.style.width),'267px');
+assert.equal(await page.locator('#services-head-row [data-service-column-key=date]').count(),0);
+assert.deepEqual(errors,[]);console.log('Services browser passed: grouped/flat, visible totals and selection, partial selection, expansion persistence, text limits, sticky header/step and narrow layout.');
+}finally{await browser.close();server.close()}})().catch(e=>{console.error(e);server.close();process.exitCode=1});
+
